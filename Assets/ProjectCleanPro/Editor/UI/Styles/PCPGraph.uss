@@ -1,0 +1,305 @@
+/* ============================================================================
+ * PCPGraph.uss - ProjectCleanPro Dependency Graph Styles
+ * ============================================================================
+ * Styles for the interactive dependency graph visualization: nodes, edges,
+ * connection ports, type-specific coloring, and the minimap overlay.
+ * ========================================================================= */
+
+/* ---------------------------------------------------------------------------
+ * Graph Container
+ * The main area that holds the pannable / zoomable graph canvas.
+ * ------------------------------------------------------------------------ */
+
+.pcp-graph {
+    flex-grow: 1;
+    flex-direction: column;
+    background-color: var(--pcp-bg-dark);
+    overflow: hidden;
+}
+
+/* ---------------------------------------------------------------------------
+ * Graph Toolbar
+ * Specific controls for the graph view (layout, zoom, depth, etc.)
+ * ------------------------------------------------------------------------ */
+
+.pcp-graph__toolbar {
+    flex-direction: row;
+    align-items: center;
+    height: 36px;
+    min-height: 36px;
+    padding-left: var(--pcp-spacing-md);
+    padding-right: var(--pcp-spacing-md);
+    background-color: var(--pcp-bg-medium);
+    border-bottom-width: 1px;
+    border-bottom-color: var(--pcp-border);
+}
+
+.pcp-graph__toolbar-label {
+    font-size: var(--pcp-font-sm);
+    color: var(--pcp-text-secondary);
+    margin-right: var(--pcp-spacing-sm);
+}
+
+/* ---------------------------------------------------------------------------
+ * Depth Slider
+ * Controls how many levels of dependencies to display.
+ * ------------------------------------------------------------------------ */
+
+.pcp-graph__depth-slider {
+    width: 120px;
+    margin-left: var(--pcp-spacing-md);
+    margin-right: var(--pcp-spacing-md);
+}
+
+.pcp-graph__depth-slider .unity-base-slider__tracker {
+    height: 4px;
+    background-color: var(--pcp-bg-light);
+    border-radius: 2px;
+    border-width: 0;
+}
+
+.pcp-graph__depth-slider .unity-base-slider__dragger {
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    background-color: var(--pcp-info);
+    border-width: 0;
+    margin-top: -5px;
+}
+
+.pcp-graph__depth-slider .unity-base-slider__dragger:hover {
+    background-color: #6bb0e0;
+}
+
+.pcp-graph__depth-slider .unity-base-slider__fill {
+    background-color: var(--pcp-info);
+    border-radius: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Graph Node
+ * Visual representation of an asset in the dependency graph.
+ * ------------------------------------------------------------------------ */
+
+.pcp-graph-node {
+    flex-direction: column;
+    min-width: 140px;
+    max-width: 220px;
+    padding-top: var(--pcp-spacing-md);
+    padding-bottom: var(--pcp-spacing-md);
+    padding-left: var(--pcp-spacing-md);
+    padding-right: var(--pcp-spacing-md);
+    background-color: var(--pcp-bg-medium);
+    border-width: 2px;
+    border-color: var(--pcp-border-light);
+    border-radius: var(--pcp-radius-md);
+    position: absolute;
+}
+
+.pcp-graph-node:hover {
+    border-color: var(--pcp-text-secondary);
+    background-color: var(--pcp-bg-light);
+}
+
+.pcp-graph-node--selected {
+    border-color: var(--pcp-info);
+    background-color: var(--pcp-bg-selected);
+}
+
+/* ---------------------------------------------------------------------------
+ * Node Title & Icon
+ * ------------------------------------------------------------------------ */
+
+.pcp-graph-node__title {
+    font-size: var(--pcp-font-md);
+    color: var(--pcp-text-primary);
+    -unity-font-style: bold;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-left: var(--pcp-spacing-sm);
+    flex-grow: 1;
+}
+
+.pcp-graph-node__icon {
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    flex-shrink: 0;
+}
+
+.pcp-graph-node__header {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: var(--pcp-spacing-sm);
+}
+
+.pcp-graph-node__details {
+    font-size: var(--pcp-font-sm);
+    color: var(--pcp-text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+ * Connection Ports
+ * Small circles on the left (input) and right (output) edges of a node.
+ * ------------------------------------------------------------------------ */
+
+.pcp-graph-node__port {
+    width: 10px;
+    height: 10px;
+    border-radius: 5px;
+    background-color: var(--pcp-bg-hover);
+    border-width: 2px;
+    border-color: var(--pcp-border-light);
+    position: absolute;
+}
+
+.pcp-graph-node__port--input {
+    left: -6px;
+    top: 50%;
+    margin-top: -5px;
+}
+
+.pcp-graph-node__port--output {
+    right: -6px;
+    top: 50%;
+    margin-top: -5px;
+}
+
+.pcp-graph-node__port:hover {
+    background-color: var(--pcp-info);
+    border-color: var(--pcp-info);
+}
+
+.pcp-graph-node__port--connected {
+    background-color: var(--pcp-text-secondary);
+    border-color: var(--pcp-text-secondary);
+}
+
+/* ---------------------------------------------------------------------------
+ * Type-Specific Node Colors
+ * Top border accent indicates the asset type at a glance.
+ * ------------------------------------------------------------------------ */
+
+.pcp-graph-node--texture {
+    border-top-width: 3px;
+    border-top-color: #27AE60;
+}
+
+.pcp-graph-node--script {
+    border-top-width: 3px;
+    border-top-color: #2980B9;
+}
+
+.pcp-graph-node--material {
+    border-top-width: 3px;
+    border-top-color: #8E44AD;
+}
+
+.pcp-graph-node--mesh {
+    border-top-width: 3px;
+    border-top-color: #E67E22;
+}
+
+.pcp-graph-node--audio {
+    border-top-width: 3px;
+    border-top-color: #E84393;
+}
+
+.pcp-graph-node--prefab {
+    border-top-width: 3px;
+    border-top-color: #569cd6;
+}
+
+.pcp-graph-node--scene {
+    border-top-width: 3px;
+    border-top-color: #cca700;
+}
+
+/* ---------------------------------------------------------------------------
+ * Circular Dependency Highlight
+ * Nodes that participate in a dependency cycle get a red border.
+ * ------------------------------------------------------------------------ */
+
+.pcp-graph-node--circular {
+    border-width: 2px;
+    border-color: var(--pcp-error);
+    background-color: rgba(244, 71, 71, 0.08);
+}
+
+.pcp-graph-node--circular:hover {
+    border-color: #f66c6c;
+    background-color: rgba(244, 71, 71, 0.12);
+}
+
+/* ---------------------------------------------------------------------------
+ * Orphan Node
+ * Nodes with no references get a dashed-style visual treatment.
+ * Unity USS does not support border-style: dashed, so we approximate
+ * with a distinct border color and lighter background.
+ * ------------------------------------------------------------------------ */
+
+.pcp-graph-node--orphan {
+    border-width: 2px;
+    border-color: var(--pcp-warning);
+    background-color: rgba(204, 167, 0, 0.06);
+    opacity: 0.8;
+}
+
+.pcp-graph-node--orphan:hover {
+    opacity: 1.0;
+}
+
+/* ---------------------------------------------------------------------------
+ * Graph Edge
+ * Edges are rendered programmatically (IMGUI / Mesh API), but these
+ * styles define color tokens and the overlay indicator element.
+ * ------------------------------------------------------------------------ */
+
+.pcp-graph-edge {
+    position: absolute;
+    height: 2px;
+    background-color: var(--pcp-border-light);
+}
+
+.pcp-graph-edge--circular {
+    background-color: var(--pcp-error);
+    height: 2px;
+}
+
+.pcp-graph-edge--highlighted {
+    background-color: var(--pcp-info);
+    height: 3px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Minimap Overlay
+ * A small overview panel anchored to the bottom-right of the graph.
+ * ------------------------------------------------------------------------ */
+
+.pcp-graph__minimap {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    width: 180px;
+    height: 120px;
+    background-color: rgba(30, 30, 30, 0.85);
+    border-width: 1px;
+    border-color: var(--pcp-border-light);
+    border-radius: var(--pcp-radius-md);
+    overflow: hidden;
+}
+
+.pcp-graph__minimap-viewport {
+    position: absolute;
+    border-width: 1px;
+    border-color: var(--pcp-info);
+    background-color: rgba(86, 156, 214, 0.1);
+}
+
+.pcp-graph__minimap:hover {
+    background-color: rgba(30, 30, 30, 0.95);
+}

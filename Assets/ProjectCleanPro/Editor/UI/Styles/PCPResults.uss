@@ -1,0 +1,297 @@
+/* ============================================================================
+ * PCPResults.uss - ProjectCleanPro Result List Styles
+ * ============================================================================
+ * Styles for the sortable, filterable results table used by every analysis
+ * module: column headers, data rows, cells, action bar, and filter chips.
+ * ========================================================================= */
+
+/* ---------------------------------------------------------------------------
+ * Results Container
+ * ------------------------------------------------------------------------ */
+
+.pcp-results {
+    flex-grow: 1;
+    flex-direction: column;
+    background-color: var(--pcp-bg-dark);
+}
+
+/* ---------------------------------------------------------------------------
+ * Column Headers Row
+ * ------------------------------------------------------------------------ */
+
+.pcp-results__header {
+    flex-direction: row;
+    align-items: center;
+    height: 28px;
+    min-height: 28px;
+    background-color: var(--pcp-bg-medium);
+    border-bottom-width: 1px;
+    border-bottom-color: var(--pcp-border);
+}
+
+.pcp-results__header-cell {
+    flex-direction: row;
+    align-items: center;
+    height: 28px;
+    padding-left: var(--pcp-spacing-md);
+    padding-right: var(--pcp-spacing-md);
+    color: var(--pcp-text-secondary);
+    font-size: var(--pcp-font-sm);
+    -unity-font-style: bold;
+    -unity-text-align: middle-left;
+    cursor: link;
+    border-right-width: 1px;
+    border-right-color: var(--pcp-border);
+}
+
+.pcp-results__header-cell:hover {
+    background-color: var(--pcp-bg-hover);
+    color: var(--pcp-text-primary);
+}
+
+.pcp-results__header-cell--sorted {
+    color: var(--pcp-info);
+}
+
+/* ---------------------------------------------------------------------------
+ * Result Rows
+ * ------------------------------------------------------------------------ */
+
+.pcp-results__row {
+    flex-direction: row;
+    align-items: center;
+    height: 24px;
+    min-height: 24px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(60, 60, 60, 0.3);
+    cursor: link;
+}
+
+.pcp-results__row:hover {
+    background-color: var(--pcp-bg-hover);
+}
+
+.pcp-results__row--selected {
+    background-color: var(--pcp-bg-selected);
+}
+
+.pcp-results__row--selected:hover {
+    background-color: var(--pcp-bg-selected);
+}
+
+.pcp-results__row--even {
+    background-color: var(--pcp-bg-dark);
+}
+
+.pcp-results__row--odd {
+    background-color: rgba(45, 45, 45, 0.5);
+}
+
+/* ---------------------------------------------------------------------------
+ * Result Cells
+ * ------------------------------------------------------------------------ */
+
+.pcp-results__cell {
+    flex-direction: row;
+    align-items: center;
+    height: 24px;
+    padding-left: var(--pcp-spacing-md);
+    padding-right: var(--pcp-spacing-md);
+    overflow: hidden;
+    color: var(--pcp-text-primary);
+    font-size: var(--pcp-font-md);
+}
+
+/* Checkbox column */
+.pcp-results__checkbox {
+    width: 28px;
+    min-width: 28px;
+    max-width: 28px;
+    flex-shrink: 0;
+    -unity-text-align: middle-center;
+    justify-content: center;
+    align-items: center;
+    padding-left: var(--pcp-spacing-sm);
+    padding-right: var(--pcp-spacing-sm);
+}
+
+.pcp-results__checkbox .unity-toggle__checkmark {
+    width: 14px;
+    height: 14px;
+    border-radius: var(--pcp-radius-sm);
+    border-width: 1px;
+    border-color: var(--pcp-border-light);
+    background-color: var(--pcp-bg-light);
+}
+
+.pcp-results__checkbox .unity-toggle__checkmark:checked {
+    background-color: var(--pcp-info);
+    border-color: var(--pcp-info);
+}
+
+/* Asset type icon */
+.pcp-results__icon {
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    flex-shrink: 0;
+    margin-right: var(--pcp-spacing-sm);
+}
+
+/* Asset name */
+.pcp-results__name {
+    flex-grow: 1;
+    min-width: 120px;
+    color: var(--pcp-text-primary);
+    font-size: var(--pcp-font-md);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Asset path (muted) */
+.pcp-results__path {
+    flex-grow: 2;
+    min-width: 180px;
+    color: var(--pcp-text-secondary);
+    font-size: var(--pcp-font-sm);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Type label */
+.pcp-results__type {
+    width: 80px;
+    min-width: 80px;
+    color: var(--pcp-text-secondary);
+    font-size: var(--pcp-font-sm);
+    -unity-text-align: middle-left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Size label (right-aligned) */
+.pcp-results__size {
+    width: 70px;
+    min-width: 70px;
+    color: var(--pcp-text-secondary);
+    font-size: var(--pcp-font-sm);
+    -unity-text-align: middle-right;
+    padding-right: var(--pcp-spacing-md);
+}
+
+/* ---------------------------------------------------------------------------
+ * Action Bar (bottom bar with bulk actions)
+ * ------------------------------------------------------------------------ */
+
+.pcp-results__action-bar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    height: 40px;
+    min-height: 40px;
+    padding-left: var(--pcp-spacing-lg);
+    padding-right: var(--pcp-spacing-lg);
+    background-color: var(--pcp-bg-medium);
+    border-top-width: 1px;
+    border-top-color: var(--pcp-border);
+}
+
+.pcp-results__action-bar-left {
+    flex-direction: row;
+    align-items: center;
+}
+
+.pcp-results__action-bar-right {
+    flex-direction: row;
+    align-items: center;
+}
+
+.pcp-results__selection-count {
+    font-size: var(--pcp-font-md);
+    color: var(--pcp-text-secondary);
+    margin-right: var(--pcp-spacing-lg);
+}
+
+/* ---------------------------------------------------------------------------
+ * Filter Bar
+ * Sits above the results header. Contains a search field and filter chips.
+ * ------------------------------------------------------------------------ */
+
+.pcp-filter-bar {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    min-height: 34px;
+    padding-top: var(--pcp-spacing-sm);
+    padding-bottom: var(--pcp-spacing-sm);
+    padding-left: var(--pcp-spacing-md);
+    padding-right: var(--pcp-spacing-md);
+    background-color: var(--pcp-bg-medium);
+    border-bottom-width: 1px;
+    border-bottom-color: var(--pcp-border);
+}
+
+/* Search field */
+.pcp-filter-bar__search {
+    width: 220px;
+    min-width: 150px;
+    height: 24px;
+    margin-right: var(--pcp-spacing-lg);
+    border-radius: var(--pcp-radius-sm);
+    border-width: 1px;
+    border-color: var(--pcp-border-light);
+    background-color: var(--pcp-bg-dark);
+    color: var(--pcp-text-primary);
+    font-size: var(--pcp-font-md);
+    padding-left: var(--pcp-spacing-md);
+    padding-right: var(--pcp-spacing-md);
+}
+
+.pcp-filter-bar__search:focus {
+    border-color: var(--pcp-info);
+}
+
+.pcp-filter-bar__search .unity-text-field__input {
+    background-color: var(--pcp-bg-dark);
+    border-width: 0;
+    color: var(--pcp-text-primary);
+    font-size: var(--pcp-font-md);
+    padding-left: var(--pcp-spacing-sm);
+}
+
+/* Filter chip toggle */
+.pcp-filter-bar__chip {
+    height: 22px;
+    padding-left: var(--pcp-spacing-md);
+    padding-right: var(--pcp-spacing-md);
+    margin-left: var(--pcp-spacing-xs);
+    margin-right: var(--pcp-spacing-xs);
+    border-radius: 11px;
+    border-width: 1px;
+    border-color: var(--pcp-border-light);
+    background-color: var(--pcp-bg-light);
+    color: var(--pcp-text-secondary);
+    font-size: var(--pcp-font-sm);
+    -unity-text-align: middle-center;
+    cursor: link;
+}
+
+.pcp-filter-bar__chip:hover {
+    background-color: var(--pcp-bg-hover);
+    color: var(--pcp-text-primary);
+}
+
+.pcp-filter-bar__chip--active {
+    background-color: var(--pcp-info);
+    border-color: var(--pcp-info);
+    color: #ffffff;
+}
+
+.pcp-filter-bar__chip--active:hover {
+    background-color: #6bb0e0;
+    border-color: #6bb0e0;
+    color: #ffffff;
+}

@@ -1,0 +1,35 @@
+{
+    "name": "ProjectCleanPro.Editor",
+    "rootNamespace": "ProjectCleanPro.Editor",
+    "references": [],
+    "includePlatforms": ["Editor"],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.addressables",
+            "expression": "1.16.0",
+            "define": "PCP_ADDRESSABLES"
+        },
+        {
+            "name": "com.unity.render-pipelines.universal",
+            "expression": "",
+            "define": "PCP_URP"
+        },
+        {
+            "name": "com.unity.render-pipelines.high-definition",
+            "expression": "",
+            "define": "PCP_HDRP"
+        },
+        {
+            "name": "com.unity.shadergraph",
+            "expression": "",
+            "define": "PCP_SHADERGRAPH"
+        }
+    ],
+    "noEngineReferences": false
+}

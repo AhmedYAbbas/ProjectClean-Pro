@@ -1,0 +1,1339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProjectClean Pro — Full Documentation v1.0</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #fafaf8;
+  --surface: #ffffff;
+  --surface2: #f3f3ef;
+  --border: #e4e4dc;
+  --border2: #d0d0c4;
+  --ink: #1a1a16;
+  --ink2: #4a4a3e;
+  --ink3: #7a7a6a;
+  --accent: #1a6b3c;
+  --accent-light: #e8f5ee;
+  --accent2: #0f4f8c;
+  --accent2-light: #e6f0fa;
+  --warn: #b85a00;
+  --warn-light: #fff3e6;
+  --danger: #c0392b;
+  --danger-light: #fdf0ee;
+  --note: #6b5a00;
+  --note-light: #fdf8e6;
+  --code-bg: #f0f0ea;
+  --sidebar-w: 280px;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;font-size:15px}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:'IBM Plex Sans',sans-serif;
+  font-weight:400;
+  line-height:1.7;
+  display:flex;
+  min-height:100vh;
+}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:var(--sidebar-w);
+  flex-shrink:0;
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  position:sticky;
+  top:0;
+  height:100vh;
+  overflow-y:auto;
+  display:flex;
+  flex-direction:column;
+}
+.sidebar-brand{
+  padding:24px 20px 16px;
+  border-bottom:1px solid var(--border);
+}
+.brand-logo{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:8px;
+}
+.brand-icon{
+  width:34px;height:34px;
+  background:var(--accent);
+  border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;color:#fff;
+  flex-shrink:0;
+}
+.brand-name{
+  font-family:'IBM Plex Serif',serif;
+  font-size:16px;
+  font-weight:600;
+  color:var(--ink);
+}
+.brand-ver{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  color:var(--ink3);
+  background:var(--surface2);
+  border:1px solid var(--border);
+  padding:2px 7px;
+  border-radius:4px;
+  letter-spacing:1px;
+}
+.nav-section{
+  padding:16px 0 8px;
+  border-bottom:1px solid var(--border);
+}
+.nav-section:last-child{border-bottom:none}
+.nav-label{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:9px;
+  letter-spacing:2.5px;
+  text-transform:uppercase;
+  color:var(--ink3);
+  padding:0 20px 8px;
+}
+.nav-link{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 20px;
+  font-size:13px;
+  color:var(--ink2);
+  text-decoration:none;
+  transition:all .15s;
+  border-left:2px solid transparent;
+}
+.nav-link:hover{background:var(--surface2);color:var(--ink);border-left-color:var(--border2)}
+.nav-link.active{background:var(--accent-light);color:var(--accent);border-left-color:var(--accent);font-weight:500}
+.nav-link .icon{font-size:13px;width:16px;text-align:center;flex-shrink:0}
+.nav-sub{padding-left:12px}
+.nav-sub .nav-link{font-size:12px;padding:4px 20px 4px 32px}
+.sidebar-footer{
+  margin-top:auto;
+  padding:16px 20px;
+  border-top:1px solid var(--border);
+  font-size:11px;
+  color:var(--ink3);
+}
+
+/* ── MAIN ── */
+.main{
+  flex:1;
+  max-width:900px;
+  padding:48px 56px;
+  overflow-x:hidden;
+}
+
+/* ── TYPOGRAPHY ── */
+h1{
+  font-family:'IBM Plex Serif',serif;
+  font-size:38px;
+  font-weight:600;
+  line-height:1.15;
+  color:var(--ink);
+  margin-bottom:16px;
+}
+h2{
+  font-family:'IBM Plex Serif',serif;
+  font-size:26px;
+  font-weight:600;
+  color:var(--ink);
+  margin-top:56px;
+  margin-bottom:16px;
+  padding-bottom:10px;
+  border-bottom:2px solid var(--border);
+}
+h2:first-child{margin-top:0}
+h3{
+  font-family:'IBM Plex Sans',sans-serif;
+  font-size:17px;
+  font-weight:600;
+  color:var(--ink);
+  margin-top:32px;
+  margin-bottom:10px;
+}
+h4{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:12px;
+  font-weight:600;
+  color:var(--ink3);
+  letter-spacing:1.5px;
+  text-transform:uppercase;
+  margin-top:24px;
+  margin-bottom:8px;
+}
+p{
+  color:var(--ink2);
+  margin-bottom:14px;
+  line-height:1.75;
+  font-size:14.5px;
+}
+p:last-child{margin-bottom:0}
+a{color:var(--accent2);text-decoration:none}
+a:hover{text-decoration:underline}
+strong{color:var(--ink);font-weight:600}
+em{font-family:'IBM Plex Serif',serif;font-style:italic}
+
+/* ── CODE ── */
+code{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:12.5px;
+  background:var(--code-bg);
+  padding:2px 6px;
+  border-radius:4px;
+  color:var(--ink);
+  border:1px solid var(--border);
+}
+pre{
+  background:var(--ink);
+  color:#e8e8e0;
+  border-radius:8px;
+  padding:20px 24px;
+  overflow-x:auto;
+  margin:16px 0;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:12.5px;
+  line-height:1.65;
+}
+pre code{
+  background:none;
+  border:none;
+  padding:0;
+  color:inherit;
+  font-size:inherit;
+}
+.code-label{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  letter-spacing:1.5px;
+  text-transform:uppercase;
+  color:var(--ink3);
+  margin-bottom:4px;
+  margin-top:20px;
+}
+
+/* ── CALLOUTS ── */
+.callout{
+  border-radius:8px;
+  padding:14px 18px;
+  margin:20px 0;
+  display:flex;
+  gap:12px;
+  align-items:flex-start;
+  font-size:13.5px;
+}
+.callout-icon{font-size:16px;flex-shrink:0;margin-top:1px}
+.callout p{margin:0;font-size:13.5px;line-height:1.6}
+.callout strong{font-size:13.5px}
+.callout.note{background:var(--note-light);border:1px solid #e6d88a;color:var(--note)}
+.callout.info{background:var(--accent2-light);border:1px solid #a8c8e8;color:var(--accent2)}
+.callout.warn{background:var(--warn-light);border:1px solid #e8c08a;color:var(--warn)}
+.callout.tip{background:var(--accent-light);border:1px solid #8ec8a8;color:var(--accent)}
+.callout.danger{background:var(--danger-light);border:1px solid #e8a8a0;color:var(--danger)}
+
+/* ── BADGES ── */
+.badge{
+  display:inline-block;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  letter-spacing:.5px;
+  padding:2px 8px;
+  border-radius:4px;
+  font-weight:500;
+  text-transform:uppercase;
+  vertical-align:middle;
+}
+.badge-green{background:var(--accent-light);color:var(--accent);border:1px solid #8ec8a8}
+.badge-blue{background:var(--accent2-light);color:var(--accent2);border:1px solid #a8c8e8}
+.badge-orange{background:var(--warn-light);color:var(--warn);border:1px solid #e8c08a}
+.badge-gray{background:var(--surface2);color:var(--ink3);border:1px solid var(--border2)}
+.badge-red{background:var(--danger-light);color:var(--danger);border:1px solid #e8a8a0}
+
+/* ── TABLES ── */
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin:16px 0;
+  font-size:13px;
+}
+th{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10.5px;
+  letter-spacing:1px;
+  text-transform:uppercase;
+  color:var(--ink3);
+  background:var(--surface2);
+  padding:10px 14px;
+  text-align:left;
+  border:1px solid var(--border);
+}
+td{
+  padding:10px 14px;
+  border:1px solid var(--border);
+  color:var(--ink2);
+  vertical-align:top;
+  line-height:1.5;
+}
+tr:nth-child(even) td{background:var(--surface2)}
+td.check{text-align:center;font-size:16px}
+
+/* ── FEATURE CARDS ── */
+.feature-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+  margin:16px 0;
+}
+@media(max-width:700px){.feature-grid{grid-template-columns:1fr}}
+.feature-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:16px 18px;
+  transition:border-color .15s;
+}
+.feature-card:hover{border-color:var(--border2)}
+.fc-head{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:8px;
+}
+.fc-icon{font-size:18px}
+.fc-title{
+  font-size:14px;
+  font-weight:600;
+  color:var(--ink);
+}
+.fc-body{
+  font-size:13px;
+  color:var(--ink3);
+  line-height:1.6;
+}
+
+/* ── CHECKLIST ── */
+.checklist{
+  list-style:none;
+  margin:8px 0 16px;
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+}
+.checklist li{
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+  font-size:13.5px;
+  color:var(--ink2);
+  line-height:1.55;
+}
+.checklist li::before{
+  content:'✓';
+  color:var(--accent);
+  font-weight:700;
+  flex-shrink:0;
+  margin-top:1px;
+  font-size:13px;
+}
+.checklist li.sub{padding-left:24px;color:var(--ink3);font-size:13px}
+.checklist li.sub::before{content:'–';color:var(--ink3)}
+
+/* ── STEP FLOW ── */
+.steps{
+  display:flex;
+  flex-direction:column;
+  gap:0;
+  margin:16px 0;
+  position:relative;
+}
+.step{
+  display:flex;
+  gap:16px;
+  position:relative;
+  padding-bottom:24px;
+}
+.step:last-child{padding-bottom:0}
+.step::before{
+  content:'';
+  position:absolute;
+  left:16px;top:32px;bottom:0;
+  width:1px;
+  background:var(--border);
+}
+.step:last-child::before{display:none}
+.step-num{
+  width:32px;height:32px;
+  border-radius:50%;
+  background:var(--accent);
+  color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:12px;font-weight:600;
+  flex-shrink:0;
+  z-index:1;
+}
+.step-body{}
+.step-title{
+  font-size:14px;font-weight:600;color:var(--ink);
+  margin-bottom:4px;padding-top:4px;
+}
+.step-desc{font-size:13px;color:var(--ink3);line-height:1.6}
+
+/* ── COMPATIBILITY TABLE ── */
+.compat-yes{color:#1a6b3c;font-weight:600}
+.compat-no{color:#c0392b;font-weight:600}
+.compat-partial{color:#b85a00;font-weight:600}
+
+/* ── PAGE HEADER ── */
+.page-header{
+  background:linear-gradient(135deg,var(--accent) 0%,#0f5a2e 100%);
+  border-radius:12px;
+  padding:36px 40px;
+  margin-bottom:40px;
+  color:#fff;
+}
+.page-header h1{color:#fff;margin-bottom:10px;font-size:32px}
+.page-header p{color:rgba(255,255,255,.8);margin-bottom:0;font-size:14.5px}
+.header-meta{
+  display:flex;gap:16px;flex-wrap:wrap;
+  margin-top:20px;
+}
+.header-chip{
+  background:rgba(255,255,255,.15);
+  border:1px solid rgba(255,255,255,.25);
+  border-radius:6px;
+  padding:4px 12px;
+  font-size:11.5px;
+  font-family:'IBM Plex Mono',monospace;
+  letter-spacing:.5px;
+}
+
+/* ── SECTION ANCHOR ── */
+.section-anchor{
+  display:block;
+  padding-top:80px;
+  margin-top:-80px;
+}
+
+/* ── COMPARE TABLE ── */
+.compare td:first-child{font-weight:500;color:var(--ink)}
+.compare td:not(:first-child){text-align:center}
+
+/* ── KEYBOARD SHORTCUT ── */
+kbd{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:11px;
+  background:var(--surface);
+  border:1px solid var(--border2);
+  border-bottom:2px solid var(--border2);
+  border-radius:4px;
+  padding:2px 7px;
+  color:var(--ink);
+  white-space:nowrap;
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px}
+
+/* ── DIVIDER ── */
+hr{border:none;border-top:1px solid var(--border);margin:32px 0}
+
+/* ── PRINT ── */
+@media print{
+  .sidebar{display:none}
+  .main{padding:32px;max-width:100%}
+  pre{white-space:pre-wrap}
+}
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  body{flex-direction:column}
+  .sidebar{width:100%;height:auto;position:static;overflow:hidden}
+  .nav-section{display:none}
+  .main{padding:24px}
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════ SIDEBAR ════════════ -->
+<nav class="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-logo">
+      <div class="brand-icon">🧹</div>
+      <div>
+        <div class="brand-name">ProjectClean Pro</div>
+        <div class="brand-ver">v1.0 DOCS</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">Getting Started</div>
+    <a href="#overview" class="nav-link"><span class="icon">📋</span>Overview</a>
+    <a href="#requirements" class="nav-link"><span class="icon">⚙️</span>Requirements</a>
+    <a href="#installation" class="nav-link"><span class="icon">📦</span>Installation</a>
+    <a href="#quickstart" class="nav-link"><span class="icon">⚡</span>Quick Start</a>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">Core Modules</div>
+    <a href="#module-unused" class="nav-link"><span class="icon">🔍</span>Unused Asset Scanner</a>
+    <a href="#module-missing" class="nav-link"><span class="icon">🔗</span>Missing Reference Finder</a>
+    <a href="#module-duplicates" class="nav-link"><span class="icon">🪞</span>Duplicate Detector</a>
+    <a href="#module-deps" class="nav-link"><span class="icon">🕸️</span>Dependency Graph</a>
+    <a href="#module-packages" class="nav-link"><span class="icon">📦</span>Package Auditor</a>
+    <a href="#module-shaders" class="nav-link"><span class="icon">🎨</span>Shader Analyzer</a>
+    <a href="#module-size" class="nav-link"><span class="icon">📊</span>Size Profiler</a>
+    <a href="#module-safe" class="nav-link"><span class="icon">🛡️</span>Safe Delete System</a>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">Advanced</div>
+    <a href="#addressables" class="nav-link"><span class="icon">📮</span>Addressables Support</a>
+    <a href="#scriptingapi" class="nav-link"><span class="icon">💻</span>Scripting API</a>
+    <a href="#cli" class="nav-link"><span class="icon">🖥️</span>CLI &amp; CI/CD</a>
+    <a href="#ignore" class="nav-link"><span class="icon">🚫</span>Ignore Rules</a>
+    <a href="#reports" class="nav-link"><span class="icon">📄</span>Reports &amp; Export</a>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">Reference</div>
+    <a href="#shortcuts" class="nav-link"><span class="icon">⌨️</span>Keyboard Shortcuts</a>
+    <a href="#compare" class="nav-link"><span class="icon">⚖️</span>Comparison</a>
+    <a href="#faq" class="nav-link"><span class="icon">❓</span>FAQ</a>
+    <a href="#known" class="nav-link"><span class="icon">⚠️</span>Known Limitations</a>
+    <a href="#changelog" class="nav-link"><span class="icon">📝</span>Changelog</a>
+  </div>
+
+  <div class="sidebar-footer">
+    Unity 5.6+ · Unity 6 Native<br>Built-in · URP · HDRP
+  </div>
+</nav>
+
+<!-- ════════════ MAIN ════════════ -->
+<main class="main">
+
+<!-- ── PAGE HEADER ── -->
+<div class="page-header">
+  <h1>🧹 ProjectClean Pro</h1>
+  <p>The most complete Unity project hygiene toolkit — scan, analyze, fix, and safely delete unused assets, missing references, duplicates, redundant packages, and bloated shaders across every Unity version and render pipeline.</p>
+  <div class="header-meta">
+    <span class="header-chip">v1.0.0</span>
+    <span class="header-chip">Unity 5.6 – 6.x</span>
+    <span class="header-chip">Built-in · URP · HDRP</span>
+    <span class="header-chip">Addressables Ready</span>
+    <span class="header-chip">CI/CD Support</span>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<span class="section-anchor" id="overview"></span>
+<h2>Overview</h2>
+
+<p>As Unity projects grow over months and years, they accumulate a silent weight of clutter: placeholder textures that were replaced, auto-generated materials never cleaned up, packages added for experiments that were abandoned, shader variants compiling for configurations that don't exist, and broken references left by deleted scripts. This slows down the editor, inflates build sizes, and makes onboarding new team members confusing.</p>
+
+<p><strong>ProjectClean Pro</strong> is a comprehensive project hygiene suite built natively for Unity 6's UI Toolkit with full backwards compatibility to Unity 5.6. It provides eight integrated analysis modules, a safety-first delete workflow with pre-delete archiving, full Addressables awareness, render-pipeline-specific shader analysis, and a batch CLI mode for automated CI/CD pipelines.</p>
+
+<h3>Key Design Principles</h3>
+<ul class="checklist">
+  <li><strong>Safety first</strong> — Every delete operation previews results, confirms intent, and archives before removing. No surprise data loss.</li>
+  <li><strong>Render-pipeline aware</strong> — Understands Built-in, URP, and HDRP asset types and won't flag pipeline-specific shaders as unused incorrectly.</li>
+  <li><strong>Addressables aware</strong> — Treats Addressable groups as first-class dependency roots so Addressable-only assets are never falsely flagged as unused.</li>
+  <li><strong>Non-destructive workflow</strong> — Archive mode moves files to a local <code>.pcp_archive/</code> folder before deletion; restore with one click if you made a mistake.</li>
+  <li><strong>Team-friendly</strong> — Ignore rules, exclusion filters, and configuration profiles can be committed to version control so the whole team shares the same setup.</li>
+  <li><strong>CI/CD ready</strong> — Full command-line interface for integration into Unity Cloud Build, GitHub Actions, and any build pipeline.</li>
+</ul>
+
+<!-- ════════════════════════════════════════ -->
+<span class="section-anchor" id="requirements"></span>
+<h2>Requirements &amp; Compatibility</h2>
+
+<h3>Unity Version Compatibility</h3>
+<table>
+  <thead>
+    <tr><th>Unity Version</th><th>Support Level</th><th>UI System</th><th>Notes</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Unity 6.x (6000.0+)</strong></td><td><span class="compat-yes">✓ Full</span></td><td>UI Toolkit</td><td>Primary target. All features + UI Toolkit native interface.</td></tr>
+    <tr><td><strong>Unity 2022.3 LTS</strong></td><td><span class="compat-yes">✓ Full</span></td><td>UI Toolkit</td><td>All features fully supported.</td></tr>
+    <tr><td><strong>Unity 2021.3 LTS</strong></td><td><span class="compat-yes">✓ Full</span></td><td>IMGUI fallback</td><td>All features. UI uses IMGUI fallback (still fully functional).</td></tr>
+    <tr><td><strong>Unity 2020.3 LTS</strong></td><td><span class="compat-yes">✓ Full</span></td><td>IMGUI fallback</td><td>All features. Addressables requires 2020.3.26+.</td></tr>
+    <tr><td><strong>Unity 2019.4 LTS</strong></td><td><span class="compat-partial">~ Partial</span></td><td>IMGUI</td><td>Core modules only. Package Auditor limited. No Shader Analyzer.</td></tr>
+    <tr><td><strong>Unity 2018.4 LTS</strong></td><td><span class="compat-partial">~ Partial</span></td><td>IMGUI</td><td>Unused Scanner, Missing Refs, Duplicates, Dependency Graph only.</td></tr>
+    <tr><td><strong>Unity 5.6</strong></td><td><span class="compat-partial">~ Basic</span></td><td>IMGUI</td><td>Unused Scanner and Missing Reference Finder only.</td></tr>
+  </tbody>
+</table>
+
+<h3>Render Pipeline Compatibility</h3>
+<table>
+  <thead>
+    <tr><th>Feature</th><th>Built-in RP</th><th>URP</th><th>HDRP</th><th>Custom SRP</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Unused Asset Scanner</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td></tr>
+    <tr><td>Missing Reference Finder</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td></tr>
+    <tr><td>Duplicate Detector</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td></tr>
+    <tr><td>Dependency Graph</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td></tr>
+    <tr><td>Package Auditor</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td></tr>
+    <tr><td>Shader Analyzer — Variant Audit</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td><td class="check compat-partial">~</td></tr>
+    <tr><td>Shader Analyzer — RP Detection</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td><td class="check compat-partial">~</td></tr>
+    <tr><td>Size Profiler</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td></tr>
+    <tr><td>Safe Delete + Archive</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td></tr>
+    <tr><td>Addressables Support</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td></tr>
+  </tbody>
+</table>
+
+<div class="callout info">
+  <span class="callout-icon">ℹ️</span>
+  <div><strong>Render Pipeline Awareness:</strong> ProjectClean Pro reads your project's active render pipeline via <code>GraphicsSettings.renderPipelineAsset</code> and applies pipeline-specific rules automatically. You never need to configure this manually.</div>
+</div>
+
+<h3>System Requirements</h3>
+<ul class="checklist">
+  <li>Unity 5.6 or higher (Unity 6 recommended for full feature set)</li>
+  <li>No external DLL dependencies — pure C# Editor scripts only</li>
+  <li>No runtime components — editor-only, zero impact on your build</li>
+  <li>Tested on Windows 10/11, macOS 12+, Ubuntu 20.04 LTS</li>
+</ul>
+
+<!-- ════════════════════════════════════════ -->
+<span class="section-anchor" id="installation"></span>
+<h2>Installation</h2>
+
+<h3>Method 1 — Unity Asset Store (Recommended)</h3>
+<div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Purchase from the Unity Asset Store</div>
+      <div class="step-desc">Open the Asset Store in Unity or your browser, locate ProjectClean Pro, and click Add to My Assets.</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Import via Package Manager</div>
+      <div class="step-desc">In Unity, open Window → Package Manager. Select My Assets from the dropdown, locate ProjectClean Pro, and click Download then Import.</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Open the tool</div>
+      <div class="step-desc">Navigate to <strong>Tools → ProjectClean Pro → Open Window</strong>. The main dashboard will open as a dockable editor window.</div>
+    </div>
+  </div>
+</div>
+
+<h3>Method 2 — UPM via Git URL (Unity 2019.3+)</h3>
+<div class="code-label">Package Manager → + → Add package from git URL</div>
+<pre><code>https://github.com/yourpublisher/projectclean-pro.git#v1.0.0</code></pre>
+
+<h3>Folder Structure After Import</h3>
+<pre><code>Assets/
+└── ProjectCleanPro/
+    ├── Editor/                  ← All editor scripts (not included in build)
+    │   ├── Core/
+    │   │   ├── PCPScanner.cs
+    │   │   ├── PCPDependencyGraph.cs
+    │   │   ├── PCPSafeDelete.cs
+    │   │   └── PCPShaderAnalyzer.cs
+    │   ├── UI/
+    │   │   ├── PCPWindow.cs
+    │   │   └── UXML/           ← UI Toolkit layouts (Unity 2021.2+)
+    │   ├── Data/
+    │   │   └── PCPSettings.asset
+    │   └── CLI/
+    │       └── PCPCommandLine.cs
+    ├── Documentation/
+    │   └── ProjectCleanPro_Manual.pdf
+    └── CHANGELOG.md</code></pre>
+
+<div class="callout tip">
+  <span class="callout-icon">💡</span>
+  <div><strong>Editor-Only:</strong> ProjectClean Pro lives entirely under an <code>Editor/</code> folder. It adds <strong>zero bytes</strong> to your game build and introduces no runtime MonoBehaviours.</div>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<span class="section-anchor" id="quickstart"></span>
+<h2>Quick Start</h2>
+
+<p>Open <strong>Tools → ProjectClean Pro → Open Window</strong>. The dashboard shows six module tabs at the top. For a first-time full scan, click the <strong>Scan All</strong> button on the Dashboard tab. A full scan on a medium-sized project (5,000–15,000 assets) typically takes 15–45 seconds.</p>
+
+<div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Run Full Scan</div>
+      <div class="step-desc">Dashboard → <strong>Scan All Modules</strong>. The progress bar shows which module is running. Results cache to disk — subsequent scans are 5–10× faster.</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Review Results</div>
+      <div class="step-desc">Switch to each module tab. Each shows a sortable, filterable list of findings. Click any item to ping it in the Project window. Right-click for per-item options.</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Configure Ignore Rules</div>
+      <div class="step-desc">Before deleting anything, set up your Ignore Rules (Settings tab) to exclude third-party folders, Resources, Streaming Assets, and any paths you want to always keep.</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <div class="step-title">Safe Delete</div>
+      <div class="step-desc">Select assets to delete. Click <strong>Preview Delete</strong> to see what would be removed. Click <strong>Archive &amp; Delete</strong> to move to <code>.pcp_archive/</code> and delete from the project. Restore any file from Archive View if needed.</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <div class="step-title">Export Report</div>
+      <div class="step-desc">Click <strong>Export Report</strong> to generate a JSON, CSV, or HTML report of all findings for documentation or team review.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<span class="section-anchor" id="module-unused"></span>
+<h2>Module 1 — Unused Asset Scanner</h2>
+
+<p>The core of ProjectClean Pro. Performs a complete dependency walk starting from every scene in Build Settings, every Prefab referenced from those scenes, every <code>Resources/</code> folder (auto-included by Unity), every Addressables group, and every <code>StreamingAssets/</code> path. Any asset not reachable from these roots is considered unused and reported.</p>
+
+<h3>How It Works</h3>
+<p>The scanner builds a full dependency graph using <code>AssetDatabase.GetDependencies()</code> with recursive mode enabled, then computes the set difference between all project assets and reachable assets. Results are grouped by asset type and folder path for readability.</p>
+
+<h3>Feature List</h3>
+<ul class="checklist">
+  <li><strong>Build-settings-aware:</strong> Only scenes added to Build Settings are scanned as roots. You can optionally include all scenes in the project.</li>
+  <li><strong>Resources folder awareness:</strong> All assets under any <code>Resources/</code> folder are automatically treated as used (Unity includes them all at build time).</li>
+  <li><strong>Addressables group support:</strong> Scans all Addressables groups as dependency roots. Assets only referenced from an Addressables group will NOT be falsely flagged as unused. (Requires Addressables package 1.16+)</li>
+  <li><strong>AssetBundle support:</strong> AssetBundle manifests are respected — assets assigned to any AssetBundle are treated as used.</li>
+  <li><strong>StreamingAssets pass-through:</strong> Files in StreamingAssets are always excluded (they can't be traced by the dependency graph).</li>
+  <li><strong>Folder + type grouping:</strong> Results tree groups findings by folder first, then by type (Texture, Mesh, Material, Audio, Prefab, Script, etc.).</li>
+  <li><strong>Uncompressed size column:</strong> Shows the uncompressed disk size of each unused asset so you can prioritize by impact.</li>
+  <li><strong>Scene usage mapping:</strong> Hover or click any asset to see which scenes reference it (or confirm zero references).</li>
+  <li><strong>Incremental scan cache:</strong> Asset modification timestamps are cached. Only changed assets are re-analyzed on subsequent scans.</li>
+  <li><strong>Filter by type:</strong> Quickly filter results to show only textures, or only audio, or only scripts, etc.</li>
+  <li><strong>Sort by size, name, path, type:</strong> Click column headers to sort.</li>
+  <li><strong>Custom scan roots:</strong> Add additional folder paths or assets to treat as scan roots (e.g. a custom editor-only asset database).</li>
+  <li><strong>Regex-based exclusions:</strong> Exclude assets matching path patterns (e.g. skip anything in <code>Assets/ThirdParty/</code>).</li>
+</ul>
+
+<h3>Understanding Results</h3>
+<table>
+  <thead><tr><th>Status Badge</th><th>Meaning</th><th>Recommended Action</th></tr></thead>
+  <tbody>
+    <tr><td><span class="badge badge-red">UNUSED</span></td><td>Not referenced from any scan root</td><td>Review and delete if confirmed unnecessary</td></tr>
+    <tr><td><span class="badge badge-orange">MAYBE USED</span></td><td>Referenced only from a disabled/excluded scene</td><td>Verify before deleting</td></tr>
+    <tr><td><span class="badge badge-gray">IGNORED</span></td><td>Matched an ignore rule</td><td>No action needed</td></tr>
+    <tr><td><span class="badge badge-green">IN USE</span></td><td>Confirmed reachable from scan roots</td><td>Keep</td></tr>
+  </tbody>
+</table>
+
+<div class="callout warn">
+  <span class="callout-icon">⚠️</span>
+  <div><strong>Scripts note:</strong> The scanner has limited ability to detect unused C# scripts. Script references inside Prefabs and ScriptableObjects are detected, but dynamically loaded scripts (via <code>Type.GetType()</code>, reflection, or string-based AddComponent calls) cannot be traced. Always manually review flagged scripts before deleting.</div>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<span class="section-anchor" id="module-missing"></span>
+<h2>Module 2 — Missing Reference Finder</h2>
+
+<p>Finds every broken reference in your project — the dreaded "Missing (Script)" and "None (Texture2D)" that silently break prefabs, ScriptableObjects, and scenes. This module reads the raw YAML/binary serialization of every asset to find GUIDs that point to non-existent assets.</p>
+
+<h3>Feature List</h3>
+<ul class="checklist">
+  <li><strong>GUID-level scanning:</strong> Reads raw asset serialization (YAML mode) to find every GUID reference and validates each one exists in the AssetDatabase.</li>
+  <li><strong>FileID + GUID cross-check:</strong> Validates both the GUID (file identity) and fileID (component identity within the file) for maximum accuracy.</li>
+  <li><strong>Missing script detection:</strong> Finds GameObjects and Prefabs with detached MonoBehaviour components ("Missing (Script)" in inspector).</li>
+  <li><strong>Missing texture / material / audio / prefab references:</strong> Validates all serialized UnityEngine.Object fields across every asset type.</li>
+  <li><strong>Scene scanning:</strong> Scans every scene file, not just those in Build Settings.</li>
+  <li><strong>Prefab scanning:</strong> Recursively scans nested prefabs.</li>
+  <li><strong>ScriptableObject scanning:</strong> Validates all SO assets in the project.</li>
+  <li><strong>Severity levels:</strong> Distinguishes between confirmed-broken (GUID absent) and ambiguous (GUID present but fileID absent — often internal Unity references).</li>
+  <li><strong>Direct-navigate to broken field:</strong> Double-click any finding to open the containing asset and ping it in the inspector.</li>
+  <li><strong>One-click null-out:</strong> For confirmed missing references, option to set the field to null programmatically (with undo support).</li>
+  <li><strong>Binary asset support:</strong> Switches project to Force Text serialization temporarily for scanning if needed (with prompt and revert).</li>
+</ul>
+
+<h3>Severity Classification</h3>
+<table>
+  <thead><tr><th>Severity</th><th>Type</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><span class="badge badge-red">ERROR</span></td><td>Missing FileID + GUID</td><td>Broken reference — the target asset no longer exists. Will cause runtime NullReferenceExceptions.</td></tr>
+    <tr><td><span class="badge badge-orange">WARNING</span></td><td>Missing GUID</td><td>GUID not found in AssetDatabase. Likely deleted asset. Investigate.</td></tr>
+    <tr><td><span class="badge badge-blue">INFO</span></td><td>Missing FileID only</td><td>Usually internal Unity references. Low risk but worth reviewing.</td></tr>
+  </tbody>
+</table>
+
+<!-- ════════════════════════════════════════ -->
+<span class="section-anchor" id="module-duplicates"></span>
+<h2>Module 3 — Duplicate Asset Detector</h2>
+
+<p>Finds duplicate assets across your project — not just by name, but by actual file content using SHA-256 content hashing. A texture imported twice, a mesh exported from Blender under two different names, or a sound effect copied into two packages: all are detected regardless of filename.</p>
+
+<h3>Feature List</h3>
+<ul class="checklist">
+  <li><strong>Content-hash deduplication:</strong> Computes SHA-256 hash of the raw asset file bytes. Name and path are irrelevant — only the actual content determines duplicates.</li>
+  <li><strong>Import-settings-aware:</strong> Optionally compares import settings alongside content, so the same texture with different compression settings is treated as distinct.</li>
+  <li><strong>Type-aware grouping:</strong> Duplicates grouped by asset type for clarity.</li>
+  <li><strong>Reference count per duplicate:</strong> Shows how many assets in the project reference each copy of the duplicate, so you can decide which copy to keep.</li>
+  <li><strong>Merge assistant:</strong> For duplicate textures/meshes/audio, choose the "canonical" copy and the tool will automatically reroute all references from the duplicates to the canonical one before deleting the extras.</li>
+  <li><strong>Material duplicate detection:</strong> Identifies materials with identical shader + property values even if stored as separate files.</li>
+  <li><strong>Texture atlas cross-check:</strong> Detects textures that appear in sprite atlases and flags them as shared to prevent accidental deletion.</li>
+  <li><strong>Hash cache:</strong> SHA-256 hashes are cached per-asset (invalidated by modification time), making repeat scans fast even on large projects.</li>
+  <li><strong>Exclude patterns:</strong> Regex-based exclusions to skip intentional duplicates (e.g. platform-specific audio variants).</li>
+</ul>
+
+<!-- ════════════════════════════════════════ -->
+<span class="section-anchor" id="module-deps"></span>
+<h2>Module 4 — Interactive Dependency Graph</h2>
+
+<p>A visual, interactive graph showing how assets in your project reference each other. Essential for understanding the impact of a change or deletion before making it.</p>
+
+<h3>Feature List</h3>
+<ul class="checklist">
+  <li><strong>Interactive canvas:</strong> Pan, zoom, and rearrange the graph nodes. Built with Unity's GraphView API (Unity 2020+) or a custom IMGUI canvas on older versions.</li>
+  <li><strong>Per-asset investigation:</strong> Select any asset in the Project window, right-click → "Show in Dependency Graph" to center the graph on that asset and expand its upstream/downstream deps.</li>
+  <li><strong>Depth control:</strong> Limit graph expansion to N levels of depth (default 2) to keep large graphs manageable.</li>
+  <li><strong>Upstream view (who uses this?):</strong> Show all assets that depend on a selected asset.</li>
+  <li><strong>Downstream view (what does this use?):</strong> Show all assets that a selected asset depends on.</li>
+  <li><strong>Circular dependency detection:</strong> Highlights circular reference chains in red — a common source of build and editor performance issues.</li>
+  <li><strong>Node coloring by type:</strong> Textures, Meshes, Scripts, Materials, Prefabs, Scenes, and Audio each have distinct colors.</li>
+  <li><strong>Node size by file size:</strong> Optionally scale node size by uncompressed asset size to visually identify the heaviest assets.</li>
+  <li><strong>Export graph as SVG/PNG:</strong> Save the current graph view for documentation or team communication.</li>
+  <li><strong>Filter by folder:</strong> Limit the graph to assets within a specific folder to reduce visual complexity.</li>
+  <li><strong>Orphan highlighting:</strong> Assets with zero incoming edges (no referrers) are highlighted — these are deletion candidates.</li>
+</ul>
+
+<!-- ════════════════════════════════════════ -->
+<span class="section-anchor" id="module-packages"></span>
+<h2>Module 5 — Package Auditor</h2>
+
+<p>Analyzes your project's installed UPM packages and built-in packages to identify ones that are not referenced by any code or asset in the project. Unused packages add compilation overhead, inflate build size, and increase the risk of API conflicts.</p>
+
+<h3>Feature List</h3>
+<ul class="checklist">
+  <li><strong>UPM package scan:</strong> Reads <code>Packages/manifest.json</code> and analyzes all installed packages.</li>
+  <li><strong>Usage detection:</strong> Checks for using directives, component references, <code>asmdef</code> references, and inspector-assigned references that depend on each package.</li>
+  <li><strong>Built-in package detection:</strong> Lists all enabled built-in packages (e.g. Legacy Particle System, Terrain Tools) and flags ones with zero project usage.</li>
+  <li><strong>Dependency chain awareness:</strong> Won't flag Package A as unused if it's a required dependency of Package B that IS in use.</li>
+  <li><strong>Safe removal guidance:</strong> For each flagged package, provides the Package Manager command and warns if removal would trigger API compilation errors.</li>
+  <li><strong>Package size reporting:</strong> Shows disk footprint of each package so you can prioritize removals by impact.</li>
+  <li><strong>One-click removal:</strong> Trigger package removal directly from the ProjectClean Pro UI (calls PackageManager API under the hood).</li>
+  <li><strong>Package health check:</strong> Flags packages not compatible with your current Unity version, packages with available updates, and deprecated packages.</li>
+  <li><strong>Whitelist:</strong> Mark packages as "always keep" to suppress findings for intentionally installed but currently unused packages (e.g. test frameworks).</li>
+</ul>
+
+<div class="callout warn">
+  <span class="callout-icon">⚠️</span>
+  <div><strong>Caution:</strong> Removing packages can cause compilation errors if any code uses their APIs. Always use the <strong>Preview Impact</strong> button before removing a package. The tool will perform a dry-run compilation check and report any errors before any changes are made.</div>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<span class="section-anchor" id="module-shaders"></span>
+<h2>Module 6 — Shader &amp; Shader Variant Analyzer</h2>
+
+<p>Shader variant compilation is one of the most significant and least understood sources of build time bloat in Unity projects. This module provides deep visibility into your shader usage across all render pipelines.</p>
+
+<h3>Feature List</h3>
+<ul class="checklist">
+  <li><strong>Shader inventory:</strong> Lists every shader asset in the project with its type (Surface, Unlit, Shader Graph, HLSL Custom), render pipeline target, and estimated variant count.</li>
+  <li><strong>Material-to-shader mapping:</strong> For each shader, shows every material in the project that uses it. Shaders with zero material users are flagged.</li>
+  <li><strong>Render pipeline correctness:</strong> Detects shaders targeting the wrong pipeline — e.g. a Built-in Standard shader used in a URP project (wastes variant compilation budget and may render incorrectly).</li>
+  <li><strong>Shader Graph analysis (Unity 2021+):</strong> Identifies Shader Graph assets that are never used by any material, and flags Shader Graphs with excessive node counts that may slow editor compilation.</li>
+  <li><strong>Variant collection audit:</strong> Lists all ShaderVariantCollection assets and checks for stale entries (variants referenced in the collection but whose keyword combinations no longer exist in the shader).</li>
+  <li><strong>Keyword redundancy check:</strong> Identifies shader keywords that are defined but never enabled by any material in the project, which can safely be stripped.</li>
+  <li><strong>Shader compilation error detection:</strong> Lists all shaders with compile errors on the current platform and render pipeline target.</li>
+  <li><strong>URP Shader Graph upgrader integration:</strong> Detects legacy Built-in shaders that have official URP/HDRP upgrade paths and links to Unity's upgrade utilities.</li>
+  <li><strong>HDRP material validator integration:</strong> Surfaces HDRP material validation results (normally only shown in the Scene view) in the ProjectClean Pro window for batch review.</li>
+  <li><strong>Estimated variant count:</strong> Uses static analysis of <code>#pragma multi_compile</code> and <code>#pragma shader_feature</code> directives to estimate the total variant combinatorial count per shader.</li>
+</ul>
+
+<!-- ════════════════════════════════════════ -->
+<span class="section-anchor" id="module-size"></span>
+<h2>Module 7 — Project Size Profiler</h2>
+
+<p>A detailed breakdown of your project's disk footprint by asset type, folder, and individual asset — with build-size estimates and compression ratio analysis.</p>
+
+<h3>Feature List</h3>
+<ul class="checklist">
+  <li><strong>Total project size by type:</strong> Visual breakdown (treemap and bar chart) of disk usage across Textures, Meshes, Audio, Animations, Scripts, Materials, etc.</li>
+  <li><strong>Folder drill-down:</strong> Click any folder in the treemap to zoom in and see its contents by size.</li>
+  <li><strong>Estimated build size contribution:</strong> Uses Unity's compression estimates to project how much each asset type contributes to your final build, per target platform.</li>
+  <li><strong>Texture compression audit:</strong> Identifies textures with suboptimal compression settings for your target platform (e.g. uncompressed RGBA32 textures on mobile).</li>
+  <li><strong>Oversized texture detection:</strong> Flags textures with a source resolution larger than their Max Texture Size import setting — wasted source file disk space.</li>
+  <li><strong>Audio compression audit:</strong> Identifies uncompressed PCM audio clips that could use Compressed In Memory or Streaming to reduce build size.</li>
+  <li><strong>Mesh complexity report:</strong> Lists meshes by vertex count, poly count, and whether Read/Write is enabled (which doubles memory usage) unnecessarily.</li>
+  <li><strong>Platform-specific size estimates:</strong> Switch between Android, iOS, PC, WebGL, and Console target platforms to see how size estimates change.</li>
+  <li><strong>Historical comparison:</strong> Save size snapshots and compare against them to track growth over time.</li>
+  <li><strong>Optimization recommendations:</strong> For each category, shows Unity-doc-linked recommendations for reducing size (e.g. "Enable Crunch compression for these 14 textures to save ~28MB").</li>
+</ul>
+
+<!-- ════════════════════════════════════════ -->
+<span class="section-anchor" id="module-safe"></span>
+<h2>Module 8 — Safe Delete System</h2>
+
+<p>Every deletion in ProjectClean Pro goes through the Safe Delete system. This is not optional — it's the only way to delete. The system is designed to make cleanup feel confident, not terrifying.</p>
+
+<h3>Feature List</h3>
+<ul class="checklist">
+  <li><strong>Pre-delete preview:</strong> Before any deletion, shows a full list of assets to be deleted with their sizes, types, and current reference counts. Includes a confirmation prompt.</li>
+  <li><strong>Archive before delete:</strong> All files are first moved to <code>.pcp_archive/YYYY-MM-DD_HH-MM-SS/</code> at the project root. The archive preserves the original folder structure.</li>
+  <li><strong>Post-delete undo:</strong> The archive view shows all previous deletion sessions. Select any session and click <strong>Restore Session</strong> to move all archived assets back to their original paths and re-register them with the AssetDatabase.</li>
+  <li><strong>Selective restore:</strong> Restore individual files from an archive session, not just the entire batch.</li>
+  <li><strong>Meta file handling:</strong> Automatically deletes corresponding <code>.meta</code> files with every asset to prevent orphan meta issues.</li>
+  <li><strong>Reference null-out option:</strong> Optionally null-out all serialized references to deleted assets before deletion, preventing missing-reference warnings on affected Prefabs and Scenes.</li>
+  <li><strong>Git-aware mode:</strong> If the project is a Git repository, uses <code>git rm</code> for tracked files instead of direct deletion, preserving Git history.</li>
+  <li><strong>Dry-run mode:</strong> Run the delete flow without actually deleting anything — logs what would be deleted to the Console.</li>
+  <li><strong>Archive size management:</strong> Settings let you auto-purge archive sessions older than N days or larger than N MB.</li>
+  <li><strong>Delete log:</strong> All deletion operations are logged to <code>Library/ProjectCleanPro/deletions.log</code> with timestamps, asset paths, sizes, and the user who triggered the deletion.</li>
+</ul>
+
+<div class="callout tip">
+  <span class="callout-icon">💡</span>
+  <div><strong>Team Workflow Tip:</strong> Add <code>.pcp_archive/</code> to your <code>.gitignore</code>. Each developer's local archive is their own safety net. Commit the delete log (<code>Library/ProjectCleanPro/deletions.log</code>) to track what was cleaned up and when.</div>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<span class="section-anchor" id="addressables"></span>
+<h2>Addressables Support</h2>
+
+<p>ProjectClean Pro has first-class support for the Addressables system. If Addressables is installed in your project, the scanner automatically detects it and adjusts all analysis accordingly.</p>
+
+<h3>How Addressables Integration Works</h3>
+<ul class="checklist">
+  <li><strong>Group scanning:</strong> All assets in all Addressables groups (Default, Remote, Local) are treated as dependency roots — they and all their transitive dependencies are marked as "in use."</li>
+  <li><strong>AssetReference detection:</strong> Scans MonoBehaviour and ScriptableObject fields for <code>AssetReference</code> typed properties and follows their GUIDs as dependency roots.</li>
+  <li><strong>Labels support:</strong> Assets with Addressables labels are recognized as used regardless of whether they appear in any scene.</li>
+  <li><strong>Addressables-only asset detection:</strong> Correctly identifies assets that are ONLY used via Addressables (not referenced from any scene) and does not flag them as unused.</li>
+  <li><strong>Group cleanliness audit:</strong> Reports Addressables groups that contain assets also directly embedded in scenes — a common source of duplicate builds.</li>
+  <li><strong>Missing Addressables reference detection:</strong> Finds <code>AssetReference</code> fields whose GUID no longer exists in the project, which would fail at runtime with a silent null.</li>
+  <li><strong>Stale group entries:</strong> Detects assets added to an Addressables group but subsequently deleted from the project (the group entry remains but the asset is gone).</li>
+</ul>
+
+<div class="callout info">
+  <span class="callout-icon">ℹ️</span>
+  <div><strong>Version requirement:</strong> Addressables integration requires Addressables package version 1.16.0 or higher. ProjectClean Pro detects the installed version via <code>PackageInfo</code> and gracefully degrades on older versions.</div>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<span class="section-anchor" id="scriptingapi"></span>
+<h2>Scripting API</h2>
+
+<p>All core functionality is available via a public C# API for custom editor scripts, build processors, and CI automation.</p>
+
+<h3>Namespace</h3>
+<pre><code>using ProjectCleanPro.Editor;</code></pre>
+
+<h3>PCPScanner — Running a Scan</h3>
+<div class="code-label">Run full scan and get results</div>
+<pre><code>// Synchronous scan (blocks editor, best for CI)
+PCPScanResult result = PCPScanner.RunFullScan(new PCPScanOptions
+{
+    IncludeAllScenes        = false,  // Only Build Settings scenes
+    IncludeAddressables     = true,
+    IncludeAssetBundles     = true,
+    IncludeResourcesFolders = true,
+    ScanForDuplicates       = true,
+    ScanForMissingRefs      = true,
+    AnalyzeShaders          = true,
+    AuditPackages           = true,
+});
+
+// Check results
+Debug.Log($"Unused assets: {result.UnusedAssets.Count}");
+Debug.Log($"Missing references: {result.MissingReferences.Count}");
+Debug.Log($"Duplicates: {result.DuplicateGroups.Count}");
+
+// Async scan (non-blocking, best for editor workflows)
+await PCPScanner.RunFullScanAsync(options, onProgress: (progress, label) =>
+{
+    EditorUtility.DisplayProgressBar("Scanning...", label, progress);
+});</code></pre>
+
+<h3>PCPScanResult — Working with Results</h3>
+<pre><code>foreach (PCPUnusedAsset asset in result.UnusedAssets)
+{
+    Debug.Log($"{asset.AssetPath} | {asset.Type} | {asset.UncompressedSizeBytes} bytes");
+}
+
+foreach (PCPMissingReference missingRef in result.MissingReferences)
+{
+    Debug.Log($"{missingRef.ContainerPath} → field '{missingRef.FieldName}' " +
+              $"severity: {missingRef.Severity}");
+}
+
+foreach (PCPDuplicateGroup group in result.DuplicateGroups)
+{
+    Debug.Log($"Duplicate group ({group.Hash}) — {group.Copies.Count} copies, " +
+              $"{group.WastedBytes} bytes wasted");
+}</code></pre>
+
+<h3>PCPSafeDelete — Programmatic Deletion</h3>
+<pre><code>// Build a list of assets to delete
+var toDelete = result.UnusedAssets
+    .Where(a => a.Type == PCPAssetType.Texture && a.UncompressedSizeBytes > 1_000_000)
+    .Select(a => a.AssetPath)
+    .ToList();
+
+// Preview (dry run, returns what would be deleted)
+PCPDeletePreview preview = PCPSafeDelete.Preview(toDelete);
+Debug.Log($"Would delete {preview.AssetCount} assets ({preview.TotalBytes} bytes)");
+
+// Execute safe delete (archives first)
+PCPDeleteResult deleteResult = PCPSafeDelete.Execute(toDelete, new PCPDeleteOptions
+{
+    ArchiveBeforeDelete = true,  // Always recommended
+    NullOutReferences   = false,
+    UseGitRm            = PCPGitUtils.IsGitRepository(),
+});
+
+Debug.Log($"Deleted {deleteResult.DeletedCount} assets. " +
+          $"Archive session: {deleteResult.ArchiveSessionId}");</code></pre>
+
+<h3>PCPReportExporter — Generating Reports</h3>
+<pre><code>// Export JSON report
+PCPReportExporter.ExportJSON(result, "Assets/../ProjectCleanReport.json");
+
+// Export CSV (useful for spreadsheet review with teams)
+PCPReportExporter.ExportCSV(result, "Assets/../ProjectCleanReport.csv",
+    PCPReportScope.UnusedAssets | PCPReportScope.MissingReferences);
+
+// Export HTML report (shareable, human-readable)
+PCPReportExporter.ExportHTML(result, "Assets/../ProjectCleanReport.html");</code></pre>
+
+<h3>PCPIgnoreRules — Managing Ignore Rules from Code</h3>
+<pre><code>var settings = PCPSettings.Load();
+
+// Add ignore rules programmatically
+settings.IgnoreRules.Add(new PCPIgnoreRule
+{
+    Type       = PCPIgnoreType.PathPrefix,
+    Pattern    = "Assets/ThirdParty/",
+    Comment    = "Third-party assets — managed externally",
+});
+
+settings.IgnoreRules.Add(new PCPIgnoreRule
+{
+    Type    = PCPIgnoreType.Regex,
+    Pattern = @"Assets/.*_BACKUP_.*",
+    Comment = "Backup files",
+});
+
+settings.Save();</code></pre>
+
+<!-- ════════════════════════════════════════ -->
+<span class="section-anchor" id="cli"></span>
+<h2>CLI &amp; CI/CD Integration</h2>
+
+<p>ProjectClean Pro includes a command-line interface that runs as a Unity batch-mode process. This allows you to integrate project scanning into any automated build or CI pipeline.</p>
+
+<h3>Basic CLI Usage</h3>
+<div class="code-label">Shell / Terminal</div>
+<pre><code># Run full scan and export JSON report
+"C:/Program Files/Unity/Hub/Editor/6000.0.0f1/Editor/Unity.exe" \
+  -batchmode \
+  -quit \
+  -projectPath "C:/Projects/MyGame" \
+  -executeMethod ProjectCleanPro.Editor.CLI.PCPCommandLine.RunScan \
+  -pcp-output "Reports/pcp_report.json" \
+  -pcp-format json \
+  -pcp-modules all
+
+# Run scan, fail the build if unused assets > 50MB total
+"C:/Program Files/.../Unity.exe" \
+  -batchmode -quit \
+  -projectPath "C:/Projects/MyGame" \
+  -executeMethod ProjectCleanPro.Editor.CLI.PCPCommandLine.RunScan \
+  -pcp-fail-on unused-size-mb:50 \
+  -pcp-fail-on missing-refs:any \
+  -pcp-output "Reports/pcp_report.html" \
+  -pcp-format html</code></pre>
+
+<h3>CLI Options Reference</h3>
+<table>
+  <thead><tr><th>Flag</th><th>Values</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>-pcp-modules</code></td><td><code>all</code>, <code>unused</code>, <code>missing</code>, <code>duplicates</code>, <code>packages</code>, <code>shaders</code>, <code>size</code></td><td>Which modules to run. Comma-separate for multiple.</td></tr>
+    <tr><td><code>-pcp-output</code></td><td>File path</td><td>Output path for the report file.</td></tr>
+    <tr><td><code>-pcp-format</code></td><td><code>json</code>, <code>csv</code>, <code>html</code></td><td>Report format.</td></tr>
+    <tr><td><code>-pcp-fail-on</code></td><td>See below</td><td>Exit with code 1 if condition is met. Fails the CI job.</td></tr>
+    <tr><td><code>-pcp-config</code></td><td>File path</td><td>Path to a <code>PCPSettings.json</code> file to use (overrides project settings).</td></tr>
+    <tr><td><code>-pcp-no-archive</code></td><td>—</td><td>Disable archive creation (for CI environments with no persistent storage).</td></tr>
+    <tr><td><code>-pcp-verbose</code></td><td>—</td><td>Print detailed progress to stdout.</td></tr>
+  </tbody>
+</table>
+
+<h3>Fail Conditions (<code>-pcp-fail-on</code>)</h3>
+<table>
+  <thead><tr><th>Condition</th><th>Example</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>unused-size-mb:N</code></td><td><code>unused-size-mb:100</code></td><td>Fail if total unused asset size exceeds N MB</td></tr>
+    <tr><td><code>unused-count:N</code></td><td><code>unused-count:500</code></td><td>Fail if unused asset count exceeds N</td></tr>
+    <tr><td><code>missing-refs:any</code></td><td><code>missing-refs:any</code></td><td>Fail if any ERROR-severity missing references found</td></tr>
+    <tr><td><code>missing-refs:N</code></td><td><code>missing-refs:10</code></td><td>Fail if ERROR missing reference count exceeds N</td></tr>
+    <tr><td><code>duplicates:any</code></td><td><code>duplicates:any</code></td><td>Fail if any duplicate groups found</td></tr>
+    <tr><td><code>duplicate-wasted-mb:N</code></td><td><code>duplicate-wasted-mb:50</code></td><td>Fail if wasted bytes from duplicates exceeds N MB</td></tr>
+  </tbody>
+</table>
+
+<h3>GitHub Actions Example</h3>
+<div class="code-label">.github/workflows/project-hygiene.yml</div>
+<pre><code>name: Unity Project Hygiene Check
+
+on: [push, pull_request]
+
+jobs:
+  project-clean:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Activate Unity
+        uses: game-ci/unity-activate@v2
+        with:
+          licenseFileSecret: ${{ secrets.UNITY_LICENSE }}
+
+      - name: Run ProjectClean Pro Scan
+        uses: game-ci/unity-builder@v4
+        with:
+          buildMethod: ProjectCleanPro.Editor.CLI.PCPCommandLine.RunScan
+          customParameters: >
+            -pcp-modules all
+            -pcp-output Reports/pcp_report.html
+            -pcp-format html
+            -pcp-fail-on missing-refs:any
+            -pcp-fail-on unused-size-mb:200
+            -pcp-verbose
+
+      - name: Upload Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pcp-report
+          path: Reports/pcp_report.html</code></pre>
+
+<!-- ════════════════════════════════════════ -->
+<span class="section-anchor" id="ignore"></span>
+<h2>Ignore Rules System</h2>
+
+<p>Ignore rules tell ProjectClean Pro which assets to skip entirely — they won't appear in any scan results. Rules are stored in <code>ProjectSettings/PCPSettings.asset</code> (a ScriptableObject) so they can be version-controlled and shared across the team.</p>
+
+<h3>Rule Types</h3>
+<table>
+  <thead><tr><th>Type</th><th>Matches</th><th>Example</th></tr></thead>
+  <tbody>
+    <tr><td><code>PathPrefix</code></td><td>Assets whose path starts with the given string</td><td><code>Assets/ThirdParty/</code></td></tr>
+    <tr><td><code>PathExact</code></td><td>One specific asset path</td><td><code>Assets/Settings/InputActions.inputactions</code></td></tr>
+    <tr><td><code>Regex</code></td><td>Assets whose path matches the regular expression</td><td><code>Assets/.*\.asmdef$</code></td></tr>
+    <tr><td><code>AssetType</code></td><td>All assets of a given Unity asset type</td><td><code>UnityEditor.DefaultAsset</code></td></tr>
+    <tr><td><code>Label</code></td><td>Assets tagged with a given AssetDatabase label</td><td><code>pcp-keep</code></td></tr>
+    <tr><td><code>Folder</code></td><td>All assets inside a specific folder (recursive)</td><td>Drag a folder into the rule slot</td></tr>
+  </tbody>
+</table>
+
+<h3>Quick-Add via Right-Click</h3>
+<p>In any result list, right-click an asset → <strong>"Add to Ignore Rules"</strong> to instantly add an exact-path ignore rule for that asset. Right-click a folder → <strong>"Ignore this folder and its contents"</strong> to add a folder rule.</p>
+
+<h3>The <code>pcp-keep</code> AssetDatabase Label</h3>
+<p>You can tag any asset with the AssetDatabase label <code>pcp-keep</code> directly in the Unity inspector (Asset Labels section) to permanently exclude it from all ProjectClean Pro results without creating a rule. Useful for assets that are truly never referenced but should never be deleted (e.g. template files, CI test fixtures).</p>
+
+<!-- ════════════════════════════════════════ -->
+<span class="section-anchor" id="reports"></span>
+<h2>Reports &amp; Export</h2>
+
+<p>Every scan result can be exported for documentation, code review, or stakeholder communication.</p>
+
+<h3>Export Formats</h3>
+<div class="feature-grid">
+  <div class="feature-card">
+    <div class="fc-head"><span class="fc-icon">🗂️</span><span class="fc-title">JSON Report</span></div>
+    <div class="fc-body">Full machine-readable output. All findings, metadata, asset paths, GUIDs, sizes, and severity levels. Ideal for custom tooling and CI artifact parsing.</div>
+  </div>
+  <div class="feature-card">
+    <div class="fc-head"><span class="fc-icon">📊</span><span class="fc-title">CSV Report</span></div>
+    <div class="fc-body">Spreadsheet-friendly. One row per finding. Team leads can paste into Google Sheets or Excel for task assignment and tracking.</div>
+  </div>
+  <div class="feature-card">
+    <div class="fc-head"><span class="fc-icon">🌐</span><span class="fc-title">HTML Report</span></div>
+    <div class="fc-body">A self-contained single-file HTML report with sortable tables, severity coloring, and asset-size visualizations. Share as a file or attach to a PR.</div>
+  </div>
+  <div class="feature-card">
+    <div class="fc-head"><span class="fc-icon">📝</span><span class="fc-title">Markdown Report</span></div>
+    <div class="fc-body">GitHub/GitLab/Bitbucket friendly. Paste directly into a PR description or project wiki. Includes summary tables and finding counts per module.</div>
+  </div>
+</div>
+
+<h3>Report Contents</h3>
+<ul class="checklist">
+  <li>Scan timestamp, Unity version, project name, render pipeline</li>
+  <li>Summary totals per module (counts, sizes, severity breakdowns)</li>
+  <li>Full per-asset findings with path, GUID, type, size, severity</li>
+  <li>Dependency graph data as adjacency list (JSON only)</li>
+  <li>Scan configuration snapshot (options used, ignore rules applied)</li>
+  <li>Size profiler data with per-category breakdown</li>
+</ul>
+
+<!-- ════════════════════════════════════════ -->
+<span class="section-anchor" id="shortcuts"></span>
+<h2>Keyboard Shortcuts</h2>
+
+<table>
+  <thead><tr><th>Action</th><th>Windows / Linux</th><th>macOS</th></tr></thead>
+  <tbody>
+    <tr><td>Open ProjectClean Pro Window</td><td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>P</kbd></td><td><kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>P</kbd></td></tr>
+    <tr><td>Run Full Scan</td><td><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>S</kbd></td><td><kbd>⌘</kbd> + <kbd>⇧</kbd> + <kbd>S</kbd></td></tr>
+    <tr><td>Run Focused Module Scan</td><td><kbd>F5</kbd></td><td><kbd>F5</kbd></td></tr>
+    <tr><td>Select All Findings</td><td><kbd>Ctrl</kbd> + <kbd>A</kbd></td><td><kbd>⌘</kbd> + <kbd>A</kbd></td></tr>
+    <tr><td>Deselect All</td><td><kbd>Escape</kbd></td><td><kbd>Escape</kbd></td></tr>
+    <tr><td>Ping selected asset in Project</td><td><kbd>Enter</kbd></td><td><kbd>Return</kbd></td></tr>
+    <tr><td>Add selected to Ignore Rules</td><td><kbd>Ctrl</kbd> + <kbd>I</kbd></td><td><kbd>⌘</kbd> + <kbd>I</kbd></td></tr>
+    <tr><td>Preview delete selected</td><td><kbd>Delete</kbd></td><td><kbd>⌫</kbd></td></tr>
+    <tr><td>Export Report</td><td><kbd>Ctrl</kbd> + <kbd>E</kbd></td><td><kbd>⌘</kbd> + <kbd>E</kbd></td></tr>
+    <tr><td>Open Archive View</td><td><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>A</kbd></td><td><kbd>⌘</kbd> + <kbd>⇧</kbd> + <kbd>A</kbd></td></tr>
+  </tbody>
+</table>
+
+<!-- ════════════════════════════════════════ -->
+<span class="section-anchor" id="compare"></span>
+<h2>Comparison with Other Tools</h2>
+
+<table class="compare">
+  <thead>
+    <tr>
+      <th>Feature</th>
+      <th>ProjectClean Pro</th>
+      <th>Asset Hunter PRO</th>
+      <th>Asset Cleaner PRO</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>Unused Asset Scanner</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td></tr>
+    <tr><td>Missing Reference Finder</td><td class="check compat-yes">✓</td><td class="check compat-no">✗</td><td class="check compat-yes">✓</td></tr>
+    <tr><td>Duplicate Detector (content hash)</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td><td class="check compat-partial">~</td></tr>
+    <tr><td>Interactive Dependency Graph</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td><td class="check compat-no">✗</td></tr>
+    <tr><td>UPM Package Auditor</td><td class="check compat-yes">✓</td><td class="check compat-no">✗</td><td class="check compat-no">✗</td></tr>
+    <tr><td>Shader / Variant Analyzer</td><td class="check compat-yes">✓</td><td class="check compat-no">✗</td><td class="check compat-no">✗</td></tr>
+    <tr><td>Project Size Profiler</td><td class="check compat-yes">✓</td><td class="check compat-partial">~</td><td class="check compat-no">✗</td></tr>
+    <tr><td>Archive-before-Delete System</td><td class="check compat-yes">✓</td><td class="check compat-no">✗</td><td class="check compat-no">✗</td></tr>
+    <tr><td>Restore from Archive</td><td class="check compat-yes">✓</td><td class="check compat-no">✗</td><td class="check compat-no">✗</td></tr>
+    <tr><td>Addressables Support</td><td class="check compat-yes">✓</td><td class="check compat-partial">~</td><td class="check compat-partial">~</td></tr>
+    <tr><td>AssetBundle Support</td><td class="check compat-yes">✓</td><td class="check compat-yes">✓</td><td class="check compat-partial">~</td></tr>
+    <tr><td>Merge Assistant (duplicate resolution)</td><td class="check compat-yes">✓</td><td class="check compat-no">✗</td><td class="check compat-no">✗</td></tr>
+    <tr><td>CLI / CI/CD Integration</td><td class="check compat-yes">✓</td><td class="check compat-no">✗</td><td class="check compat-no">✗</td></tr>
+    <tr><td>Scripting API</td><td class="check compat-yes">✓</td><td class="check compat-no">✗</td><td class="check compat-no">✗</td></tr>
+    <tr><td>HTML / JSON / CSV Reports</td><td class="check compat-yes">✓</td><td class="check compat-no">✗</td><td class="check compat-no">✗</td></tr>
+    <tr><td>Regex Ignore Rules</td><td class="check compat-yes">✓</td><td class="check compat-partial">~</td><td class="check compat-partial">~</td></tr>
+    <tr><td>Git rm Integration</td><td class="check compat-yes">✓</td><td class="check compat-no">✗</td><td class="check compat-no">✗</td></tr>
+    <tr><td>Unity 6 / UI Toolkit Native</td><td class="check compat-yes">✓</td><td class="check compat-no">✗</td><td class="check compat-no">✗</td></tr>
+    <tr><td>URP / HDRP Shader Awareness</td><td class="check compat-yes">✓</td><td class="check compat-no">✗</td><td class="check compat-no">✗</td></tr>
+    <tr><td>Texture Compression Audit</td><td class="check compat-yes">✓</td><td class="check compat-no">✗</td><td class="check compat-no">✗</td></tr>
+    <tr><td>Historical Size Snapshots</td><td class="check compat-yes">✓</td><td class="check compat-no">✗</td><td class="check compat-no">✗</td></tr>
+    <tr><td>HDRP Material Validator Integration</td><td class="check compat-yes">✓</td><td class="check compat-no">✗</td><td class="check compat-no">✗</td></tr>
+  </tbody>
+</table>
+
+<!-- ════════════════════════════════════════ -->
+<span class="section-anchor" id="faq"></span>
+<h2>FAQ</h2>
+
+<h3>Will ProjectClean Pro delete my assets automatically?</h3>
+<p>Never without explicit user action. The tool only analyzes and reports. All deletions require you to manually select assets and click through the Safe Delete workflow with a preview step. Even then, files are archived before being removed from the project.</p>
+
+<h3>Why are some assets marked as UNUSED when I know I use them?</h3>
+<p>The most common causes: (1) The scene they're used in is not added to Build Settings and you haven't enabled "Include All Scenes" mode. (2) The asset is loaded at runtime via <code>Resources.Load()</code> — add the folder to a custom scan root or ensure it's under a <code>Resources/</code> folder. (3) The asset is loaded dynamically via path string or reflection — add an ignore rule or <code>pcp-keep</code> label.</p>
+
+<h3>Does it support Streaming Assets?</h3>
+<p>Assets in <code>Assets/StreamingAssets/</code> are automatically excluded from all scans. They're not traceable by the AssetDatabase dependency system since they're accessed by path at runtime, so flagging them would produce false positives.</p>
+
+<h3>Can I use it in a team environment?</h3>
+<p>Yes. Settings are stored in <code>ProjectSettings/PCPSettings.asset</code> which can be committed to version control. This ensures the whole team uses the same ignore rules and scan configuration. The archive folder should be gitignored.</p>
+
+<h3>Does it work with Unity's new Input System / Cinemachine / etc.?</h3>
+<p>Yes. ProjectClean Pro works at the AssetDatabase level and is agnostic to which Unity packages you use. The Package Auditor module understands package dependency chains, so it won't flag Cinemachine as unused if your project depends on it transitively.</p>
+
+<h3>How does it handle Editor-only assets?</h3>
+<p>Editor-only assets (under <code>Editor/</code> folders or with platform constraints) are scanned separately from runtime assets. The results panel has a toggle to show/hide Editor-only assets to keep the runtime-asset list focused.</p>
+
+<h3>Will it find unused animation parameters or empty Animator states?</h3>
+<p>Not in v1.0. Animator graph cleanup is planned for a future module. Currently the tool finds unused AnimationClip assets (clips not referenced by any Animator Controller or directly) but does not inspect the Animator graph itself.</p>
+
+<!-- ════════════════════════════════════════ -->
+<span class="section-anchor" id="known"></span>
+<h2>Known Limitations</h2>
+
+<div class="callout danger">
+  <span class="callout-icon">🚫</span>
+  <div><strong>Reflect-loaded scripts:</strong> Scripts dynamically loaded via <code>Assembly.GetType()</code>, <code>Type.GetType()</code>, or string-based <code>AddComponent</code> calls cannot be traced. Review all flagged scripts manually before deletion.</div>
+</div>
+
+<div class="callout warn">
+  <span class="callout-icon">⚠️</span>
+  <div><strong>Procedurally loaded assets:</strong> Assets loaded via <code>AssetDatabase.LoadAssetAtPath()</code> at runtime or in custom build processors may not be traced unless you add them as custom scan roots.</div>
+</div>
+
+<div class="callout warn">
+  <span class="callout-icon">⚠️</span>
+  <div><strong>Third-party build pipeline overrides:</strong> Tools that override Unity's build pipeline (e.g. VRChat SDK, some console platform SDKs) may inject references that ProjectClean Pro cannot trace. Use the Ignore Rules system to protect any assets their documentation says to keep.</div>
+</div>
+
+<div class="callout warn">
+  <span class="callout-icon">⚠️</span>
+  <div><strong>Binary serialization mode:</strong> Projects using Binary serialization mode (not the default) require switching to Force Text for Missing Reference scanning. ProjectClean Pro prompts before doing this and reverts immediately after the scan.</div>
+</div>
+
+<ul class="checklist">
+  <li>Animator Controller internal graph analysis (unused states, dead parameters) — planned for v1.1</li>
+  <li>Playable Graph and Timeline asset analysis — planned for v1.2</li>
+  <li>Localization package integration (unused locale assets) — planned for v1.2</li>
+  <li>Custom SRP shader pipeline detection is heuristic-based and may need manual configuration</li>
+  <li>Large projects (50,000+ assets) may see scan times of 2–5 minutes on first run. Subsequent cached scans are significantly faster.</li>
+</ul>
+
+<!-- ════════════════════════════════════════ -->
+<span class="section-anchor" id="changelog"></span>
+<h2>Changelog</h2>
+
+<h3>v1.0.0 — Initial Release</h3>
+<ul class="checklist">
+  <li>Unused Asset Scanner with Build Settings, Resources, Addressables, and AssetBundle root support</li>
+  <li>Missing Reference Finder with GUID + FileID validation and severity levels</li>
+  <li>Duplicate Detector with SHA-256 content hashing and merge assistant</li>
+  <li>Interactive Dependency Graph with GraphView (Unity 2020+) and IMGUI fallback</li>
+  <li>UPM Package Auditor with usage detection and one-click removal</li>
+  <li>Shader &amp; Variant Analyzer with render-pipeline-aware rules</li>
+  <li>Project Size Profiler with texture/audio/mesh compression audits</li>
+  <li>Safe Delete System with archive-before-delete and one-click restore</li>
+  <li>Full Scripting API under <code>ProjectCleanPro.Editor</code> namespace</li>
+  <li>CLI with CI/CD fail conditions and GitHub Actions example</li>
+  <li>JSON, CSV, HTML, and Markdown report export</li>
+  <li>Regex ignore rules system with <code>pcp-keep</code> label support</li>
+  <li>Unity Toolkit native UI for Unity 2021.2+ with IMGUI fallback for older versions</li>
+  <li>Tested: Unity 5.6, 2018.4, 2019.4, 2020.3, 2021.3, 2022.3, Unity 6 (6000.0)</li>
+  <li>Tested: Built-in RP, URP 12–17, HDRP 12–17</li>
+</ul>
+
+<hr>
+<p style="font-size:12px;color:var(--ink3);text-align:center">ProjectClean Pro Documentation · v1.0.0 · March 2026 · © Your Publisher Name · All rights reserved</p>
+
+</main>
+</body>
+</html>

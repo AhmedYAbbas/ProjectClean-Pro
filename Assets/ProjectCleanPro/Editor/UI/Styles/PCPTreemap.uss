@@ -1,0 +1,268 @@
+/* ============================================================================
+ * PCPTreemap.uss - ProjectCleanPro Treemap Visualization Styles
+ * ============================================================================
+ * Styles for the interactive treemap that visualizes project size by asset
+ * type / folder: breadcrumb navigation, tooltip, legend, and controls.
+ * ========================================================================= */
+
+/* ---------------------------------------------------------------------------
+ * Treemap Container
+ * ------------------------------------------------------------------------ */
+
+.pcp-treemap {
+    flex-grow: 1;
+    flex-direction: column;
+    background-color: var(--pcp-bg-dark);
+    overflow: hidden;
+}
+
+/* ---------------------------------------------------------------------------
+ * Breadcrumb Navigation Bar
+ * Shows the current drill-down path (e.g. Assets > Textures > Characters).
+ * ------------------------------------------------------------------------ */
+
+.pcp-treemap__breadcrumb {
+    flex-direction: row;
+    align-items: center;
+    height: 30px;
+    min-height: 30px;
+    padding-left: var(--pcp-spacing-md);
+    padding-right: var(--pcp-spacing-md);
+    background-color: var(--pcp-bg-medium);
+    border-bottom-width: 1px;
+    border-bottom-color: var(--pcp-border);
+}
+
+.pcp-treemap__breadcrumb-item {
+    font-size: var(--pcp-font-md);
+    color: var(--pcp-info);
+    padding-left: var(--pcp-spacing-sm);
+    padding-right: var(--pcp-spacing-sm);
+    padding-top: var(--pcp-spacing-xs);
+    padding-bottom: var(--pcp-spacing-xs);
+    border-radius: var(--pcp-radius-sm);
+    cursor: link;
+}
+
+.pcp-treemap__breadcrumb-item:hover {
+    background-color: var(--pcp-bg-hover);
+    color: #6bb0e0;
+}
+
+.pcp-treemap__breadcrumb-item--current {
+    color: var(--pcp-text-primary);
+    -unity-font-style: bold;
+    cursor: arrow;
+}
+
+.pcp-treemap__breadcrumb-item--current:hover {
+    background-color: rgba(0, 0, 0, 0);
+    color: var(--pcp-text-primary);
+}
+
+.pcp-treemap__breadcrumb-separator {
+    font-size: var(--pcp-font-md);
+    color: var(--pcp-text-muted);
+    margin-left: var(--pcp-spacing-xs);
+    margin-right: var(--pcp-spacing-xs);
+}
+
+/* ---------------------------------------------------------------------------
+ * Treemap Canvas
+ * The area where treemap rectangles are drawn (via IMGUI or MeshAPI).
+ * USS provides layout sizing; actual rectangles are rendered in code.
+ * ------------------------------------------------------------------------ */
+
+.pcp-treemap__canvas {
+    flex-grow: 1;
+    background-color: var(--pcp-bg-dark);
+    overflow: hidden;
+}
+
+/* ---------------------------------------------------------------------------
+ * Tooltip Overlay
+ * Shown when hovering over a treemap cell. Positioned via code.
+ * ------------------------------------------------------------------------ */
+
+.pcp-treemap__tooltip {
+    position: absolute;
+    flex-direction: column;
+    min-width: 160px;
+    max-width: 280px;
+    padding-top: var(--pcp-spacing-md);
+    padding-bottom: var(--pcp-spacing-md);
+    padding-left: var(--pcp-spacing-md);
+    padding-right: var(--pcp-spacing-md);
+    background-color: rgba(20, 20, 20, 0.95);
+    border-width: 1px;
+    border-color: var(--pcp-border-light);
+    border-radius: var(--pcp-radius-md);
+    visibility: hidden;
+}
+
+.pcp-treemap__tooltip--visible {
+    visibility: visible;
+}
+
+.pcp-treemap__tooltip-name {
+    font-size: var(--pcp-font-md);
+    -unity-font-style: bold;
+    color: var(--pcp-text-primary);
+    margin-bottom: var(--pcp-spacing-xs);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pcp-treemap__tooltip-path {
+    font-size: var(--pcp-font-sm);
+    color: var(--pcp-text-secondary);
+    margin-bottom: var(--pcp-spacing-sm);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pcp-treemap__tooltip-size {
+    font-size: var(--pcp-font-md);
+    color: var(--pcp-text-primary);
+}
+
+.pcp-treemap__tooltip-percent {
+    font-size: var(--pcp-font-sm);
+    color: var(--pcp-text-secondary);
+    margin-top: var(--pcp-spacing-xs);
+}
+
+.pcp-treemap__tooltip-type {
+    font-size: var(--pcp-font-sm);
+    color: var(--pcp-text-secondary);
+    margin-top: var(--pcp-spacing-xs);
+}
+
+/* ---------------------------------------------------------------------------
+ * Legend
+ * Horizontal strip mapping colors to asset types.
+ * ------------------------------------------------------------------------ */
+
+.pcp-treemap__legend {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    min-height: 28px;
+    padding-top: var(--pcp-spacing-sm);
+    padding-bottom: var(--pcp-spacing-sm);
+    padding-left: var(--pcp-spacing-md);
+    padding-right: var(--pcp-spacing-md);
+    background-color: var(--pcp-bg-medium);
+    border-top-width: 1px;
+    border-top-color: var(--pcp-border);
+}
+
+.pcp-treemap__legend-item {
+    flex-direction: row;
+    align-items: center;
+    margin-right: var(--pcp-spacing-lg);
+    margin-top: var(--pcp-spacing-xs);
+    margin-bottom: var(--pcp-spacing-xs);
+}
+
+.pcp-treemap__legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    margin-right: var(--pcp-spacing-sm);
+    flex-shrink: 0;
+}
+
+.pcp-treemap__legend-label {
+    font-size: var(--pcp-font-sm);
+    color: var(--pcp-text-secondary);
+}
+
+/* Pre-defined legend colors for common asset types */
+.pcp-treemap__legend-color--texture {
+    background-color: #27AE60;
+}
+
+.pcp-treemap__legend-color--mesh {
+    background-color: #E67E22;
+}
+
+.pcp-treemap__legend-color--audio {
+    background-color: #E84393;
+}
+
+.pcp-treemap__legend-color--script {
+    background-color: #2980B9;
+}
+
+.pcp-treemap__legend-color--shader {
+    background-color: #8E44AD;
+}
+
+.pcp-treemap__legend-color--material {
+    background-color: #569cd6;
+}
+
+.pcp-treemap__legend-color--animation {
+    background-color: #cca700;
+}
+
+.pcp-treemap__legend-color--prefab {
+    background-color: #16A085;
+}
+
+.pcp-treemap__legend-color--scene {
+    background-color: #C0392B;
+}
+
+.pcp-treemap__legend-color--other {
+    background-color: #7F8C8D;
+}
+
+/* ---------------------------------------------------------------------------
+ * Controls (Zoom / Reset)
+ * Floating control buttons overlaid on the treemap canvas.
+ * ------------------------------------------------------------------------ */
+
+.pcp-treemap__controls {
+    position: absolute;
+    right: 12px;
+    top: 12px;
+    flex-direction: row;
+    align-items: center;
+}
+
+.pcp-treemap__controls-button {
+    width: 28px;
+    height: 28px;
+    margin-left: var(--pcp-spacing-sm);
+    border-radius: var(--pcp-radius-sm);
+    border-width: 1px;
+    border-color: var(--pcp-border-light);
+    background-color: rgba(45, 45, 45, 0.9);
+    color: var(--pcp-text-primary);
+    font-size: var(--pcp-font-lg);
+    -unity-text-align: middle-center;
+    -unity-font-style: bold;
+    cursor: link;
+}
+
+.pcp-treemap__controls-button:hover {
+    background-color: rgba(64, 64, 64, 0.95);
+    border-color: var(--pcp-text-secondary);
+}
+
+.pcp-treemap__controls-button:active {
+    background-color: var(--pcp-bg-selected);
+}
+
+/* Reset button (wider, shows text) */
+.pcp-treemap__controls-reset {
+    width: auto;
+    padding-left: var(--pcp-spacing-md);
+    padding-right: var(--pcp-spacing-md);
+    font-size: var(--pcp-font-sm);
+    -unity-font-style: normal;
+}

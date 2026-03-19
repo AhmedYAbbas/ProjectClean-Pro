@@ -1,0 +1,335 @@
+/* ============================================================================
+ * PCPCommon.uss - ProjectCleanPro Shared Component Styles
+ * ============================================================================
+ * Reusable UI building blocks used across every module view: layout
+ * containers, buttons, labels, cards, separators, and utility classes.
+ * ========================================================================= */
+
+/* ---------------------------------------------------------------------------
+ * Root Layout
+ * ------------------------------------------------------------------------ */
+
+.pcp-root {
+    flex-grow: 1;
+    flex-direction: row;
+    background-color: var(--pcp-bg-dark);
+}
+
+/* ---------------------------------------------------------------------------
+ * Vertical Tab Bar (Left Side Navigation)
+ * ------------------------------------------------------------------------ */
+
+.pcp-tab-bar {
+    flex-direction: column;
+    width: 200px;
+    min-width: 160px;
+    background-color: var(--pcp-bg-medium);
+    border-right-width: 1px;
+    border-right-color: var(--pcp-border);
+    padding-top: var(--pcp-spacing-md);
+    padding-bottom: var(--pcp-spacing-md);
+}
+
+.pcp-tab-button {
+    flex-direction: row;
+    align-items: center;
+    height: 36px;
+    padding-left: var(--pcp-spacing-lg);
+    padding-right: var(--pcp-spacing-md);
+    margin-left: 0;
+    margin-right: 0;
+    margin-top: 1px;
+    margin-bottom: 1px;
+    border-left-width: 3px;
+    border-left-color: rgba(0, 0, 0, 0);
+    background-color: rgba(0, 0, 0, 0);
+    border-radius: 0;
+    -unity-text-align: middle-left;
+    color: var(--pcp-text-secondary);
+    font-size: var(--pcp-font-md);
+    cursor: link;
+}
+
+.pcp-tab-button:hover {
+    background-color: var(--pcp-bg-hover);
+    color: var(--pcp-text-primary);
+}
+
+.pcp-tab-button--active {
+    background-color: var(--pcp-bg-light);
+    color: var(--pcp-text-primary);
+    border-left-color: var(--pcp-info);
+    -unity-font-style: bold;
+}
+
+.pcp-tab-button .pcp-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: var(--pcp-spacing-md);
+    flex-shrink: 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * Content Area
+ * ------------------------------------------------------------------------ */
+
+.pcp-content-area {
+    flex-grow: 1;
+    flex-direction: column;
+    background-color: var(--pcp-bg-dark);
+    overflow: hidden;
+}
+
+/* ---------------------------------------------------------------------------
+ * Toolbar
+ * ------------------------------------------------------------------------ */
+
+.pcp-toolbar {
+    flex-direction: row;
+    align-items: center;
+    height: 36px;
+    min-height: 36px;
+    padding-left: var(--pcp-spacing-md);
+    padding-right: var(--pcp-spacing-md);
+    background-color: var(--pcp-bg-medium);
+    border-bottom-width: 1px;
+    border-bottom-color: var(--pcp-border);
+}
+
+.pcp-toolbar__button {
+    height: 26px;
+    padding-left: var(--pcp-spacing-md);
+    padding-right: var(--pcp-spacing-md);
+    margin-left: var(--pcp-spacing-xs);
+    margin-right: var(--pcp-spacing-xs);
+    border-radius: var(--pcp-radius-sm);
+    border-width: 1px;
+    border-color: var(--pcp-border-light);
+    background-color: var(--pcp-bg-light);
+    color: var(--pcp-text-primary);
+    font-size: var(--pcp-font-sm);
+    -unity-text-align: middle-center;
+    cursor: link;
+}
+
+.pcp-toolbar__button:hover {
+    background-color: var(--pcp-bg-hover);
+    border-color: var(--pcp-text-secondary);
+}
+
+.pcp-toolbar__button:active {
+    background-color: var(--pcp-bg-selected);
+}
+
+/* ---------------------------------------------------------------------------
+ * Status Bar
+ * ------------------------------------------------------------------------ */
+
+.pcp-status-bar {
+    flex-direction: row;
+    align-items: center;
+    height: 24px;
+    min-height: 24px;
+    padding-left: var(--pcp-spacing-md);
+    padding-right: var(--pcp-spacing-md);
+    background-color: var(--pcp-bg-medium);
+    border-top-width: 1px;
+    border-top-color: var(--pcp-border);
+    color: var(--pcp-text-secondary);
+    font-size: var(--pcp-font-sm);
+}
+
+/* ---------------------------------------------------------------------------
+ * Split View
+ * ------------------------------------------------------------------------ */
+
+.pcp-split-view {
+    flex-grow: 1;
+    flex-direction: row;
+}
+
+/* ---------------------------------------------------------------------------
+ * Card
+ * ------------------------------------------------------------------------ */
+
+.pcp-card {
+    padding-top: var(--pcp-spacing-lg);
+    padding-bottom: var(--pcp-spacing-lg);
+    padding-left: var(--pcp-spacing-lg);
+    padding-right: var(--pcp-spacing-lg);
+    margin-top: var(--pcp-spacing-sm);
+    margin-bottom: var(--pcp-spacing-sm);
+    margin-left: var(--pcp-spacing-sm);
+    margin-right: var(--pcp-spacing-sm);
+    background-color: var(--pcp-bg-medium);
+    border-width: 1px;
+    border-color: var(--pcp-border);
+    border-radius: var(--pcp-radius-md);
+}
+
+/* ---------------------------------------------------------------------------
+ * Button Variants
+ * ------------------------------------------------------------------------ */
+
+.pcp-button-primary {
+    height: 28px;
+    padding-left: var(--pcp-spacing-lg);
+    padding-right: var(--pcp-spacing-lg);
+    border-radius: var(--pcp-radius-sm);
+    border-width: 0;
+    background-color: var(--pcp-info);
+    color: #ffffff;
+    font-size: var(--pcp-font-md);
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    cursor: link;
+}
+
+.pcp-button-primary:hover {
+    background-color: #6bb0e0;
+}
+
+.pcp-button-primary:active {
+    background-color: #4080b0;
+}
+
+.pcp-button-danger {
+    height: 28px;
+    padding-left: var(--pcp-spacing-lg);
+    padding-right: var(--pcp-spacing-lg);
+    border-radius: var(--pcp-radius-sm);
+    border-width: 0;
+    background-color: var(--pcp-error);
+    color: #ffffff;
+    font-size: var(--pcp-font-md);
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    cursor: link;
+}
+
+.pcp-button-danger:hover {
+    background-color: #f66c6c;
+}
+
+.pcp-button-danger:active {
+    background-color: #d03030;
+}
+
+.pcp-button-secondary {
+    height: 28px;
+    padding-left: var(--pcp-spacing-lg);
+    padding-right: var(--pcp-spacing-lg);
+    border-radius: var(--pcp-radius-sm);
+    border-width: 1px;
+    border-color: var(--pcp-border-light);
+    background-color: var(--pcp-bg-light);
+    color: var(--pcp-text-primary);
+    font-size: var(--pcp-font-md);
+    -unity-text-align: middle-center;
+    cursor: link;
+}
+
+.pcp-button-secondary:hover {
+    background-color: var(--pcp-bg-hover);
+    border-color: var(--pcp-text-secondary);
+}
+
+.pcp-button-secondary:active {
+    background-color: var(--pcp-bg-selected);
+}
+
+/* ---------------------------------------------------------------------------
+ * Label Variants
+ * ------------------------------------------------------------------------ */
+
+.pcp-label-header {
+    font-size: var(--pcp-font-xl);
+    -unity-font-style: bold;
+    color: var(--pcp-text-primary);
+    margin-bottom: var(--pcp-spacing-md);
+}
+
+.pcp-label-subheader {
+    font-size: var(--pcp-font-lg);
+    -unity-font-style: bold;
+    color: var(--pcp-text-primary);
+    margin-bottom: var(--pcp-spacing-sm);
+}
+
+.pcp-label-body {
+    font-size: var(--pcp-font-md);
+    color: var(--pcp-text-primary);
+}
+
+.pcp-label-caption {
+    font-size: var(--pcp-font-sm);
+    color: var(--pcp-text-secondary);
+}
+
+/* ---------------------------------------------------------------------------
+ * Separator
+ * ------------------------------------------------------------------------ */
+
+.pcp-separator {
+    height: 1px;
+    min-height: 1px;
+    max-height: 1px;
+    background-color: var(--pcp-border);
+    margin-top: var(--pcp-spacing-md);
+    margin-bottom: var(--pcp-spacing-md);
+}
+
+/* ---------------------------------------------------------------------------
+ * Scroll View
+ * ------------------------------------------------------------------------ */
+
+.pcp-scroll-view {
+    flex-grow: 1;
+}
+
+.pcp-scroll-view > #unity-content-container {
+    padding-top: var(--pcp-spacing-sm);
+    padding-bottom: var(--pcp-spacing-sm);
+}
+
+.pcp-scroll-view .unity-scroller--vertical {
+    width: 12px;
+}
+
+.pcp-scroll-view .unity-scroller--vertical .unity-base-slider__tracker {
+    background-color: var(--pcp-bg-medium);
+    border-width: 0;
+}
+
+.pcp-scroll-view .unity-scroller--vertical .unity-base-slider__dragger {
+    background-color: var(--pcp-bg-hover);
+    border-radius: var(--pcp-radius-sm);
+    border-width: 0;
+}
+
+.pcp-scroll-view .unity-scroller--vertical .unity-base-slider__dragger:hover {
+    background-color: var(--pcp-text-muted);
+}
+
+/* ---------------------------------------------------------------------------
+ * Icon
+ * ------------------------------------------------------------------------ */
+
+.pcp-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * Flex Utility Classes
+ * ------------------------------------------------------------------------ */
+
+.pcp-row {
+    flex-direction: row;
+    align-items: center;
+}
+
+.pcp-column {
+    flex-direction: column;
+}

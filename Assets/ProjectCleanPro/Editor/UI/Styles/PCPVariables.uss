@@ -1,0 +1,82 @@
+/* ============================================================================
+ * PCPVariables.uss - ProjectCleanPro Theme Variables
+ * ============================================================================
+ * Central definition of all custom properties (CSS variables) used throughout
+ * the ProjectCleanPro editor tool. Apply this stylesheet first so all other
+ * stylesheets can reference these tokens.
+ * ========================================================================= */
+
+:root {
+    /* -----------------------------------------------------------------------
+     * Module Accent Colors
+     * Each analysis module has a unique accent color used for its tab
+     * indicator, dashboard card header, and various highlights.
+     * -------------------------------------------------------------------- */
+    --pcp-unused-color: #C0392B;
+    --pcp-missing-color: #E67E22;
+    --pcp-duplicates-color: #8E44AD;
+    --pcp-dependencies-color: #2980B9;
+    --pcp-packages-color: #16A085;
+    --pcp-shaders-color: #E84393;
+    --pcp-size-color: #27AE60;
+    --pcp-delete-color: #7F8C8D;
+
+    /* -----------------------------------------------------------------------
+     * Spacing Tokens
+     * Consistent spacing scale used for margins, paddings, and gaps.
+     * -------------------------------------------------------------------- */
+    --pcp-spacing-xs: 2px;
+    --pcp-spacing-sm: 4px;
+    --pcp-spacing-md: 8px;
+    --pcp-spacing-lg: 16px;
+    --pcp-spacing-xl: 24px;
+
+    /* -----------------------------------------------------------------------
+     * Border Radius
+     * -------------------------------------------------------------------- */
+    --pcp-radius-sm: 3px;
+    --pcp-radius-md: 6px;
+
+    /* -----------------------------------------------------------------------
+     * Font Sizes
+     * -------------------------------------------------------------------- */
+    --pcp-font-sm: 11px;
+    --pcp-font-md: 12px;
+    --pcp-font-lg: 14px;
+    --pcp-font-xl: 18px;
+
+    /* -----------------------------------------------------------------------
+     * Surface / Background Colors (Dark Theme)
+     * Layered surface colors from darkest to lightest, following a
+     * "material elevation" approach for the dark theme.
+     * -------------------------------------------------------------------- */
+    --pcp-bg-dark: #1e1e1e;
+    --pcp-bg-medium: #2d2d2d;
+    --pcp-bg-light: #383838;
+    --pcp-bg-hover: #404040;
+    --pcp-bg-selected: #264f78;
+
+    /* -----------------------------------------------------------------------
+     * Text Colors
+     * Three levels of text emphasis: primary for main content, secondary
+     * for supporting text, and muted for disabled / placeholder text.
+     * -------------------------------------------------------------------- */
+    --pcp-text-primary: #d4d4d4;
+    --pcp-text-secondary: #808080;
+    --pcp-text-muted: #5a5a5a;
+
+    /* -----------------------------------------------------------------------
+     * Border Colors
+     * -------------------------------------------------------------------- */
+    --pcp-border: #3c3c3c;
+    --pcp-border-light: #4a4a4a;
+
+    /* -----------------------------------------------------------------------
+     * Status / Semantic Colors
+     * Used for inline status indicators, badges, and alert styling.
+     * -------------------------------------------------------------------- */
+    --pcp-error: #f44747;
+    --pcp-warning: #cca700;
+    --pcp-info: #569cd6;
+    --pcp-success: #6a9955;
+}

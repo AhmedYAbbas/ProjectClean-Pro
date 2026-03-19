@@ -1,0 +1,255 @@
+/* ============================================================================
+ * PCPDashboard.uss - ProjectCleanPro Dashboard Styles
+ * ============================================================================
+ * Styles for the main dashboard view that shows module summary cards,
+ * overall project health, and the "Scan All" action.
+ * ========================================================================= */
+
+/* ---------------------------------------------------------------------------
+ * Dashboard Container
+ * Uses flex-wrap to create a responsive card grid.
+ * ------------------------------------------------------------------------ */
+
+.pcp-dashboard {
+    flex-grow: 1;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    padding-top: var(--pcp-spacing-xl);
+    padding-bottom: var(--pcp-spacing-xl);
+    padding-left: var(--pcp-spacing-xl);
+    padding-right: var(--pcp-spacing-xl);
+}
+
+/* ---------------------------------------------------------------------------
+ * Module Summary Card
+ * Each card represents one analysis module (Unused Assets, Missing Refs, etc.)
+ * ------------------------------------------------------------------------ */
+
+.pcp-dashboard__card {
+    flex-direction: column;
+    min-width: 220px;
+    max-width: 300px;
+    width: 260px;
+    padding-top: var(--pcp-spacing-lg);
+    padding-bottom: var(--pcp-spacing-lg);
+    padding-left: var(--pcp-spacing-lg);
+    padding-right: var(--pcp-spacing-lg);
+    margin-top: var(--pcp-spacing-md);
+    margin-bottom: var(--pcp-spacing-md);
+    margin-left: var(--pcp-spacing-md);
+    margin-right: var(--pcp-spacing-md);
+    background-color: var(--pcp-bg-medium);
+    border-width: 1px;
+    border-color: var(--pcp-border);
+    border-radius: var(--pcp-radius-md);
+    cursor: link;
+}
+
+.pcp-dashboard__card:hover {
+    background-color: var(--pcp-bg-light);
+    border-color: var(--pcp-border-light);
+}
+
+/* ---------------------------------------------------------------------------
+ * Card Header
+ * Contains the module icon and title. A left border accent strip is colored
+ * per-module (set via inline style or additional modifier class in C#).
+ * ------------------------------------------------------------------------ */
+
+.pcp-dashboard__card-header {
+    flex-direction: row;
+    align-items: center;
+    padding-bottom: var(--pcp-spacing-md);
+    margin-bottom: var(--pcp-spacing-md);
+    border-bottom-width: 1px;
+    border-bottom-color: var(--pcp-border);
+    border-left-width: 3px;
+    border-left-color: var(--pcp-info);
+    padding-left: var(--pcp-spacing-md);
+}
+
+/* Per-module accent color modifiers for card headers */
+.pcp-dashboard__card--unused .pcp-dashboard__card-header {
+    border-left-color: var(--pcp-unused-color);
+}
+
+.pcp-dashboard__card--missing .pcp-dashboard__card-header {
+    border-left-color: var(--pcp-missing-color);
+}
+
+.pcp-dashboard__card--duplicates .pcp-dashboard__card-header {
+    border-left-color: var(--pcp-duplicates-color);
+}
+
+.pcp-dashboard__card--dependencies .pcp-dashboard__card-header {
+    border-left-color: var(--pcp-dependencies-color);
+}
+
+.pcp-dashboard__card--packages .pcp-dashboard__card-header {
+    border-left-color: var(--pcp-packages-color);
+}
+
+.pcp-dashboard__card--shaders .pcp-dashboard__card-header {
+    border-left-color: var(--pcp-shaders-color);
+}
+
+.pcp-dashboard__card--size .pcp-dashboard__card-header {
+    border-left-color: var(--pcp-size-color);
+}
+
+.pcp-dashboard__card--delete .pcp-dashboard__card-header {
+    border-left-color: var(--pcp-delete-color);
+}
+
+/* ---------------------------------------------------------------------------
+ * Card Icon
+ * ------------------------------------------------------------------------ */
+
+.pcp-dashboard__card-icon {
+    width: 20px;
+    height: 20px;
+    margin-right: var(--pcp-spacing-md);
+    flex-shrink: 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * Card Title
+ * ------------------------------------------------------------------------ */
+
+.pcp-dashboard__card-title {
+    font-size: var(--pcp-font-lg);
+    -unity-font-style: bold;
+    color: var(--pcp-text-primary);
+    flex-grow: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+ * Card Count - Large number showing total findings
+ * ------------------------------------------------------------------------ */
+
+.pcp-dashboard__card-count {
+    font-size: 28px;
+    -unity-font-style: bold;
+    color: var(--pcp-text-primary);
+    -unity-text-align: middle-left;
+    margin-top: var(--pcp-spacing-sm);
+    margin-bottom: var(--pcp-spacing-xs);
+}
+
+/* ---------------------------------------------------------------------------
+ * Card Size - Reclaimable/total size info
+ * ------------------------------------------------------------------------ */
+
+.pcp-dashboard__card-size {
+    font-size: var(--pcp-font-sm);
+    color: var(--pcp-text-secondary);
+    -unity-text-align: middle-left;
+    margin-bottom: var(--pcp-spacing-sm);
+}
+
+/* ---------------------------------------------------------------------------
+ * Card Status Indicator
+ * Shows scan state: not scanned, scanning, clean, issues found.
+ * ------------------------------------------------------------------------ */
+
+.pcp-dashboard__card-status {
+    flex-direction: row;
+    align-items: center;
+    margin-top: var(--pcp-spacing-sm);
+    padding-top: var(--pcp-spacing-sm);
+    border-top-width: 1px;
+    border-top-color: var(--pcp-border);
+    font-size: var(--pcp-font-sm);
+    color: var(--pcp-text-secondary);
+}
+
+.pcp-dashboard__card-status--clean {
+    color: var(--pcp-success);
+}
+
+.pcp-dashboard__card-status--issues {
+    color: var(--pcp-warning);
+}
+
+.pcp-dashboard__card-status--error {
+    color: var(--pcp-error);
+}
+
+.pcp-dashboard__card-status--scanning {
+    color: var(--pcp-info);
+}
+
+/* ---------------------------------------------------------------------------
+ * Scan All Button
+ * A prominent, wide button placed above or below the card grid.
+ * ------------------------------------------------------------------------ */
+
+.pcp-dashboard__scan-all-button {
+    height: 40px;
+    min-width: 200px;
+    align-self: center;
+    margin-top: var(--pcp-spacing-xl);
+    margin-bottom: var(--pcp-spacing-lg);
+    padding-left: var(--pcp-spacing-xl);
+    padding-right: var(--pcp-spacing-xl);
+    border-radius: var(--pcp-radius-md);
+    border-width: 0;
+    background-color: var(--pcp-info);
+    color: #ffffff;
+    font-size: var(--pcp-font-lg);
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    cursor: link;
+}
+
+.pcp-dashboard__scan-all-button:hover {
+    background-color: #6bb0e0;
+}
+
+.pcp-dashboard__scan-all-button:active {
+    background-color: #4080b0;
+}
+
+/* ---------------------------------------------------------------------------
+ * Summary Stats Row
+ * A horizontal bar at the top showing aggregate numbers.
+ * ------------------------------------------------------------------------ */
+
+.pcp-dashboard__summary {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding-top: var(--pcp-spacing-md);
+    padding-bottom: var(--pcp-spacing-md);
+    padding-left: var(--pcp-spacing-lg);
+    padding-right: var(--pcp-spacing-lg);
+    margin-bottom: var(--pcp-spacing-lg);
+    background-color: var(--pcp-bg-medium);
+    border-width: 1px;
+    border-color: var(--pcp-border);
+    border-radius: var(--pcp-radius-md);
+}
+
+.pcp-dashboard__summary-item {
+    flex-direction: column;
+    align-items: center;
+    padding-left: var(--pcp-spacing-lg);
+    padding-right: var(--pcp-spacing-lg);
+}
+
+.pcp-dashboard__summary-value {
+    font-size: var(--pcp-font-xl);
+    -unity-font-style: bold;
+    color: var(--pcp-text-primary);
+}
+
+.pcp-dashboard__summary-label {
+    font-size: var(--pcp-font-sm);
+    color: var(--pcp-text-secondary);
+    margin-top: var(--pcp-spacing-xs);
+}
