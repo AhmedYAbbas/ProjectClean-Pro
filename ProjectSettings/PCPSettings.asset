@@ -12,17 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 99af1f53933cf854d9b78285706d8cac, type: 3}
   m_Name: 
   m_EditorClassIdentifier: ProjectCleanPro.Editor::ProjectCleanPro.Editor.PCPSettings
-  includeAllScenes: 0
+  includeAllScenes: 1
   includeAddressables: 1
   includeAssetBundles: 1
-  scanEditorAssets: 0
+  scanEditorAssets: 1
   ignoreRules:
   - type: 0
-    pattern: Assets/Settings/DefaultVolumeProfile.asset
-    comment: Added via context menu
-    enabled: 1
-  - type: 0
-    pattern: Assets/Settings/UniversalRenderPipelineGlobalSettings.asset
+    pattern: Assets/TutorialInfo/Layout.wlt
     comment: Added via context menu
     enabled: 1
   archiveBeforeDelete: 1
@@ -39,6 +35,6 @@ MonoBehaviour:
   - {r: 0.5882353, g: 0.80784315, b: 0.7058824, a: 1}
   - {r: 1, g: 0.91764706, b: 0.654902, a: 1}
   - {r: 0.8666667, g: 0.627451, b: 0.8666667, a: 1}
-  - {r: 0.59607846, g: 0.84705883, b: 0.78431374, a: 1}
-  - {r: 0.96862745, g: 0.8627451, b: 0.43529412, a: 1}
-  customScanRoots: []
+  - {r: 0.3568441, g: 0.8443231, b: 0.9339623, a: 1}
+  - {r: 0.8624167, g: 0.9339623, b: 0.3127893, a: 1}
+  alwaysUsedRoots: []

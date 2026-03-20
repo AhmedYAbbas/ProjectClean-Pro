@@ -86,26 +86,36 @@ namespace ProjectCleanPro.Editor
         // ----------------------------------------------------------------
 
         [Header("Module Colors")]
-        [Tooltip("Eight colours used to tint module headers in the UI.")]
+        [Tooltip("Eight colours used to tint module headers, dashboard cards, and tab accents.")]
         public Color[] moduleColors = new Color[]
         {
             HexColor("FF6B6B"), // 0  Unused Assets
             HexColor("4ECDC4"), // 1  Missing References
-            HexColor("45B7D1"), // 2  Shader Analyzer
-            HexColor("96CEB4"), // 3  Duplicate Detector
-            HexColor("FFEAA7"), // 4  Texture Optimizer
-            HexColor("DDA0DD"), // 5  Dependency Graph
-            HexColor("98D8C8"), // 6  Audio Analyzer
-            HexColor("F7DC6F"), // 7  Build Report
+            HexColor("96CEB4"), // 2  Duplicates
+            HexColor("DDA0DD"), // 3  Dependencies
+            HexColor("FFEAA7"), // 4  Packages
+            HexColor("45B7D1"), // 5  Shaders
+            HexColor("F7DC6F"), // 6  Size Profiler
+            HexColor("98D8C8"), // 7  Archive
         };
 
+        /// <summary>
+        /// Safely returns the module color at the given index, with a fallback.
+        /// </summary>
+        public Color GetModuleColor(int index)
+        {
+            if (moduleColors != null && index >= 0 && index < moduleColors.Length)
+                return moduleColors[index];
+            return new Color(0.337f, 0.612f, 0.839f);
+        }
+
         // ----------------------------------------------------------------
-        // Custom scan roots
+        // Always-used roots
         // ----------------------------------------------------------------
 
-        [Header("Custom Scan Roots")]
-        [Tooltip("Additional folder paths to include as scan roots (e.g. Assets/MyContent).")]
-        public List<string> customScanRoots = new List<string>();
+        [Header("Always-Used Roots")]
+        [Tooltip("Folders or assets treated as used during scanning. Anything here (and its dependencies) will never be flagged as unused.")]
+        public List<string> alwaysUsedRoots = new List<string>();
 
         // ----------------------------------------------------------------
         // Public API

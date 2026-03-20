@@ -12,14 +12,14 @@
      * Each analysis module has a unique accent color used for its tab
      * indicator, dashboard card header, and various highlights.
      * -------------------------------------------------------------------- */
-    --pcp-unused-color: #C0392B;
-    --pcp-missing-color: #E67E22;
-    --pcp-duplicates-color: #8E44AD;
-    --pcp-dependencies-color: #2980B9;
-    --pcp-packages-color: #16A085;
-    --pcp-shaders-color: #E84393;
-    --pcp-size-color: #27AE60;
-    --pcp-delete-color: #7F8C8D;
+    --pcp-unused-color: #FF6B6B;
+    --pcp-missing-color: #4ECDC4;
+    --pcp-duplicates-color: #96CEB4;
+    --pcp-dependencies-color: #DDA0DD;
+    --pcp-packages-color: #FFEAA7;
+    --pcp-shaders-color: #45B7D1;
+    --pcp-size-color: #F7DC6F;
+    --pcp-delete-color: #98D8C8;
 
     /* -----------------------------------------------------------------------
      * Spacing Tokens

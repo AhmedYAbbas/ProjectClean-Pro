@@ -92,6 +92,10 @@ namespace ProjectCleanPro.Editor
                 if (IsIgnored(path, context))
                     continue;
 
+                // Skip editor-only paths unless settings opt-in.
+                if (!context.Settings.scanEditorAssets && PCPAssetUtils.IsEditorOnlyPath(path))
+                    continue;
+
                 string fullPath = Path.GetFullPath(path);
                 if (!File.Exists(fullPath))
                     continue;
@@ -100,7 +104,14 @@ namespace ProjectCleanPro.Editor
                 if (size == 0)
                     continue;
 
-                pathsWithSizes.Add(new PathSizePair { path = path, fullPath = fullPath, size = size });
+                bool isYaml = PCPFileUtils.IsUnityYamlAsset(fullPath);
+                pathsWithSizes.Add(new PathSizePair
+                {
+                    path = path,
+                    fullPath = fullPath,
+                    size = size,
+                    isUnityYaml = isYaml
+                });
             }
 
             if (ShouldCancel()) return;
@@ -108,13 +119,25 @@ namespace ProjectCleanPro.Editor
             // ----------------------------------------------------------
             // Phase 2: Group by file size (pre-filter)
             // ----------------------------------------------------------
+            // Unity YAML assets embed m_Name in the file, so copies of the
+            // same asset have slightly different sizes.  We skip the size
+            // pre-filter for them and hash every YAML asset with
+            // name-normalised hashing instead.
+            // ----------------------------------------------------------
             ReportProgress(0.1f, "Grouping by file size...");
 
             var sizeGroups = new Dictionary<long, List<PathSizePair>>();
+            var yamlAssets = new List<PathSizePair>();
 
             for (int i = 0; i < pathsWithSizes.Count; i++)
             {
                 var entry = pathsWithSizes[i];
+                if (entry.isUnityYaml)
+                {
+                    yamlAssets.Add(entry);
+                    continue;
+                }
+
                 if (!sizeGroups.TryGetValue(entry.size, out List<PathSizePair> group))
                 {
                     group = new List<PathSizePair>();
@@ -126,10 +149,10 @@ namespace ProjectCleanPro.Editor
             if (ShouldCancel()) return;
 
             // ----------------------------------------------------------
-            // Phase 3: Hash files within same-size groups
+            // Phase 3: Hash files within same-size groups + all YAML assets
             // ----------------------------------------------------------
             // Count how many files need hashing for progress reporting.
-            int filesToHash = 0;
+            int filesToHash = yamlAssets.Count;
             foreach (var kvp in sizeGroups)
             {
                 if (kvp.Value.Count > 1)
@@ -139,6 +162,66 @@ namespace ProjectCleanPro.Editor
             int hashed = 0;
             var hashGroups = new Dictionary<string, List<PathSizePair>>(StringComparer.Ordinal);
 
+            // Helper: hash a single entry and add it to hashGroups.
+            void HashEntry(PathSizePair entry, bool useNormalized)
+            {
+                hashed++;
+
+                if ((hashed & 31) == 0)
+                {
+                    float pct = 0.2f + 0.6f * ((float)hashed / Math.Max(filesToHash, 1));
+                    ReportProgress(pct, $"Hashing file {hashed}/{filesToHash}...");
+                }
+
+                // Check the cache first (only for non-normalised; normalised
+                // hashes depend on content transforms so we always recompute).
+                string hash = null;
+                if (!useNormalized && context.Cache != null && !context.Cache.IsStale(entry.path))
+                {
+                    hash = context.Cache.GetHash(entry.path);
+                }
+
+                if (string.IsNullOrEmpty(hash))
+                {
+                    try
+                    {
+                        hash = useNormalized
+                            ? PCPFileUtils.ComputeNormalizedSHA256(entry.fullPath)
+                            : PCPFileUtils.ComputeSHA256(entry.fullPath);
+                    }
+                    catch (Exception)
+                    {
+                        return;
+                    }
+
+                    // Store in cache (non-normalised only).
+                    if (!useNormalized && context.Cache != null && !string.IsNullOrEmpty(hash))
+                    {
+                        context.Cache.SetHash(entry.path, hash);
+                    }
+                }
+
+                if (string.IsNullOrEmpty(hash))
+                    return;
+
+                entry.hash = hash;
+
+                if (!hashGroups.TryGetValue(hash, out List<PathSizePair> hashGroup))
+                {
+                    hashGroup = new List<PathSizePair>();
+                    hashGroups[hash] = hashGroup;
+                }
+                hashGroup.Add(entry);
+            }
+
+            // 3a: Hash all Unity YAML assets (no size pre-filter).
+            for (int i = 0; i < yamlAssets.Count; i++)
+            {
+                if (ShouldCancel()) return;
+                HashEntry(yamlAssets[i], useNormalized: true);
+            }
+
+            // 3b: Hash non-YAML assets within same-size groups.
             foreach (var kvp in sizeGroups)
             {
                 if (ShouldCancel()) return;
@@ -150,52 +233,7 @@ namespace ProjectCleanPro.Editor
                 for (int i = 0; i < group.Count; i++)
                 {
                     if (ShouldCancel()) return;
-
-                    var entry = group[i];
-                    hashed++;
-
-                    if ((hashed & 31) == 0)
-                    {
-                        float pct = 0.2f + 0.6f * ((float)hashed / Math.Max(filesToHash, 1));
-                        ReportProgress(pct, $"Hashing file {hashed}/{filesToHash}...");
-                    }
-
-                    // Check the cache first.
-                    string hash = null;
-                    if (context.Cache != null && !context.Cache.IsStale(entry.path))
-                    {
-                        hash = context.Cache.GetHash(entry.path);
-                    }
-
-                    if (string.IsNullOrEmpty(hash))
-                    {
-                        try
-                        {
-                            hash = PCPFileUtils.ComputeSHA256(entry.fullPath);
-                        }
-                        catch (Exception)
-                        {
-                            continue;
-                        }
-
-                        // Store in cache.
-                        if (context.Cache != null && !string.IsNullOrEmpty(hash))
-                        {
-                            context.Cache.SetHash(entry.path, hash);
-                        }
-                    }
-
-                    if (string.IsNullOrEmpty(hash))
-                        continue;
-
-                    entry.hash = hash;
-
-                    if (!hashGroups.TryGetValue(hash, out List<PathSizePair> hashGroup))
-                    {
-                        hashGroup = new List<PathSizePair>();
-                        hashGroups[hash] = hashGroup;
-                    }
-                    hashGroup.Add(entry);
+                    HashEntry(group[i], useNormalized: false);
                 }
             }
 
@@ -226,7 +264,7 @@ namespace ProjectCleanPro.Editor
                         ? context.DependencyResolver.GetDependents(item.path)
                         : null;
 
-                    int refCount = dependents != null ? ((System.Collections.ICollection)dependents).Count : 0;
+                    int refCount = dependents != null ? dependents.Count : 0;
 
                     dupGroup.entries.Add(new PCPDuplicateEntry
                     {
@@ -267,6 +305,7 @@ namespace ProjectCleanPro.Editor
             public string fullPath;
             public long size;
             public string hash;
+            public bool isUnityYaml;
         }
     }
 }

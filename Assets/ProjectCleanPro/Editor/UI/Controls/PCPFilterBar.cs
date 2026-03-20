@@ -7,17 +7,6 @@ using UnityEngine.UIElements;
 namespace ProjectCleanPro.Editor
 {
     /// <summary>
-    /// Severity filter values for the dropdown.
-    /// </summary>
-    public enum PCPSeverityFilter
-    {
-        All,
-        Error,
-        Warning,
-        Info
-    }
-
-    /// <summary>
     /// Immutable snapshot of the current filter state, emitted by <see cref="PCPFilterBar"/>
     /// whenever any filter control changes.
     /// </summary>
@@ -25,7 +14,11 @@ namespace ProjectCleanPro.Editor
     {
         public string searchText = string.Empty;
         public HashSet<string> activeTypes = new HashSet<string>();
-        public PCPSeverity? severityFilter;
+        /// <summary>
+        /// Status filter string matching <see cref="PCPRowData.status"/> (case-insensitive).
+        /// Null means "show all".
+        /// </summary>
+        public string statusFilter;
         public long? minSize;
         public long? maxSize;
 
@@ -35,7 +28,7 @@ namespace ProjectCleanPro.Editor
         public bool IsDefault =>
             string.IsNullOrEmpty(searchText) &&
             (activeTypes == null || activeTypes.Count == 0) &&
-            !severityFilter.HasValue &&
+            statusFilter == null &&
             !minSize.HasValue &&
             !maxSize.HasValue;
 
@@ -45,7 +38,7 @@ namespace ProjectCleanPro.Editor
             {
                 searchText = searchText,
                 activeTypes = new HashSet<string>(activeTypes),
-                severityFilter = severityFilter,
+                statusFilter = statusFilter,
                 minSize = minSize,
                 maxSize = maxSize
             };
@@ -91,11 +84,13 @@ namespace ProjectCleanPro.Editor
         // Internal state
         private readonly TextField _searchField;
         private readonly VisualElement _chipContainer;
-        private readonly PopupField<string> _severityDropdown;
+        private PopupField<string> _statusDropdown;
+        private readonly VisualElement _statusDropdownContainer;
         private readonly Button _clearButton;
         private readonly Label _activeFiltersLabel;
         private readonly Dictionary<string, Button> _chipButtons = new Dictionary<string, Button>();
         private readonly HashSet<string> _activeTypes = new HashSet<string>();
+        private string _statusAllLabel = "All Statuses";
         private bool _suppressEvents;
 
         /// <summary>Raised whenever any filter value changes.</summary>
@@ -110,6 +105,17 @@ namespace ProjectCleanPro.Editor
 
         /// <summary>Read-only snapshot of currently active type filters.</summary>
         public IReadOnlyCollection<string> ActiveTypes => _activeTypes;
+
+        /// <summary>
+        /// Replaces the status dropdown choices with the given values.
+        /// Each view should call this to provide its own set of status labels.
+        /// </summary>
+        /// <param name="allLabel">Label for the "show all" option (e.g. "All Severities").</param>
+        /// <param name="choices">Status strings that match <see cref="PCPRowData.status"/> values.</param>
+        public void SetStatusChoices(string allLabel, params string[] choices)
+        {
+            BuildStatusDropdown(allLabel, choices);
+        }
 
         public PCPFilterBar()
         {
@@ -156,21 +162,13 @@ namespace ProjectCleanPro.Editor
 
             Add(_chipContainer);
 
-            // ----- Severity dropdown -----
-            var severityChoices = new List<string> { "All Severities", "Error", "Warning", "Info" };
-            _severityDropdown = new PopupField<string>(
-                severityChoices, 0,
-                formatSelectedValueCallback: val => val,
-                formatListItemCallback: val => val
-            )
-            {
-                name = "pcp-filter-severity"
-            };
-            _severityDropdown.AddToClassList(SeverityDropdownUssClassName);
-            _severityDropdown.style.minWidth = 120;
-            _severityDropdown.style.marginRight = 8;
-            _severityDropdown.RegisterValueChangedCallback(OnSeverityChanged);
-            Add(_severityDropdown);
+            // ----- Status dropdown (container allows replacement via SetStatusChoices) -----
+            _statusDropdownContainer = new VisualElement();
+            _statusDropdownContainer.style.marginRight = 8;
+            Add(_statusDropdownContainer);
+
+            // Default: severity-based choices
+            BuildStatusDropdown("All Severities", new[] { "ERROR", "WARNING", "INFO" });
 
             // ----- Clear button -----
             _clearButton = new Button(Reset)
@@ -221,6 +219,36 @@ namespace ProjectCleanPro.Editor
         }
 
         // ----------------------------------------------------------------
+        // Status dropdown builder
+        // ----------------------------------------------------------------
+
+        private void BuildStatusDropdown(string allLabel, string[] choices)
+        {
+            _statusAllLabel = allLabel;
+            _statusDropdownContainer.Clear();
+
+            var dropdownChoices = new List<string> { allLabel };
+            if (choices != null)
+            {
+                foreach (var c in choices)
+                    dropdownChoices.Add(c);
+            }
+
+            _statusDropdown = new PopupField<string>(
+                dropdownChoices, 0,
+                formatSelectedValueCallback: val => val,
+                formatListItemCallback: val => val
+            )
+            {
+                name = "pcp-filter-severity"
+            };
+            _statusDropdown.AddToClassList(SeverityDropdownUssClassName);
+            _statusDropdown.style.minWidth = 120;
+            _statusDropdown.RegisterValueChangedCallback(OnStatusChanged);
+            _statusDropdownContainer.Add(_statusDropdown);
+        }
+
+        // ----------------------------------------------------------------
         // Event handlers
         // ----------------------------------------------------------------
 
@@ -230,7 +258,7 @@ namespace ProjectCleanPro.Editor
                 NotifyFilterChanged();
         }
 
-        private void OnSeverityChanged(ChangeEvent<string> evt)
+        private void OnStatusChanged(ChangeEvent<string> evt)
         {
             if (!_suppressEvents)
                 NotifyFilterChanged();
@@ -268,7 +296,7 @@ namespace ProjectCleanPro.Editor
             _searchField.value = string.Empty;
             _activeTypes.Clear();
             RefreshAllChipStyles();
-            _severityDropdown.value = "All Severities";
+            _statusDropdown.value = _statusAllLabel;
 
             _suppressEvents = false;
             NotifyFilterChanged();
@@ -285,21 +313,8 @@ namespace ProjectCleanPro.Editor
                 activeTypes = new HashSet<string>(_activeTypes)
             };
 
-            switch (_severityDropdown.value)
-            {
-                case "Error":
-                    state.severityFilter = PCPSeverity.Error;
-                    break;
-                case "Warning":
-                    state.severityFilter = PCPSeverity.Warning;
-                    break;
-                case "Info":
-                    state.severityFilter = PCPSeverity.Info;
-                    break;
-                default:
-                    state.severityFilter = null;
-                    break;
-            }
+            string selected = _statusDropdown.value;
+            state.statusFilter = selected == _statusAllLabel ? null : selected;
 
             return state;
         }
@@ -382,9 +397,9 @@ namespace ProjectCleanPro.Editor
             if (_activeTypes.Count > 0)
                 parts.Add("Type: " + string.Join(", ", _activeTypes));
 
-            string severity = _severityDropdown.value;
-            if (severity != "All Severities")
-                parts.Add("Severity: " + severity);
+            string statusVal = _statusDropdown.value;
+            if (statusVal != _statusAllLabel)
+                parts.Add("Status: " + statusVal);
 
             string search = _searchField.value;
             if (!string.IsNullOrEmpty(search))

@@ -125,6 +125,118 @@ namespace ProjectCleanPro.Editor
         public bool IsClean => TotalFindingCount == 0;
 
         /// <summary>
+        /// Weighted project health score from 0 to 100. Uses severity-aware
+        /// penalties, size-based impact scaling, and exponential decay so the
+        /// score degrades gracefully across projects of any size.
+        /// </summary>
+        public int HealthScore
+        {
+            get
+            {
+                // ── Category weights (penalty points per finding) ──────
+                const float kMissingRefError   = 5.0f;
+                const float kMissingRefWarning = 3.0f;
+                const float kMissingRefInfo    = 1.0f;
+                const float kUnusedAsset       = 1.5f;
+                const float kDuplicateGroup    = 2.0f;
+                const float kShaderError       = 4.0f;
+                const float kShaderWarning     = 2.0f;
+                const float kShaderInfo        = 0.5f;
+                const float kUnusedPackage     = 1.0f;
+                const float kPackageOther      = 0.25f;
+                const float kSizeOptimizable   = 0.5f;
+
+                float rawPenalty = 0f;
+
+                // Missing references – weighted by severity
+                if (missingReferences != null)
+                {
+                    foreach (var mr in missingReferences)
+                    {
+                        switch (mr.severity)
+                        {
+                            case PCPSeverity.Error:   rawPenalty += kMissingRefError;   break;
+                            case PCPSeverity.Warning: rawPenalty += kMissingRefWarning; break;
+                            default:                  rawPenalty += kMissingRefInfo;    break;
+                        }
+                    }
+                }
+
+                // Unused assets – base penalty + size bonus
+                if (unusedAssets != null)
+                {
+                    foreach (var ua in unusedAssets)
+                    {
+                        rawPenalty += kUnusedAsset;
+                        // Extra penalty for large unused assets (> 1 MB)
+                        if (ua.SizeBytes > 1_048_576L)
+                            rawPenalty += 1.0f;
+                    }
+                }
+
+                // Duplicates – base penalty + size bonus
+                if (duplicateGroups != null)
+                {
+                    foreach (var dg in duplicateGroups)
+                    {
+                        rawPenalty += kDuplicateGroup;
+                        // Extra penalty for significant waste (> 1 MB)
+                        if (dg.WastedBytes > 1_048_576L)
+                            rawPenalty += 1.5f;
+                    }
+                }
+
+                // Shaders – weighted by computed severity
+                if (shaderEntries != null)
+                {
+                    foreach (var se in shaderEntries)
+                    {
+                        switch (se.GetSeverity())
+                        {
+                            case PCPSeverity.Error:   rawPenalty += kShaderError;   break;
+                            case PCPSeverity.Warning: rawPenalty += kShaderWarning; break;
+                            default:                  rawPenalty += kShaderInfo;    break;
+                        }
+                    }
+                }
+
+                // Packages – unused vs other
+                if (packageAuditEntries != null)
+                {
+                    foreach (var pkg in packageAuditEntries)
+                        rawPenalty += pkg.status == PCPPackageStatus.Unused
+                            ? kUnusedPackage
+                            : kPackageOther;
+                }
+
+                // Size entries – only count those with optimization suggestions
+                if (sizeEntries != null)
+                {
+                    foreach (var se in sizeEntries)
+                    {
+                        if (se.hasOptimizationSuggestion)
+                            rawPenalty += kSizeOptimizable;
+                    }
+                }
+
+                // ── Normalize relative to project size ─────────────────
+                // Scale the penalty down for larger projects so a project
+                // with 10 000 assets and 20 findings isn't punished as
+                // harshly as a project with 100 assets and 20 findings.
+                int assetCount = Math.Max(totalAssetsScanned, 1);
+                float scaleFactor = 100f / (float)Math.Sqrt(assetCount);
+
+                // ── Exponential decay: score = 100 * e^(-k * penalty) ─
+                // k is tuned so that ~50 weighted penalty points on a
+                // medium project (~1000 assets) yields roughly 50%.
+                float k = 0.02f * scaleFactor / 100f * (float)Math.Sqrt(100);
+                float score = 100f * (float)Math.Exp(-k * rawPenalty);
+
+                return Math.Max(0, Math.Min(100, (int)Math.Round(score)));
+            }
+        }
+
+        /// <summary>
         /// Clears all result lists, resetting the scan result to an empty state.
         /// Does not reset the timestamp or duration.
         /// </summary>

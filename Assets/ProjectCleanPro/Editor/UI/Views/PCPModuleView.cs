@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -14,7 +13,7 @@ namespace ProjectCleanPro.Editor
     /// Concrete views override <see cref="PopulateResults"/> to convert module data
     /// into <see cref="PCPRowData"/> for display.
     /// </summary>
-    public abstract class PCPModuleView : VisualElement
+    public abstract class PCPModuleView : VisualElement, IPCPRefreshable
     {
         // --------------------------------------------------------------------
         // State
@@ -23,12 +22,19 @@ namespace ProjectCleanPro.Editor
         protected readonly PCPScanResult m_ScanResult;
         protected readonly Func<PCPScanContext> m_CreateContext;
         protected readonly PCPModuleHeader m_Header;
+        private readonly int m_ModuleColorIndex;
         protected readonly PCPFilterBar m_FilterBar;
         protected readonly PCPResultListView m_ResultList;
         protected readonly VisualElement m_ActionBar;
         protected readonly Button m_DeleteSelectedBtn;
         protected readonly Button m_IgnoreSelectedBtn;
         protected readonly Button m_ExportBtn;
+
+        /// <summary>
+        /// Invoked after a single-module scan completes so the window can
+        /// refresh other views (e.g. the dashboard).
+        /// </summary>
+        public Action onScanComplete;
 
         // --------------------------------------------------------------------
         // Constructor
@@ -43,22 +49,23 @@ namespace ProjectCleanPro.Editor
         /// </param>
         /// <param name="moduleName">Display name for the module header.</param>
         /// <param name="moduleIcon">Unicode icon for the module header.</param>
-        /// <param name="accentColor">Accent color for the header bar.</param>
+        /// <param name="moduleColorIndex">Index into <see cref="PCPSettings.moduleColors"/>.</param>
         protected PCPModuleView(
             PCPScanResult scanResult,
             Func<PCPScanContext> createContext,
             string moduleName,
             string moduleIcon,
-            Color accentColor)
+            int moduleColorIndex)
         {
             m_ScanResult = scanResult;
             m_CreateContext = createContext;
+            m_ModuleColorIndex = moduleColorIndex;
 
             style.flexGrow = 1;
             style.flexDirection = FlexDirection.Column;
 
             // ---- Module header ----
-            m_Header = new PCPModuleHeader(moduleName, moduleIcon, accentColor);
+            m_Header = new PCPModuleHeader(moduleName, moduleIcon, PCPContext.Settings.GetModuleColor(m_ModuleColorIndex));
             m_Header.onScan += OnScanClicked;
             m_Header.style.flexShrink = 0;
             Add(m_Header);
@@ -71,7 +78,6 @@ namespace ProjectCleanPro.Editor
 
             // ---- Result list (center, grows to fill) ----
             m_ResultList = new PCPResultListView();
-            m_ResultList.onContextMenu += OnResultContextMenu;
             Add(m_ResultList);
 
             // ---- Action bar at bottom ----
@@ -157,6 +163,12 @@ namespace ProjectCleanPro.Editor
         /// <summary>
         /// Reads current module data and populates the list.
         /// </summary>
+        public void Refresh()
+        {
+            m_Header.AccentColor = PCPContext.Settings.GetModuleColor(m_ModuleColorIndex);
+            RefreshFromModule();
+        }
+
         public void RefreshFromModule()
         {
             PopulateResults();
@@ -187,6 +199,11 @@ namespace ProjectCleanPro.Editor
                     if (context != null)
                     {
                         DoModuleScan(context);
+
+                        // Update scan metadata so dashboard health score
+                        // and status labels reflect the latest results.
+                        m_ScanResult.totalAssetsScanned = AssetDatabase.GetAllAssetPaths().Length;
+                        m_ScanResult.scanTimestampUtc = DateTime.UtcNow.ToString("o");
                     }
                 }
                 catch (Exception ex)
@@ -196,6 +213,7 @@ namespace ProjectCleanPro.Editor
                 finally
                 {
                     OnScanComplete();
+                    onScanComplete?.Invoke();
                 }
             };
         }
@@ -214,70 +232,9 @@ namespace ProjectCleanPro.Editor
             m_ResultList.ApplyFilters(
                 filterState.searchText,
                 filterState.activeTypes.Count > 0 ? filterState.activeTypes : null,
-                filterState.severityFilter);
+                filterState.statusFilter);
         }
 
-        private void OnResultContextMenu(Vector2 mousePos, int rawIndex)
-        {
-            var menu = new GenericMenu();
-
-            if (rawIndex >= 0)
-            {
-                var selectedRows = m_ResultList.GetSelectedRowData();
-                PCPRowData? clickedRow = null;
-
-                // Get the clicked row data
-                var items = m_ResultList.ItemsSource;
-                if (items != null && rawIndex < items.Count)
-                {
-                    var allSelected = m_ResultList.GetSelectedRowData();
-                    if (allSelected.Count > 0)
-                        clickedRow = allSelected[0];
-                }
-
-                menu.AddItem(new GUIContent("Ping in Project"), false, () =>
-                {
-                    if (clickedRow.HasValue && !string.IsNullOrEmpty(clickedRow.Value.path))
-                    {
-                        var obj = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(clickedRow.Value.path);
-                        if (obj != null)
-                            EditorGUIUtility.PingObject(obj);
-                    }
-                });
-
-                menu.AddItem(new GUIContent("Add to Ignore List"), false, () =>
-                {
-                    if (clickedRow.HasValue && !string.IsNullOrEmpty(clickedRow.Value.path))
-                    {
-                        AddPathToIgnoreList(clickedRow.Value.path);
-                    }
-                });
-
-                menu.AddItem(new GUIContent("Show Dependencies"), false, () =>
-                {
-                    if (clickedRow.HasValue && !string.IsNullOrEmpty(clickedRow.Value.path))
-                    {
-                        ShowDependencies(clickedRow.Value.path);
-                    }
-                });
-
-                menu.AddSeparator("");
-
-                menu.AddItem(new GUIContent("Preview Delete"), false, () =>
-                {
-                    if (clickedRow.HasValue && !string.IsNullOrEmpty(clickedRow.Value.path))
-                    {
-                        PreviewDeleteSingle(clickedRow.Value.path);
-                    }
-                });
-            }
-            else
-            {
-                menu.AddDisabledItem(new GUIContent("No item selected"));
-            }
-
-            menu.ShowAsContext();
-        }
 
         // --------------------------------------------------------------------
         // Actions
@@ -316,7 +273,7 @@ namespace ProjectCleanPro.Editor
                 try
                 {
                     PCPSafeDelete.ArchiveAndDelete(preview, settings);
-                    RefreshFromModule();
+                    RescanAfterChange();
                 }
                 finally
                 {
@@ -342,7 +299,7 @@ namespace ProjectCleanPro.Editor
             }
 
             m_ResultList.ClearSelection();
-            RefreshFromModule();
+            RescanAfterChange();
         }
 
         private void OnExport()
@@ -374,62 +331,52 @@ namespace ProjectCleanPro.Editor
             {
                 type = PCPIgnoreType.PathPrefix,
                 pattern = path,
-                comment = "Added via context menu",
+                comment = "Added via ignore action",
                 enabled = true
             };
 
             settings.ignoreRules.Add(rule);
             settings.Save();
             Debug.Log($"[ProjectCleanPro] Added ignore rule: {path}");
+
+            // Notify the settings view so its ignore rules list updates immediately
+            var windows = Resources.FindObjectsOfTypeAll<PCPWindow>();
+            if (windows.Length > 0)
+                windows[0].RefreshSettingsView();
         }
 
-        private void ShowDependencies(string path)
+
+        /// <summary>
+        /// Runs a fresh module scan and refreshes the view.
+        /// Used after deletions or ignore-list changes to ensure
+        /// the displayed results reflect the current project state.
+        /// </summary>
+        private void RescanAfterChange()
         {
-            var context = m_CreateContext?.Invoke();
-            var resolver = context?.DependencyResolver;
-            if (resolver == null || !resolver.IsBuilt)
+            m_Header.IsScanning = true;
+
+            EditorApplication.delayCall += () =>
             {
-                EditorUtility.DisplayDialog("ProjectCleanPro",
-                    "Dependency graph not yet built. Run a scan first.", "OK");
-                return;
-            }
-
-            var deps = resolver.GetDependencies(path);
-            var dependents = resolver.GetDependents(path);
-
-            string message = $"Asset: {path}\n\n" +
-                $"Dependencies ({deps.Count}):\n" +
-                string.Join("\n", deps.Take(20)) +
-                (deps.Count > 20 ? $"\n...and {deps.Count - 20} more" : "") +
-                $"\n\nDependent on this ({dependents.Count}):\n" +
-                string.Join("\n", dependents.Take(20)) +
-                (dependents.Count > 20 ? $"\n...and {dependents.Count - 20} more" : "");
-
-            EditorUtility.DisplayDialog("Dependencies", message, "OK");
-        }
-
-        private void PreviewDeleteSingle(string path)
-        {
-            var context = m_CreateContext?.Invoke();
-            var resolver = context?.DependencyResolver;
-            var preview = PCPSafeDelete.Preview(new List<string> { path }, resolver);
-
-            if (PCPDeletePreviewDialog.Show(preview, out bool archive))
-            {
-                var settings = PCPContext.Settings;
-                bool originalArchive = settings.archiveBeforeDelete;
-                settings.archiveBeforeDelete = archive;
-
                 try
                 {
-                    PCPSafeDelete.ArchiveAndDelete(preview, settings);
-                    RefreshFromModule();
+                    var context = m_CreateContext?.Invoke();
+                    if (context != null)
+                    {
+                        DoModuleScan(context);
+                        m_ScanResult.totalAssetsScanned = AssetDatabase.GetAllAssetPaths().Length;
+                        m_ScanResult.scanTimestampUtc = DateTime.UtcNow.ToString("o");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[ProjectCleanPro] Re-scan after change failed: {ex}");
                 }
                 finally
                 {
-                    settings.archiveBeforeDelete = originalArchive;
+                    OnScanComplete();
+                    onScanComplete?.Invoke();
                 }
-            }
+            };
         }
     }
 }

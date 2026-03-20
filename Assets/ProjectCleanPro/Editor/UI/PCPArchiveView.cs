@@ -11,7 +11,7 @@ namespace ProjectCleanPro.Editor
     /// <see cref="PCPArchiveManager"/>. Each session is shown as an expandable
     /// card with file list, timestamp, and size information.
     /// </summary>
-    public sealed class PCPArchiveView : VisualElement
+    public sealed class PCPArchiveView : VisualElement, IPCPRefreshable
     {
         // USS class names
         public const string UssClassName = "pcp-archive-view";
@@ -111,6 +111,12 @@ namespace ProjectCleanPro.Editor
             // Initial load
             RefreshSessions();
         }
+
+        // --------------------------------------------------------------------
+        // IPCPRefreshable
+        // --------------------------------------------------------------------
+
+        public void Refresh() => RefreshSessions();
 
         // --------------------------------------------------------------------
         // Data loading

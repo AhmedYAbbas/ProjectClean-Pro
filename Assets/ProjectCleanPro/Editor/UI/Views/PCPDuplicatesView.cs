@@ -13,10 +13,10 @@ namespace ProjectCleanPro.Editor
     /// Each group shows its hash header, file count, wasted space, and a list
     /// of entries with reference counts and radio-style "Keep" selection.
     /// </summary>
-    public sealed class PCPDuplicatesView : VisualElement
+    public sealed class PCPDuplicatesView : VisualElement, IPCPRefreshable
     {
         // Colors
-        private static readonly Color k_AccentColor = new Color(0.588f, 0.808f, 0.706f, 1f);
+        private Color k_AccentColor => PCPContext.Settings.GetModuleColor(2);
         private static readonly Color k_CanonicalColor = new Color(0.416f, 0.600f, 0.333f, 1f);
         private static readonly Color k_DuplicateColor = new Color(0.800f, 0.655f, 0.000f, 1f);
 
@@ -119,6 +119,12 @@ namespace ProjectCleanPro.Editor
         /// <summary>
         /// Rebuilds the group display from the current scan result.
         /// </summary>
+        public void Refresh()
+        {
+            m_Header.AccentColor = k_AccentColor;
+            RefreshGroups();
+        }
+
         public void RefreshGroups()
         {
             m_GroupContainer.Clear();
@@ -182,8 +188,9 @@ namespace ProjectCleanPro.Editor
             foldout.style.paddingTop = 6;
             foldout.style.paddingBottom = 6;
 
-            // Ensure the canonical entry is elected
-            group.ElectCanonical();
+            // Only auto-elect if no entry is already marked canonical
+            if (!group.entries.Exists(e => e.isCanonical))
+                group.ElectCanonical();
 
             // Build entry rows
             for (int e = 0; e < group.entries.Count; e++)
@@ -204,23 +211,29 @@ namespace ProjectCleanPro.Editor
                     entryRow.style.borderBottomColor = new Color(0.25f, 0.25f, 0.25f, 1f);
                 }
 
-                // "Keep" radio button (toggle)
-                var keepToggle = new Toggle();
-                keepToggle.value = entry.isCanonical;
-                keepToggle.style.marginRight = 8;
-                keepToggle.tooltip = "Mark this copy as the one to keep";
-                keepToggle.RegisterValueChangedCallback(evt =>
+                // "Keep" radio button
+                var keepBtn = new Button(() =>
                 {
-                    if (evt.newValue)
-                    {
-                        // Deselect all others, select this one
-                        foreach (var en in group.entries)
-                            en.isCanonical = false;
-                        entry.isCanonical = true;
-                        RefreshGroups();
-                    }
+                    if (entry.isCanonical) return; // Already selected
+                    foreach (var en in group.entries)
+                        en.isCanonical = false;
+                    entry.isCanonical = true;
+                    RefreshGroups();
                 });
-                entryRow.Add(keepToggle);
+                keepBtn.text = entry.isCanonical ? "\u25C9" : "\u25CB"; // ◉ filled / ○ empty
+                keepBtn.style.width = 22;
+                keepBtn.style.height = 22;
+                keepBtn.style.marginRight = 8;
+                keepBtn.style.fontSize = 14;
+                keepBtn.style.unityTextAlign = TextAnchor.MiddleCenter;
+                keepBtn.style.backgroundColor = Color.clear;
+                keepBtn.style.borderLeftWidth = 0;
+                keepBtn.style.borderRightWidth = 0;
+                keepBtn.style.borderTopWidth = 0;
+                keepBtn.style.borderBottomWidth = 0;
+                keepBtn.style.color = entry.isCanonical ? k_CanonicalColor : new Color(0.5f, 0.5f, 0.5f, 1f);
+                keepBtn.tooltip = "Mark this copy as the one to keep";
+                entryRow.Add(keepBtn);
 
                 // Keep/Duplicate badge
                 if (entry.isCanonical)
@@ -310,8 +323,20 @@ namespace ProjectCleanPro.Editor
             {
                 try
                 {
-                    // Scanning logic will be handled by the module once registered
-                    Debug.Log("[ProjectCleanPro] Duplicate scan requested. Use 'Scan All' from the dashboard.");
+                    var context = m_CreateContext?.Invoke();
+                    if (context != null)
+                    {
+                        var scanner = new PCPDuplicateDetector();
+                        scanner.Scan(context);
+
+                        m_ScanResult.duplicateGroups.Clear();
+                        foreach (var result in scanner.Results)
+                            m_ScanResult.duplicateGroups.Add(result);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[ProjectCleanPro] Duplicate scan failed: {ex}");
                 }
                 finally
                 {

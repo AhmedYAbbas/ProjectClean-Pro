@@ -12,14 +12,14 @@ namespace ProjectCleanPro.Editor
     /// and dependent packages. Card border color indicates status:
     /// green = used, red = unused, yellow = transitive only.
     /// </summary>
-    public sealed class PCPPackagesView : VisualElement
+    public sealed class PCPPackagesView : VisualElement, IPCPRefreshable
     {
         // Status colors
         private static readonly Color k_UsedColor = new Color(0.416f, 0.600f, 0.333f, 1f);
         private static readonly Color k_UnusedColor = new Color(0.957f, 0.278f, 0.278f, 1f);
         private static readonly Color k_TransitiveColor = new Color(0.800f, 0.655f, 0.000f, 1f);
         private static readonly Color k_UnknownColor = new Color(0.502f, 0.502f, 0.502f, 1f);
-        private static readonly Color k_AccentColor = new Color(1f, 0.918f, 0.655f, 1f);
+        private Color k_AccentColor => PCPContext.Settings.GetModuleColor(4);
 
         // Filter enum
         private enum PackageFilter
@@ -189,6 +189,12 @@ namespace ProjectCleanPro.Editor
         /// <summary>
         /// Rebuilds the card display from current scan result data.
         /// </summary>
+        public void Refresh()
+        {
+            m_Header.AccentColor = k_AccentColor;
+            RefreshCards();
+        }
+
         public void RefreshCards()
         {
             m_CardContainer.Clear();
@@ -412,7 +418,20 @@ namespace ProjectCleanPro.Editor
             {
                 try
                 {
-                    Debug.Log("[ProjectCleanPro] Package audit scan requested. Use 'Scan All' from the dashboard.");
+                    var context = m_CreateContext?.Invoke();
+                    if (context != null)
+                    {
+                        var scanner = new PCPPackageAuditor();
+                        scanner.Scan(context);
+
+                        m_ScanResult.packageAuditEntries.Clear();
+                        foreach (var result in scanner.Results)
+                            m_ScanResult.packageAuditEntries.Add(result);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[ProjectCleanPro] Package audit scan failed: {ex}");
                 }
                 finally
                 {

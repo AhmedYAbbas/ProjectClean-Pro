@@ -49,6 +49,7 @@ namespace ProjectCleanPro.Editor
             new TabDefinition { label = "Packages",     icon = "\u2750", moduleId = "packages"    },
             new TabDefinition { label = "Shaders",      icon = "\u2726", moduleId = "shaders"     },
             new TabDefinition { label = "Size",         icon = "\u25A3", moduleId = "size"        },
+            new TabDefinition { label = "Archive",      icon = "\u2709", moduleId = null          },
             new TabDefinition { label = "Settings",     icon = "\u2699", moduleId = null          },
         };
 
@@ -81,7 +82,7 @@ namespace ProjectCleanPro.Editor
         // Menu item
         // --------------------------------------------------------------------
 
-        [MenuItem("Tools/ProjectClean Pro/Open Window %&p")]
+        [MenuItem("Tools/ProjectClean Pro")]
         public static void ShowWindow()
         {
             var window = GetWindow<PCPWindow>();
@@ -339,8 +340,20 @@ namespace ProjectCleanPro.Editor
             // 7: Size
             m_Views[7] = new PCPSizeView(m_LastScanResult, CreateScanContext);
 
-            // 8: Settings
-            m_Views[8] = new PCPSettingsView();
+            // 8: Archive
+            m_Views[8] = new PCPArchiveView();
+
+            // 9: Settings
+            m_Views[9] = new PCPSettingsView();
+
+            // Wire up per-module scan callbacks so the dashboard stays in sync.
+            for (int i = 0; i < m_Views.Length; i++)
+            {
+                if (m_Views[i] is PCPModuleView moduleView)
+                {
+                    moduleView.onScanComplete += OnModuleScanComplete;
+                }
+            }
         }
 
         // --------------------------------------------------------------------
@@ -379,16 +392,8 @@ namespace ProjectCleanPro.Editor
             {
                 m_ContentArea.Add(m_Views[index]);
 
-                if (m_Views[index] is PCPDashboardView dashboardView)
-                    dashboardView.RefreshData();
-                else if (m_Views[index] is PCPModuleView moduleView)
-                    moduleView.RefreshFromModule();
-                else if (m_Views[index] is PCPDuplicatesView duplicatesView)
-                    duplicatesView.RefreshGroups();
-                else if (m_Views[index] is PCPPackagesView packagesView)
-                    packagesView.RefreshCards();
-                else if (m_Views[index] is PCPSizeView sizeView)
-                    sizeView.RefreshData();
+                if (m_Views[index] is IPCPRefreshable refreshable)
+                    refreshable.Refresh();
             }
         }
 
@@ -404,15 +409,16 @@ namespace ProjectCleanPro.Editor
 
             switch (tabIndex)
             {
-                case 0: return new Color(0.337f, 0.612f, 0.839f); // Dashboard - blue
-                case 1: return settings.moduleColors.Length > 0 ? settings.moduleColors[0] : Color.red;
-                case 2: return settings.moduleColors.Length > 1 ? settings.moduleColors[1] : Color.yellow;
-                case 3: return settings.moduleColors.Length > 3 ? settings.moduleColors[3] : Color.magenta;
-                case 4: return settings.moduleColors.Length > 5 ? settings.moduleColors[5] : Color.cyan;
-                case 5: return settings.moduleColors.Length > 4 ? settings.moduleColors[4] : Color.green;
-                case 6: return settings.moduleColors.Length > 2 ? settings.moduleColors[2] : Color.white;
-                case 7: return settings.moduleColors.Length > 7 ? settings.moduleColors[7] : Color.yellow;
-                case 8: return new Color(0.5f, 0.5f, 0.5f); // Settings - gray
+                case 0: return new Color(0.337f, 0.612f, 0.839f); // Dashboard - fixed blue
+                case 1: return settings.GetModuleColor(0); // Unused
+                case 2: return settings.GetModuleColor(1); // Missing
+                case 3: return settings.GetModuleColor(2); // Duplicates
+                case 4: return settings.GetModuleColor(3); // Dependencies
+                case 5: return settings.GetModuleColor(4); // Packages
+                case 6: return settings.GetModuleColor(5); // Shaders
+                case 7: return settings.GetModuleColor(6); // Size
+                case 8: return settings.GetModuleColor(7); // Archive
+                case 9: return new Color(0.5f, 0.5f, 0.5f); // Settings - fixed gray
                 default: return new Color(0.337f, 0.612f, 0.839f);
             }
         }
@@ -492,13 +498,7 @@ namespace ProjectCleanPro.Editor
 
         private PCPScanContext CreateScanContext()
         {
-            PCPContext.Initialize();
-            return new PCPScanContext(
-                PCPContext.Settings,
-                PCPContext.IgnoreRules,
-                PCPContext.DependencyResolver,
-                PCPContext.ScanCache,
-                PCPContext.RenderPipelineDetector.Info);
+            return PCPScanContext.FromGlobalContext(PCPContext.Settings.alwaysUsedRoots);
         }
 
         private void ShowProgressOverlay(bool show)
@@ -542,6 +542,65 @@ namespace ProjectCleanPro.Editor
             {
                 SwitchToTab(m_ActiveTabIndex);
             }
+        }
+
+        /// <summary>
+        /// Refreshes the settings view so it reflects externally added ignore rules
+        /// or scan roots (e.g. added via a context menu in a module view).
+        /// </summary>
+        public void RefreshSettingsView()
+        {
+            if (m_Views != null)
+            {
+                foreach (var view in m_Views)
+                {
+                    if (view is PCPSettingsView settingsView)
+                    {
+                        settingsView.Refresh();
+                        break;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Re-reads module colors from settings and updates tab accents,
+        /// dashboard card headers, and all view header bars.
+        /// </summary>
+        public void RefreshModuleColors()
+        {
+            // Update tab accent colors
+            for (int i = 0; i < m_TabButtons.Count; i++)
+            {
+                if (i == m_ActiveTabIndex)
+                    m_TabButtons[i].style.borderLeftColor = GetTabAccentColor(i);
+            }
+
+            // Refresh all views that implement IPCPRefreshable (updates header accent colors)
+            if (m_Views != null)
+            {
+                for (int i = 0; i < m_Views.Length; i++)
+                {
+                    if (m_Views[i] is IPCPRefreshable refreshable)
+                        refreshable.Refresh();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Called when a single-module scan completes from an individual view.
+        /// Updates the status bar and refreshes the dashboard so health score
+        /// and summary cards reflect the latest data.
+        /// </summary>
+        private void OnModuleScanComplete()
+        {
+            m_LastScanTime = DateTime.UtcNow;
+            UpdateStatusBar();
+
+            // Refresh the dashboard view even if it's not the active tab,
+            // so it's up to date when the user switches back.
+            if (m_Views != null && m_Views[0] is IPCPRefreshable dashboard)
+                dashboard.Refresh();
         }
 
         private static void CollectModuleResults(IPCPModule module, PCPScanResult result)

@@ -92,7 +92,7 @@ namespace ProjectCleanPro.Editor
     /// an ObjectField for selecting a center asset and depth control, plus a
     /// <see cref="PCPDependencyGraphElement"/> canvas that displays nodes and edges.
     /// </summary>
-    public sealed class PCPDependencyGraphView : VisualElement
+    public sealed class PCPDependencyGraphView : VisualElement, IPCPRefreshable
     {
         // Asset type color mapping
         private static readonly Color k_TextureColor = new Color(0.400f, 0.600f, 0.800f, 1f);
@@ -220,6 +220,8 @@ namespace ProjectCleanPro.Editor
         /// <summary>
         /// Rebuilds the graph from the currently selected asset.
         /// </summary>
+        public void Refresh() => RefreshGraph();
+
         public void RefreshGraph()
         {
             ClearGraph();

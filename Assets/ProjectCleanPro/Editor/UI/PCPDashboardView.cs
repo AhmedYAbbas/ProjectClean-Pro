@@ -9,7 +9,7 @@ namespace ProjectCleanPro.Editor
     /// Dashboard view showing summary cards for each module, a health score,
     /// and a prominent "Scan All" button.
     /// </summary>
-    public sealed class PCPDashboardView : VisualElement
+    public sealed class PCPDashboardView : VisualElement, IPCPRefreshable
     {
         // --------------------------------------------------------------------
         // Module card definition
@@ -44,6 +44,7 @@ namespace ProjectCleanPro.Editor
         private readonly List<Label> m_CardCountLabels = new List<Label>();
         private readonly List<Label> m_CardSizeLabels = new List<Label>();
         private readonly List<Label> m_CardStatusLabels = new List<Label>();
+        private readonly List<VisualElement> m_CardHeaders = new List<VisualElement>();
 
         // Card definitions
         private static readonly ModuleCardDef[] k_CardDefs;
@@ -183,6 +184,7 @@ namespace ProjectCleanPro.Editor
             m_CardCountLabels.Clear();
             m_CardSizeLabels.Clear();
             m_CardStatusLabels.Clear();
+            m_CardHeaders.Clear();
 
             for (int i = 0; i < k_CardDefs.Length; i++)
             {
@@ -199,6 +201,14 @@ namespace ProjectCleanPro.Editor
                 var header = new VisualElement();
                 header.AddToClassList("pcp-dashboard__card-header");
 
+                // Apply module accent color from settings (overrides USS variable)
+                var settings = PCPContext.Settings;
+                if (settings != null)
+                {
+                    // tabIndex 1-7 maps to moduleColors 0-6
+                    header.style.borderLeftColor = settings.GetModuleColor(tabIndex - 1);
+                }
+
                 var iconLabel = new Label(def.icon);
                 iconLabel.AddToClassList("pcp-dashboard__card-icon");
                 iconLabel.style.fontSize = 16;
@@ -210,6 +220,7 @@ namespace ProjectCleanPro.Editor
                 header.Add(titleLabel);
 
                 card.Add(header);
+                m_CardHeaders.Add(header);
 
                 // Finding count (large number)
                 var countLabel = new Label("0");
@@ -261,15 +272,18 @@ namespace ProjectCleanPro.Editor
         /// <summary>
         /// Refreshes all dashboard data from the current scan result.
         /// </summary>
+        public void Refresh() => RefreshData();
+
         public void RefreshData()
         {
+            RefreshCardColors();
+
             if (m_ScanResult == null) return;
 
             int totalFindings = m_ScanResult.TotalFindingCount;
             string wastedSpace = m_ScanResult.FormattedWastedBytes;
 
-            // Health score: 100% minus 1% per finding, clamped to 0
-            int health = Math.Max(0, 100 - totalFindings);
+            int health = m_ScanResult.HealthScore;
 
             if (m_TotalFindingsValue != null)
                 m_TotalFindingsValue.text = totalFindings.ToString();
@@ -324,6 +338,18 @@ namespace ProjectCleanPro.Editor
                 m_ScanResult.shaderEntries.Count,
                 m_ScanResult.sizeEntries.Count,
             };
+        }
+
+        private void RefreshCardColors()
+        {
+            var settings = PCPContext.Settings;
+            if (settings == null) return;
+
+            for (int i = 0; i < m_CardHeaders.Count && i < k_CardDefs.Length; i++)
+            {
+                int tabIndex = k_CardDefs[i].tabIndex;
+                m_CardHeaders[i].style.borderLeftColor = settings.GetModuleColor(tabIndex - 1);
+            }
         }
 
         private long[] GetCardSizes()

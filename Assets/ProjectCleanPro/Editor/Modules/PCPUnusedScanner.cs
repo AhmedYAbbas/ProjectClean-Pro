@@ -9,7 +9,7 @@ namespace ProjectCleanPro.Editor
     /// <summary>
     /// Module 1 - Unused Asset Scanner.
     /// Identifies assets that are not reachable from any build scene,
-    /// Resources folder, AssetBundle, or custom scan root.
+    /// Resources folder, AssetBundle, or always-used root.
     /// </summary>
     public sealed class PCPUnusedScanner : PCPModuleBase
     {
@@ -69,12 +69,21 @@ namespace ProjectCleanPro.Editor
             ReportProgress(0f, "Collecting root assets...");
             var roots = new HashSet<string>(StringComparer.Ordinal);
 
-            // 1a. Enabled build scenes.
-            var buildScenes = EditorBuildSettings.scenes;
-            for (int i = 0; i < buildScenes.Length; i++)
+            // 1a. Scenes — either all project scenes or just enabled build scenes.
+            if (context.Settings.includeAllScenes)
             {
-                if (buildScenes[i].enabled && !string.IsNullOrEmpty(buildScenes[i].path))
-                    roots.Add(buildScenes[i].path);
+                string[] allScenes = PCPAssetUtils.GetAllScenePaths();
+                for (int i = 0; i < allScenes.Length; i++)
+                    roots.Add(allScenes[i]);
+            }
+            else
+            {
+                var buildScenes = EditorBuildSettings.scenes;
+                for (int i = 0; i < buildScenes.Length; i++)
+                {
+                    if (buildScenes[i].enabled && !string.IsNullOrEmpty(buildScenes[i].path))
+                        roots.Add(buildScenes[i].path);
+                }
             }
 
             // 1b. All assets under any Resources/ folder.
@@ -87,26 +96,53 @@ namespace ProjectCleanPro.Editor
             }
 
             // 1c. Assets assigned to AssetBundles.
-            string[] bundleNames = AssetDatabase.GetAllAssetBundleNames();
-            for (int i = 0; i < bundleNames.Length; i++)
+            if (context.Settings.includeAssetBundles)
             {
-                string[] bundleAssets = AssetDatabase.GetAssetPathsFromAssetBundle(bundleNames[i]);
-                for (int j = 0; j < bundleAssets.Length; j++)
-                    roots.Add(bundleAssets[j]);
-            }
-
-            // 1d. Custom scan roots from context.
-            if (context.CustomScanRoots != null)
-            {
-                for (int i = 0; i < context.CustomScanRoots.Count; i++)
+                string[] bundleNames = AssetDatabase.GetAllAssetBundleNames();
+                for (int i = 0; i < bundleNames.Length; i++)
                 {
-                    string cr = context.CustomScanRoots[i];
-                    if (!string.IsNullOrEmpty(cr))
-                        roots.Add(cr);
+                    string[] bundleAssets = AssetDatabase.GetAssetPathsFromAssetBundle(bundleNames[i]);
+                    for (int j = 0; j < bundleAssets.Length; j++)
+                        roots.Add(bundleAssets[j]);
                 }
             }
 
-            // 1e. Always-included shaders from GraphicsSettings.
+            // 1d. Addressable entries.
+            if (context.Settings.includeAddressables && PCPAddressablesBridge.HasAddressables)
+            {
+                var addressableRoots = PCPAddressablesBridge.GetRoots();
+                for (int i = 0; i < addressableRoots.Count; i++)
+                    roots.Add(addressableRoots[i]);
+            }
+
+            // 1e. Custom scan roots from context.
+            if (context.AlwaysUsedRoots != null)
+            {
+                for (int i = 0; i < context.AlwaysUsedRoots.Count; i++)
+                {
+                    string cr = context.AlwaysUsedRoots[i];
+                    if (string.IsNullOrEmpty(cr))
+                        continue;
+
+                    // If the custom root is a folder, expand to all assets under it.
+                    if (AssetDatabase.IsValidFolder(cr))
+                    {
+                        string[] guids = AssetDatabase.FindAssets("", new[] { cr });
+                        for (int j = 0; j < guids.Length; j++)
+                        {
+                            string assetPath = AssetDatabase.GUIDToAssetPath(guids[j]);
+                            if (!string.IsNullOrEmpty(assetPath) && !AssetDatabase.IsValidFolder(assetPath))
+                                roots.Add(assetPath);
+                        }
+                    }
+                    else
+                    {
+                        roots.Add(cr);
+                    }
+                }
+            }
+
+            // 1f. Always-included shaders from GraphicsSettings.
             var graphicsSettings = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(
                 "ProjectSettings/GraphicsSettings.asset");
             if (graphicsSettings != null)
@@ -136,13 +172,11 @@ namespace ProjectCleanPro.Editor
             ReportProgress(0.1f, "Building dependency graph...");
             var resolver = context.DependencyResolver;
 
-            if (!resolver.IsBuilt)
+            // Always rebuild — roots may have changed since the last scan.
+            resolver.Build(roots, (p, label) =>
             {
-                resolver.Build(roots, (p, label) =>
-                {
-                    ReportProgress(0.1f + p * 0.5f, label);
-                });
-            }
+                ReportProgress(0.1f + p * 0.5f, label);
+            });
 
             if (ShouldCancel()) return;
 
@@ -187,7 +221,7 @@ namespace ProjectCleanPro.Editor
                     continue;
 
                 // Skip editor-only paths (unless settings opt-in).
-                if (IsEditorOnlyPath(path))
+                if (!context.Settings.scanEditorAssets && IsEditorOnlyPath(path))
                     continue;
 
                 // Skip Packages/.

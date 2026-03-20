@@ -12,7 +12,7 @@ namespace ProjectCleanPro.Editor
     /// safe-delete options, module-specific settings, and module accent colors.
     /// All changes are auto-saved to <see cref="PCPSettings"/>.
     /// </summary>
-    public sealed class PCPSettingsView : VisualElement
+    public sealed class PCPSettingsView : VisualElement, IPCPRefreshable
     {
         // --------------------------------------------------------------------
         // State
@@ -52,8 +52,8 @@ namespace ProjectCleanPro.Editor
 
             AddSeparator(container);
 
-            // Section 2: Custom Scan Roots
-            BuildCustomScanRootsSection(container);
+            // Section 2: Always-Used Roots
+            BuildAlwaysUsedRootsSection(container);
 
             AddSeparator(container);
 
@@ -79,6 +79,17 @@ namespace ProjectCleanPro.Editor
 
             // Section 7: Actions
             BuildActionsSection(container);
+        }
+
+        // --------------------------------------------------------------------
+        // IPCPRefreshable
+        // --------------------------------------------------------------------
+
+        public void Refresh()
+        {
+            m_Settings = PCPContext.Settings;
+            RefreshIgnoreRules();
+            RefreshScanRoots();
         }
 
         // --------------------------------------------------------------------
@@ -108,15 +119,15 @@ namespace ProjectCleanPro.Editor
         }
 
         // --------------------------------------------------------------------
-        // Section 2: Custom Scan Roots
+        // Section 2: Always-Used Roots
         // --------------------------------------------------------------------
 
-        private void BuildCustomScanRootsSection(VisualElement parent)
+        private void BuildAlwaysUsedRootsSection(VisualElement parent)
         {
-            var section = CreateSection("Custom Scan Roots");
+            var section = CreateSection("Always-Used Roots");
             parent.Add(section);
 
-            var description = new Label("Additional folders to include as scan entry points.");
+            var description = new Label("Folders or assets that should never be flagged as unused. Their dependencies are also protected.");
             description.AddToClassList("pcp-label-caption");
             description.style.marginBottom = 8;
             section.Add(description);
@@ -128,7 +139,7 @@ namespace ProjectCleanPro.Editor
             RefreshScanRoots();
 
             var addBtn = new Button(AddScanRoot);
-            addBtn.text = "+ Add Scan Root";
+            addBtn.text = "+ Add Path";
             addBtn.AddToClassList("pcp-button-secondary");
             addBtn.style.alignSelf = Align.FlexStart;
             section.Add(addBtn);
@@ -138,10 +149,10 @@ namespace ProjectCleanPro.Editor
         {
             m_ScanRootsList.Clear();
 
-            for (int i = 0; i < m_Settings.customScanRoots.Count; i++)
+            for (int i = 0; i < m_Settings.alwaysUsedRoots.Count; i++)
             {
                 int index = i;
-                string rootPath = m_Settings.customScanRoots[i];
+                string rootPath = m_Settings.alwaysUsedRoots[i];
 
                 var row = new VisualElement();
                 row.style.flexDirection = FlexDirection.Row;
@@ -153,9 +164,9 @@ namespace ProjectCleanPro.Editor
                 pathField.style.flexGrow = 1;
                 pathField.RegisterValueChangedCallback(evt =>
                 {
-                    if (index < m_Settings.customScanRoots.Count)
+                    if (index < m_Settings.alwaysUsedRoots.Count)
                     {
-                        m_Settings.customScanRoots[index] = evt.newValue;
+                        m_Settings.alwaysUsedRoots[index] = evt.newValue;
                         SaveSettings();
                     }
                 });
@@ -163,7 +174,7 @@ namespace ProjectCleanPro.Editor
 
                 var browseBtn = new Button(() =>
                 {
-                    string folder = EditorUtility.OpenFolderPanel("Select Scan Root", "Assets", "");
+                    string folder = EditorUtility.OpenFolderPanel("Select Always-Used Folder", "Assets", "");
                     if (!string.IsNullOrEmpty(folder))
                     {
                         // Convert absolute to project-relative
@@ -171,9 +182,9 @@ namespace ProjectCleanPro.Editor
                         if (folder.StartsWith(dataPath))
                             folder = "Assets" + folder.Substring(dataPath.Length);
 
-                        if (index < m_Settings.customScanRoots.Count)
+                        if (index < m_Settings.alwaysUsedRoots.Count)
                         {
-                            m_Settings.customScanRoots[index] = folder;
+                            m_Settings.alwaysUsedRoots[index] = folder;
                             SaveSettings();
                             RefreshScanRoots();
                         }
@@ -186,9 +197,9 @@ namespace ProjectCleanPro.Editor
 
                 var removeBtn = new Button(() =>
                 {
-                    if (index < m_Settings.customScanRoots.Count)
+                    if (index < m_Settings.alwaysUsedRoots.Count)
                     {
-                        m_Settings.customScanRoots.RemoveAt(index);
+                        m_Settings.alwaysUsedRoots.RemoveAt(index);
                         SaveSettings();
                         RefreshScanRoots();
                     }
@@ -205,7 +216,7 @@ namespace ProjectCleanPro.Editor
 
         private void AddScanRoot()
         {
-            m_Settings.customScanRoots.Add("Assets/");
+            m_Settings.alwaysUsedRoots.Add("Assets/");
             SaveSettings();
             RefreshScanRoots();
         }
@@ -447,12 +458,12 @@ namespace ProjectCleanPro.Editor
             {
                 "Unused Assets",
                 "Missing References",
-                "Shader Analyzer",
-                "Duplicate Detector",
-                "Texture Optimizer",
-                "Dependency Graph",
-                "Audio Analyzer",
-                "Build Report",
+                "Duplicates",
+                "Dependencies",
+                "Packages",
+                "Shaders",
+                "Size Profiler",
+                "Archive",
             };
 
             for (int i = 0; i < colorNames.Length && i < m_Settings.moduleColors.Length; i++)
@@ -486,6 +497,7 @@ namespace ProjectCleanPro.Editor
                         m_Settings.moduleColors[colorIndex] = evt.newValue;
                         swatch.style.backgroundColor = evt.newValue;
                         SaveSettings();
+                        RefreshWindowColors();
                     }
                 });
                 row.Add(colorField);
@@ -579,6 +591,14 @@ namespace ProjectCleanPro.Editor
                 m_Settings.Save();
         }
 
+        private static void RefreshWindowColors()
+        {
+            // Find existing window without creating a new one
+            var windows = Resources.FindObjectsOfTypeAll<PCPWindow>();
+            if (windows.Length > 0)
+                windows[0].RefreshModuleColors();
+        }
+
         private void ResetToDefaults()
         {
             m_Settings.includeAllScenes = false;
@@ -593,7 +613,7 @@ namespace ProjectCleanPro.Editor
             m_Settings.shaderAnalyzerCheckPipeline = true;
             m_Settings.duplicateCompareImportSettings = true;
             m_Settings.ignoreRules.Clear();
-            m_Settings.customScanRoots.Clear();
+            m_Settings.alwaysUsedRoots.Clear();
 
             SaveSettings();
 

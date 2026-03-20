@@ -40,10 +40,11 @@ namespace ProjectCleanPro.Editor
                 createContext,
                 "Shader Analyzer",
                 "\u2726",
-                new Color(0.345f, 0.718f, 0.820f, 1f))
+                5)
         {
             // Shaders: wider Type for pipeline/variant/keyword/material info
             m_ResultList.SetColumnWidths(name: 180, path: 200, type: 200, size: 60, status: 100);
+            m_FilterBar.SetStatusChoices("All Statuses", "MISMATCH", "UNUSED", "HIGH VARIANTS", "OK");
 
             // Add a detail panel below the result list for showing keywords
             m_DetailPanel = new VisualElement();
@@ -144,7 +145,7 @@ namespace ProjectCleanPro.Editor
             }
             else if (shader.estimatedVariants > HighVariantThreshold)
             {
-                status = $"{shader.estimatedVariants} vars";
+                status = "HIGH VARIANTS";
                 statusColor = k_HighVariantColor;
             }
             else
@@ -242,6 +243,16 @@ namespace ProjectCleanPro.Editor
         // --------------------------------------------------------------------
         // Helpers
         // --------------------------------------------------------------------
+
+        protected override void DoModuleScan(PCPScanContext context)
+        {
+            var scanner = new PCPShaderAnalyzer();
+            scanner.Scan(context);
+
+            m_ScanResult.shaderEntries.Clear();
+            foreach (var result in scanner.Results)
+                m_ScanResult.shaderEntries.Add(result);
+        }
 
         private void UpdateHeader(int count)
         {

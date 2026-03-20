@@ -14,7 +14,7 @@ namespace ProjectCleanPro.Editor
     /// in the bottom half. Includes type filter tabs, a summary bar with percentage
     /// breakdowns, and optimization suggestion badges.
     /// </summary>
-    public sealed class PCPSizeView : VisualElement
+    public sealed class PCPSizeView : VisualElement, IPCPRefreshable
     {
         // Type categories and their colors
         private static readonly (string label, Color color, string[] extensions)[] k_TypeCategories = new[]
@@ -66,7 +66,7 @@ namespace ProjectCleanPro.Editor
             m_Header = new PCPModuleHeader(
                 "Size Profiler",
                 "\u25A3",
-                new Color(0.969f, 0.863f, 0.435f, 1f));
+                PCPContext.Settings.GetModuleColor(6));
             m_Header.onScan += OnScanClicked;
             m_Header.style.flexShrink = 0;
             Add(m_Header);
@@ -232,6 +232,12 @@ namespace ProjectCleanPro.Editor
         /// <summary>
         /// Rebuilds both the treemap and the list from current scan data.
         /// </summary>
+        public void Refresh()
+        {
+            m_Header.AccentColor = PCPContext.Settings.GetModuleColor(6);
+            RefreshData();
+        }
+
         public void RefreshData()
         {
             var filteredEntries = GetFilteredEntries();
@@ -516,7 +522,20 @@ namespace ProjectCleanPro.Editor
             {
                 try
                 {
-                    Debug.Log("[ProjectCleanPro] Size profiler scan requested. Use 'Scan All' from the dashboard.");
+                    var context = m_CreateContext?.Invoke();
+                    if (context != null)
+                    {
+                        var scanner = new PCPSizeProfiler();
+                        scanner.Scan(context);
+
+                        m_ScanResult.sizeEntries.Clear();
+                        foreach (var result in scanner.Results)
+                            m_ScanResult.sizeEntries.Add(result);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[ProjectCleanPro] Size profiler scan failed: {ex}");
                 }
                 finally
                 {

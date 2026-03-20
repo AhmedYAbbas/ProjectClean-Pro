@@ -27,10 +27,11 @@ namespace ProjectCleanPro.Editor
                 createContext,
                 "Unused Assets",
                 "\u2718",
-                new Color(0.753f, 0.224f, 0.169f, 1f))
+                0)
         {
             // Unused view: emphasize Name and Path, standard Size/Status
             m_ResultList.SetColumnWidths(name: 200, path: 280, type: 90, size: 80, status: 90);
+            m_FilterBar.SetStatusChoices("All Statuses", "UNUSED", "IN RESOURCES");
         }
 
         // --------------------------------------------------------------------

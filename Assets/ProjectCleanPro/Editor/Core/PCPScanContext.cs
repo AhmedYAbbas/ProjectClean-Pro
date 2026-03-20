@@ -47,10 +47,10 @@ namespace ProjectCleanPro.Editor
         public PCPRenderPipelineDetector RenderPipelineDetector { get; }
 
         /// <summary>
-        /// Optional set of additional root paths to treat as entry points
-        /// beyond scenes and Resources/ folders (e.g. Addressable entries).
+        /// Additional asset or folder paths whose contents (and dependencies)
+        /// are treated as used — they will never be flagged as unused.
         /// </summary>
-        public IReadOnlyList<string> CustomScanRoots { get; }
+        public IReadOnlyList<string> AlwaysUsedRoots { get; }
 
         /// <summary>
         /// Callback invoked by scan modules to report progress.
@@ -89,7 +89,7 @@ namespace ProjectCleanPro.Editor
             RenderPipeline = renderPipeline ?? throw new ArgumentNullException(nameof(renderPipeline));
             OnProgress = onProgress;
             CancellationToken = cancellationToken;
-            CustomScanRoots = new List<string>();
+            AlwaysUsedRoots = new List<string>();
         }
 
         /// <summary>
@@ -102,7 +102,7 @@ namespace ProjectCleanPro.Editor
             PCPScanCache scanCache,
             PCPIgnoreRules ignoreRules,
             PCPRenderPipelineDetector renderPipelineDetector,
-            IReadOnlyList<string> customScanRoots = null)
+            IReadOnlyList<string> alwaysUsedRoots = null)
         {
             Settings = settings ?? throw new ArgumentNullException(nameof(settings));
             IgnoreRules = ignoreRules ?? throw new ArgumentNullException(nameof(ignoreRules));
@@ -110,7 +110,7 @@ namespace ProjectCleanPro.Editor
             Cache = scanCache ?? throw new ArgumentNullException(nameof(scanCache));
             RenderPipelineDetector = renderPipelineDetector;
             RenderPipeline = renderPipelineDetector?.Info;
-            CustomScanRoots = customScanRoots ?? new List<string>();
+            AlwaysUsedRoots = alwaysUsedRoots ?? new List<string>();
             CancellationToken = default;
         }
 
@@ -135,7 +135,7 @@ namespace ProjectCleanPro.Editor
         /// <summary>
         /// Convenience factory that pulls everything from <see cref="PCPContext"/>.
         /// </summary>
-        public static PCPScanContext FromGlobalContext(IReadOnlyList<string> customRoots = null)
+        public static PCPScanContext FromGlobalContext(IReadOnlyList<string> alwaysUsedRoots = null)
         {
             PCPContext.Initialize();
             return new PCPScanContext(
@@ -144,7 +144,7 @@ namespace ProjectCleanPro.Editor
                 PCPContext.ScanCache,
                 PCPContext.IgnoreRules,
                 PCPContext.RenderPipelineDetector,
-                customRoots);
+                alwaysUsedRoots);
         }
     }
 }

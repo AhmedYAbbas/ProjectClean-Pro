@@ -79,6 +79,10 @@ namespace ProjectCleanPro.Editor
                 if (IsIgnored(path, context))
                     continue;
 
+                // Skip editor-only paths unless settings opt-in.
+                if (!context.Settings.scanEditorAssets && PCPAssetUtils.IsEditorOnlyPath(path))
+                    continue;
+
                 assetPaths.Add(path);
             }
 
@@ -142,6 +146,11 @@ namespace ProjectCleanPro.Editor
             if (allObjects == null || allObjects.Length == 0)
                 return;
 
+            // For prefabs, traverse the full GameObject hierarchy just like scenes,
+            // then skip GameObjects/Components since they were already covered.
+            bool isPrefab = ext.Equals(".prefab", StringComparison.OrdinalIgnoreCase);
+            bool prefabHandled = false;
+
             for (int objIdx = 0; objIdx < allObjects.Length; objIdx++)
             {
                 UnityEngine.Object obj = allObjects[objIdx];
@@ -150,19 +159,40 @@ namespace ProjectCleanPro.Editor
                 if (obj == null)
                     continue;
 
-                // ----------------------------------------------------------
-                // Check GameObjects for missing script components
-                // ----------------------------------------------------------
                 GameObject go = obj as GameObject;
-                if (go != null)
-                {
-                    CheckForMissingScripts(go, assetPath, assetName);
-                }
 
-                // ----------------------------------------------------------
-                // Check all serialized properties for broken object references
-                // ----------------------------------------------------------
-                CheckSerializedProperties(obj, assetPath, assetName);
+                if (isPrefab && go != null && go.transform.parent == null && !prefabHandled)
+                {
+                    prefabHandled = true;
+
+                    // Walk the full child hierarchy from the prefab root.
+                    Transform[] transforms = go.GetComponentsInChildren<Transform>(true);
+                    foreach (Transform t in transforms)
+                    {
+                        GameObject child = t.gameObject;
+                        CheckForMissingScripts(child, assetPath, assetName);
+
+                        Component[] components = child.GetComponents<Component>();
+                        foreach (Component comp in components)
+                        {
+                            if (comp == null) continue;
+                            CheckSerializedProperties(comp, assetPath, assetName);
+                        }
+                    }
+                }
+                else if (isPrefab && (go != null || obj is Component))
+                {
+                    // Skip — already processed during hierarchy traversal above.
+                    continue;
+                }
+                else
+                {
+                    // Non-prefab assets (ScriptableObjects, etc.)
+                    if (go != null)
+                        CheckForMissingScripts(go, assetPath, assetName);
+
+                    CheckSerializedProperties(obj, assetPath, assetName);
+                }
             }
         }
 

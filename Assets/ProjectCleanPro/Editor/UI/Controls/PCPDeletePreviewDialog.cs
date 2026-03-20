@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -33,7 +31,6 @@ namespace ProjectCleanPro.Editor
         private PCPDeletePreview m_Preview;
         private bool m_ArchiveEnabled = true;
         private bool m_Confirmed;
-        private bool m_Closed;
 
         /// <summary>Whether the user chose to archive before deletion.</summary>
         public bool ArchiveEnabled => m_ArchiveEnabled;
@@ -62,25 +59,13 @@ namespace ProjectCleanPro.Editor
             dialog.m_Preview = preview;
             dialog.m_ArchiveEnabled = true;
             dialog.m_Confirmed = false;
-            dialog.m_Closed = false;
             dialog.titleContent = new GUIContent(WindowTitle);
             dialog.minSize = new Vector2(WindowWidth, WindowHeight);
             dialog.maxSize = new Vector2(WindowWidth + 200, WindowHeight + 300);
-            dialog.ShowUtility();
-
-            // Block until the dialog is closed (modal behavior)
-            while (!dialog.m_Closed)
-            {
-                // Process editor events
-                if (!dialog)
-                    break;
-            }
+            dialog.ShowModal();
 
             archiveEnabled = dialog.m_ArchiveEnabled;
             bool confirmed = dialog.m_Confirmed;
-
-            if (dialog)
-                dialog.Close();
 
             return confirmed;
         }
@@ -91,15 +76,6 @@ namespace ProjectCleanPro.Editor
         public static bool Show(PCPDeletePreview preview)
         {
             return Show(preview, out _);
-        }
-
-        // --------------------------------------------------------------------
-        // Lifecycle
-        // --------------------------------------------------------------------
-
-        private void OnDestroy()
-        {
-            m_Closed = true;
         }
 
         private void CreateGUI()
@@ -378,14 +354,12 @@ namespace ProjectCleanPro.Editor
         private void OnConfirm()
         {
             m_Confirmed = true;
-            m_Closed = true;
             Close();
         }
 
         private void OnCancel()
         {
             m_Confirmed = false;
-            m_Closed = true;
             Close();
         }
     }

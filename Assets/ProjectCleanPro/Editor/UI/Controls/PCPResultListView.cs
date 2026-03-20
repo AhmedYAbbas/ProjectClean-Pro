@@ -72,7 +72,7 @@ namespace ProjectCleanPro.Editor
             new ColumnDef("Path",   260, true),
             new ColumnDef("Type",   90,  true),
             new ColumnDef("Size",   80,  true),
-            new ColumnDef("Status", 90,  false)
+            new ColumnDef("Status", 90,  true)
         };
 
         private struct ColumnDef
@@ -116,7 +116,7 @@ namespace ProjectCleanPro.Editor
         // Filtering
         private string _searchFilter = string.Empty;
         private HashSet<string> _typeFilter;
-        private PCPSeverity? _severityFilter;
+        private string _statusFilter;
 
         private static readonly string[] k_KnownTypeChips =
             { "Texture", "Material", "Mesh", "Audio", "Script", "Prefab", "Scene" };
@@ -125,8 +125,6 @@ namespace ProjectCleanPro.Editor
         /// <summary>Raised when the selection changes. Provides the list of selected raw indices.</summary>
         public event Action<IReadOnlyList<int>> onSelectionChanged;
 
-        /// <summary>Raised on right-click. Provides the mouse position and clicked row index (-1 if none).</summary>
-        public event Action<Vector2, int> onContextMenu;
 
         // ----------------------------------------------------------------
         // Properties
@@ -153,11 +151,11 @@ namespace ProjectCleanPro.Editor
         /// <summary>
         /// Applies all three filters together and rebuilds the list once.
         /// </summary>
-        public void ApplyFilters(string searchText, HashSet<string> typeFilter, PCPSeverity? severityFilter)
+        public void ApplyFilters(string searchText, HashSet<string> typeFilter, string statusFilter)
         {
             _searchFilter = searchText ?? string.Empty;
             _typeFilter = typeFilter;
-            _severityFilter = severityFilter;
+            _statusFilter = statusFilter;
             RebuildFilteredList();
         }
 
@@ -251,9 +249,6 @@ namespace ProjectCleanPro.Editor
             _emptyLabel.style.display = DisplayStyle.None;
             Add(_emptyLabel);
 
-            // Register right-click handler
-            _listView.RegisterCallback<ContextualMenuPopulateEvent>(OnContextMenuEvent, TrickleDown.TrickleDown);
-            _listView.RegisterCallback<MouseDownEvent>(OnMouseDown, TrickleDown.TrickleDown);
         }
 
         // ----------------------------------------------------------------
@@ -668,33 +663,6 @@ namespace ProjectCleanPro.Editor
             // This handles keyboard-based selection
         }
 
-        private void OnContextMenuEvent(ContextualMenuPopulateEvent evt)
-        {
-            // Bubble up the context menu event - consumers can add items
-        }
-
-        private void OnMouseDown(MouseDownEvent evt)
-        {
-            if (evt.button == 1) // Right click
-            {
-                // Determine which row was clicked
-                int clickedIndex = -1;
-                if (_filteredRows.Count > 0)
-                {
-                    // Approximate row index from mouse position relative to listview
-                    float localY = evt.localMousePosition.y;
-                    clickedIndex = Mathf.FloorToInt(localY / _listView.fixedItemHeight);
-                    if (clickedIndex >= _filteredRows.Count)
-                        clickedIndex = -1;
-                }
-
-                int rawIndex = clickedIndex >= 0 && clickedIndex < _filteredIndices.Count
-                    ? _filteredIndices[clickedIndex]
-                    : -1;
-
-                onContextMenu?.Invoke(evt.mousePosition, rawIndex);
-            }
-        }
 
         // ----------------------------------------------------------------
         // Public API
@@ -896,12 +864,11 @@ namespace ProjectCleanPro.Editor
                         continue;
                 }
 
-                // Severity filter (matches against row status text)
-                if (_severityFilter.HasValue)
+                // Status filter (exact match against row status text)
+                if (_statusFilter != null)
                 {
-                    string severityStr = _severityFilter.Value.ToString();
                     string rowStatus = row.status ?? string.Empty;
-                    if (!rowStatus.StartsWith(severityStr, StringComparison.OrdinalIgnoreCase))
+                    if (!string.Equals(rowStatus, _statusFilter, StringComparison.OrdinalIgnoreCase))
                         continue;
                 }
 
@@ -943,6 +910,10 @@ namespace ProjectCleanPro.Editor
                     break;
                 case "Size":
                     comparison = (a, b) => a.row.sizeBytes.CompareTo(b.row.sizeBytes);
+                    break;
+                case "Status":
+                    comparison = (a, b) => string.Compare(
+                        a.row.status ?? "", b.row.status ?? "", StringComparison.OrdinalIgnoreCase);
                     break;
             }
 

@@ -124,12 +124,29 @@ namespace ProjectCleanPro.Editor
             {
                 var roots = new HashSet<string>(StringComparer.Ordinal);
 
-                // Include build scenes as roots.
-                var buildScenes = EditorBuildSettings.scenes;
-                for (int i = 0; i < buildScenes.Length; i++)
+                // Include scenes as roots — all project scenes or just build scenes.
+                if (context.Settings.includeAllScenes)
                 {
-                    if (buildScenes[i].enabled && !string.IsNullOrEmpty(buildScenes[i].path))
-                        roots.Add(buildScenes[i].path);
+                    string[] allScenes = PCPAssetUtils.GetAllScenePaths();
+                    for (int i = 0; i < allScenes.Length; i++)
+                        roots.Add(allScenes[i]);
+                }
+                else
+                {
+                    var buildScenes = EditorBuildSettings.scenes;
+                    for (int i = 0; i < buildScenes.Length; i++)
+                    {
+                        if (buildScenes[i].enabled && !string.IsNullOrEmpty(buildScenes[i].path))
+                            roots.Add(buildScenes[i].path);
+                    }
+                }
+
+                // Include Addressable entries as roots.
+                if (context.Settings.includeAddressables && PCPAddressablesBridge.HasAddressables)
+                {
+                    var addressableRoots = PCPAddressablesBridge.GetRoots();
+                    for (int i = 0; i < addressableRoots.Count; i++)
+                        roots.Add(addressableRoots[i]);
                 }
 
                 _resolver.Build(roots, (p, label) =>
@@ -351,7 +368,7 @@ namespace ProjectCleanPro.Editor
                     string.Equals(ext, ".asmref", StringComparison.OrdinalIgnoreCase))
                     continue;
 
-                if (PCPAssetUtils.IsEditorOnlyPath(asset))
+                if (!context.Settings.scanEditorAssets && PCPAssetUtils.IsEditorOnlyPath(asset))
                     continue;
 
                 // Check if anything depends on this asset.

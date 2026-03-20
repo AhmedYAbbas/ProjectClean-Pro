@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace ProjectCleanPro.Editor
 {
@@ -35,6 +36,64 @@ namespace ProjectCleanPro.Editor
                        FileShare.Read, bufferSize: 81920))
             {
                 byte[] hashBytes = sha256.ComputeHash(stream);
+                return BytesToHex(hashBytes);
+            }
+        }
+
+        // Unity YAML header that identifies serialized assets.
+        private const string k_UnityYamlHeader = "%YAML 1.1";
+
+        // Regex to normalize m_Name lines so duplicate assets with different names
+        // produce the same hash.
+        private static readonly Regex s_NameLineRegex =
+            new Regex(@"^(\s*m_Name:).*$", RegexOptions.Multiline | RegexOptions.Compiled);
+
+        /// <summary>
+        /// Returns true if the file is a Unity serialized YAML asset (starts with "%YAML 1.1").
+        /// </summary>
+        public static bool IsUnityYamlAsset(string filePath)
+        {
+            try
+            {
+                using (var reader = new StreamReader(filePath))
+                {
+                    char[] buffer = new char[k_UnityYamlHeader.Length];
+                    int read = reader.Read(buffer, 0, buffer.Length);
+                    return read == buffer.Length &&
+                           new string(buffer) == k_UnityYamlHeader;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Computes a content-normalized SHA-256 hash for duplicate detection.
+        /// For Unity YAML assets, m_Name lines are stripped so that assets which
+        /// differ only by name produce the same hash.
+        /// For other files, this is identical to <see cref="ComputeSHA256"/>.
+        /// </summary>
+        public static string ComputeNormalizedSHA256(string filePath)
+        {
+            if (string.IsNullOrEmpty(filePath))
+                throw new ArgumentNullException(nameof(filePath));
+
+            if (!File.Exists(filePath))
+                throw new FileNotFoundException($"File not found: {filePath}", filePath);
+
+            if (!IsUnityYamlAsset(filePath))
+                return ComputeSHA256(filePath);
+
+            // Read the YAML text and normalize m_Name lines.
+            string text = File.ReadAllText(filePath);
+            string normalized = s_NameLineRegex.Replace(text, "$1");
+
+            using (var sha256 = SHA256.Create())
+            {
+                byte[] bytes = Encoding.UTF8.GetBytes(normalized);
+                byte[] hashBytes = sha256.ComputeHash(bytes);
                 return BytesToHex(hashBytes);
             }
         }
