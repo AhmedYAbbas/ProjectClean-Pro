@@ -16,16 +16,12 @@ MonoBehaviour:
   includeAddressables: 1
   includeAssetBundles: 1
   scanEditorAssets: 1
-  ignoreRules:
-  - type: 0
-    pattern: Assets/TutorialInfo/Layout.wlt
-    comment: Added via context menu
-    enabled: 1
+  ignoreRules: []
   archiveBeforeDelete: 1
   useGitRm: 1
   nullOutReferencesOnDelete: 1
   archiveRetentionDays: 1
-  dependencyGraphMaxDepth: 5
+  dependencyGraphMaxDepth: 10
   shaderAnalyzerCheckPipeline: 1
   duplicateCompareImportSettings: 1
   moduleColors:

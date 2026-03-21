@@ -105,7 +105,21 @@ namespace ProjectCleanPro.Editor
                     ReportProgress(pct, $"Scanning asset {i}/{total}...");
                 }
 
+                // If the asset hasn't changed and was previously scanned with
+                // zero missing references, we can safely skip it.
+                if (!context.Cache.IsStale(assetPath))
+                {
+                    string cachedCount = context.Cache.GetMetadata(assetPath, "missing.count");
+                    if (cachedCount != null && cachedCount == "0")
+                        continue;
+                }
+
+                int countBefore = _results.Count;
                 ScanAsset(assetPath);
+                int found = _results.Count - countBefore;
+
+                // Cache the result count so we can skip clean assets next time.
+                context.Cache.SetMetadata(assetPath, "missing.count", found.ToString());
             }
 
             ReportProgress(1f, $"Found {_results.Count} missing references.");

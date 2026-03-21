@@ -15,7 +15,14 @@
       "Bash(find C:/Ahmed/Dev/Unity/ProjectCleanPro/Library/PackageCache/com.unity.render-pipelines.core@d6dfd1e235d5/ -iname *probevolume*debug* -o -iname *probe*debug*)",
       "Bash(grep -i \"\\\\.cs$\")",
       "Bash(grep -n \"\\\\.Build\\\\\\(\" /c/Ahmed/Dev/Unity/ProjectCleanPro/Assets/ProjectCleanPro/Editor/Modules/*.cs)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(find C:/Ahmed/Dev/Unity/ProjectCleanPro/Assets -type d -name Test* -o -type d -name *Test*)",
+      "Bash(where Unity)",
+      "Read(//c/Program Files/Unity/Hub/Editor/**)",
+      "Bash(UNITY=\"C:/Program Files/Unity/Hub/Editor/6000.3.7f1/Editor/Unity.exe\")",
+      "Bash(\"$UNITY\" -runTests -batchmode -nographics -projectPath \"C:\\\\Ahmed\\\\Dev\\\\Unity\\\\ProjectCleanPro\" -testResults \"C:\\\\Ahmed\\\\Dev\\\\Unity\\\\ProjectCleanPro\\\\TestResults.xml\" -testPlatform EditMode -testFilter \"ProjectCleanPro.Tests.Editor.PCPScanCacheTests\" -logFile \"C:\\\\Ahmed\\\\Dev\\\\Unity\\\\ProjectCleanPro\\\\TestLog.txt\")",
+      "Bash(echo \"EXIT CODE: $?\")",
+      "Bash(find C:AhmedDevUnityProjectCleanProAssetsProjectCleanProTests -type f -name *.cs)"
     ]
   }
 }

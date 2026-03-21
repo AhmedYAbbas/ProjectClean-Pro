@@ -30,6 +30,12 @@ namespace ProjectCleanPro.Editor
         /// <summary>Per-asset size profile entries from the size profiler.</summary>
         public List<PCPSizeEntry> sizeEntries = new List<PCPSizeEntry>();
 
+        /// <summary>Circular dependency chains detected by the dependency module.</summary>
+        public List<PCPCircularDependency> circularDependencies = new List<PCPCircularDependency>();
+
+        /// <summary>Orphan assets (zero incoming edges, not roots) found by the dependency module.</summary>
+        public List<string> orphanAssets = new List<string>();
+
         // ── Metadata ────────────────────────────────────────────────────
 
         /// <summary>UTC timestamp when the scan started (ISO 8601).</summary>
@@ -68,9 +74,25 @@ namespace ProjectCleanPro.Editor
                 count += unusedAssets.Count;
                 count += missingReferences.Count;
                 count += duplicateGroups.Count;
-                count += packageAuditEntries.Count;
-                count += shaderEntries.Count;
-                count += sizeEntries.Count;
+
+                // Only count packages that are actually problematic.
+                if (packageAuditEntries != null)
+                    foreach (var pkg in packageAuditEntries)
+                        if (pkg.status == PCPPackageStatus.Unused)
+                            count++;
+
+                // Only count shaders with issues (mismatch, unused, high variants).
+                if (shaderEntries != null)
+                    foreach (var se in shaderEntries)
+                        if (se.GetSeverity() != PCPSeverity.Info)
+                            count++;
+
+                // Only count size entries with optimization suggestions.
+                if (sizeEntries != null)
+                    foreach (var se in sizeEntries)
+                        if (se.hasOptimizationSuggestion)
+                            count++;
+
                 return count;
             }
         }
@@ -200,13 +222,16 @@ namespace ProjectCleanPro.Editor
                     }
                 }
 
-                // Packages – unused vs other
+                // Packages – only penalize unused and transitive-only
                 if (packageAuditEntries != null)
                 {
                     foreach (var pkg in packageAuditEntries)
-                        rawPenalty += pkg.status == PCPPackageStatus.Unused
-                            ? kUnusedPackage
-                            : kPackageOther;
+                    {
+                        if (pkg.status == PCPPackageStatus.Unused)
+                            rawPenalty += kUnusedPackage;
+                        else if (pkg.status == PCPPackageStatus.TransitiveOnly)
+                            rawPenalty += kPackageOther;
+                    }
                 }
 
                 // Size entries – only count those with optimization suggestions
@@ -236,6 +261,12 @@ namespace ProjectCleanPro.Editor
             }
         }
 
+        /// <summary>Number of circular dependency chains found.</summary>
+        public int CircularDependencyCount => circularDependencies?.Count ?? 0;
+
+        /// <summary>Number of orphan assets found.</summary>
+        public int OrphanAssetCount => orphanAssets?.Count ?? 0;
+
         /// <summary>
         /// Clears all result lists, resetting the scan result to an empty state.
         /// Does not reset the timestamp or duration.
@@ -248,6 +279,8 @@ namespace ProjectCleanPro.Editor
             packageAuditEntries.Clear();
             shaderEntries.Clear();
             sizeEntries.Clear();
+            circularDependencies.Clear();
+            orphanAssets.Clear();
         }
 
         /// <summary>
@@ -260,6 +293,8 @@ namespace ProjectCleanPro.Editor
                    $"  Unused assets:       {unusedAssets.Count}\n" +
                    $"  Missing references:  {missingReferences.Count}\n" +
                    $"  Duplicate groups:    {duplicateGroups.Count}\n" +
+                   $"  Circular deps:       {circularDependencies.Count}\n" +
+                   $"  Orphan assets:       {orphanAssets.Count}\n" +
                    $"  Package audit:       {packageAuditEntries.Count}\n" +
                    $"  Shader entries:      {shaderEntries.Count}\n" +
                    $"  Size entries:        {sizeEntries.Count}\n" +

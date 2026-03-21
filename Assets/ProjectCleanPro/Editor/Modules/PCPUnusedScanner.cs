@@ -165,7 +165,7 @@ namespace ProjectCleanPro.Editor
             resolver.Build(roots, (p, label) =>
             {
                 ReportProgress(0.1f + p * 0.5f, label);
-            });
+            }, context.Cache);
 
             if (ShouldCancel()) return;
 
@@ -183,7 +183,6 @@ namespace ProjectCleanPro.Editor
             string[] projectAssets = PCPAssetUtils.GetAllProjectAssets();
 
             int total = projectAssets.Length;
-            int processed = 0;
 
             for (int i = 0; i < total; i++)
             {
@@ -218,7 +217,6 @@ namespace ProjectCleanPro.Editor
                 // This asset is unused.
                 var entry = PCPUnusedAsset.FromPath(path);
                 _results.Add(entry);
-                processed++;
             }
 
             // ----------------------------------------------------------

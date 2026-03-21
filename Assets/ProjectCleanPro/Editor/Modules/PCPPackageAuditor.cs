@@ -76,7 +76,23 @@ namespace ProjectCleanPro.Editor
             PackageInfo[] allPackages;
             try
             {
+#if UNITY_2021_1_OR_NEWER
                 allPackages = PackageInfo.GetAllRegisteredPackages();
+#else
+                // GetAllRegisteredPackages() is not available before Unity 2021.1.
+                // Fall back to the synchronous Client.List() request.
+                var listRequest = UnityEditor.PackageManager.Client.List(true, false);
+                while (!listRequest.IsCompleted)
+                    System.Threading.Thread.Sleep(10);
+
+                if (listRequest.Status != UnityEditor.PackageManager.StatusCode.Success)
+                {
+                    Debug.LogWarning("[ProjectCleanPro] Failed to list packages via Client.List().");
+                    return;
+                }
+
+                allPackages = listRequest.Result.ToArray();
+#endif
             }
             catch (Exception ex)
             {
@@ -256,25 +272,50 @@ namespace ProjectCleanPro.Editor
                 if (!csPath.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
                     continue;
 
-                string csFullPath = Path.GetFullPath(csPath);
-                if (!File.Exists(csFullPath))
-                    continue;
-
-                string sourceContent;
-                try
+                // Try to use cached using directives for unchanged files.
+                string[] usings = null;
+                if (!context.Cache.IsStale(csPath))
                 {
-                    sourceContent = File.ReadAllText(csFullPath);
+                    string cached = context.Cache.GetMetadata(csPath, "packages.usings");
+                    if (cached != null)
+                    {
+                        usings = cached.Length > 0
+                            ? cached.Split(',')
+                            : Array.Empty<string>();
+                    }
                 }
-                catch (Exception)
+
+                if (usings == null)
                 {
-                    continue;
+                    // Cache miss or stale — read and parse the file.
+                    string csFullPath = Path.GetFullPath(csPath);
+                    if (!File.Exists(csFullPath))
+                        continue;
+
+                    string sourceContent;
+                    try
+                    {
+                        sourceContent = File.ReadAllText(csFullPath);
+                    }
+                    catch (Exception)
+                    {
+                        continue;
+                    }
+
+                    MatchCollection matches = s_UsingRegex.Matches(sourceContent);
+                    var usingList = new List<string>(matches.Count);
+                    foreach (Match match in matches)
+                        usingList.Add(match.Groups[1].Value);
+
+                    usings = usingList.ToArray();
+
+                    // Store in cache for next scan.
+                    context.Cache.SetMetadata(csPath, "packages.usings",
+                        string.Join(",", usings));
                 }
 
-                MatchCollection matches = s_UsingRegex.Matches(sourceContent);
-                foreach (Match match in matches)
+                foreach (string ns in usings)
                 {
-                    string ns = match.Groups[1].Value;
-
                     // Check if this namespace matches any package namespace.
                     foreach (var kvp in namespaceToPackage)
                     {

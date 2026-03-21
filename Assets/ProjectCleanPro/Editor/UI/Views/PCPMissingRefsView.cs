@@ -111,6 +111,18 @@ namespace ProjectCleanPro.Editor
             clearBtn.style.paddingBottom = 3;
             filterBar.Add(clearBtn);
 
+            var exportSpacer = new VisualElement();
+            exportSpacer.style.flexGrow = 1;
+            filterBar.Add(exportSpacer);
+
+            var exportBtn = new Button(OnExport) { text = "Export" };
+            exportBtn.AddToClassList("pcp-button-secondary");
+            exportBtn.style.paddingLeft = 10;
+            exportBtn.style.paddingRight = 10;
+            exportBtn.style.paddingTop = 3;
+            exportBtn.style.paddingBottom = 3;
+            filterBar.Add(exportBtn);
+
             Add(filterBar);
 
             // Scrollable group container
@@ -441,6 +453,15 @@ namespace ProjectCleanPro.Editor
                     RefreshGroups();
                 }
             };
+        }
+
+        private void OnExport()
+        {
+            if (m_ScanResult == null)
+                return;
+
+            var moduleResult = PCPReportExporter.CreateModuleSubset(m_ScanResult, "missing");
+            PCPReportExporter.ShowExportMenu(moduleResult);
         }
 
         // --------------------------------------------------------------------

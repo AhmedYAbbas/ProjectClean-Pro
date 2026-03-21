@@ -147,7 +147,11 @@ namespace ProjectCleanPro.Editor
             _searchField.style.minWidth = 150;
             _searchField.style.maxWidth = 300;
             _searchField.style.marginRight = 8;
+#if UNITY_2022_1_OR_NEWER
             _searchField.textEdition.placeholder = "Search by name or path...";
+#else
+            _searchField.tooltip = "Search by name or path...";
+#endif
             _searchField.RegisterValueChangedCallback(OnSearchChanged);
             Add(_searchField);
 

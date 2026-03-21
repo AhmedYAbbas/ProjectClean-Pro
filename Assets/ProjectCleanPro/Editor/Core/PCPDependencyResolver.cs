@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
+using UnityEngine;
 
 namespace ProjectCleanPro.Editor
 {
@@ -56,7 +57,12 @@ namespace ProjectCleanPro.Editor
         /// <param name="onProgress">
         /// Optional progress callback: (progress 0-1, description).
         /// </param>
-        public void Build(IEnumerable<string> roots, Action<float, string> onProgress = null)
+        /// <param name="cache">
+        /// Optional scan cache. When provided, unchanged assets reuse cached
+        /// dependency lists instead of querying <c>AssetDatabase.GetDependencies</c>.
+        /// </param>
+        public void Build(IEnumerable<string> roots, Action<float, string> onProgress = null,
+            PCPScanCache cache = null)
         {
             Clear();
 
@@ -87,8 +93,23 @@ namespace ProjectCleanPro.Editor
                     onProgress?.Invoke(progress, $"Resolving dependencies ({i}/{total})...");
                 }
 
-                // Direct (non-recursive) dependencies.
-                string[] deps = AssetDatabase.GetDependencies(path, false);
+                // Try the cache first: if the asset hasn't changed, reuse
+                // the previously resolved dependency list.
+                string[] deps = null;
+                if (cache != null && !cache.IsStale(path))
+                {
+                    deps = cache.GetDependencies(path);
+                }
+
+                if (deps == null)
+                {
+                    // Cache miss or stale — query Unity.
+                    deps = AssetDatabase.GetDependencies(path, false);
+
+                    // Store back into the cache for next time.
+                    if (cache != null)
+                        cache.SetDependencies(path, deps);
+                }
 
                 HashSet<string> forwardSet = GetOrCreateSet(m_Forward, path);
 
@@ -230,12 +251,6 @@ namespace ProjectCleanPro.Editor
                 dict[key] = set;
             }
             return set;
-        }
-
-        // Mathf may not be available in all contexts; provide a minimal helper.
-        private static class Mathf
-        {
-            public static float Min(float a, float b) => a < b ? a : b;
         }
     }
 }

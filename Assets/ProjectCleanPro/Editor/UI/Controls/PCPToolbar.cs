@@ -138,7 +138,11 @@ namespace ProjectCleanPro.Editor
             _searchField.AddToClassList(SearchFieldUssClassName);
             _searchField.style.minWidth = 180;
             _searchField.style.maxWidth = 300;
+#if UNITY_2022_1_OR_NEWER
             _searchField.textEdition.placeholder = "Search results...";
+#else
+            _searchField.tooltip = "Search results...";
+#endif
             _searchField.RegisterValueChangedCallback(evt => onSearchChanged?.Invoke(evt.newValue));
             Add(_searchField);
         }

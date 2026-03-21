@@ -86,13 +86,25 @@ namespace ProjectCleanPro.Editor
                 if (!context.Settings.scanEditorAssets && PCPAssetUtils.IsEditorOnlyPath(path))
                     continue;
 
+                // Try cached file size first; fall back to disk.
+                long size = context.Cache.GetFileSize(path);
                 string fullPath = Path.GetFullPath(path);
-                if (!File.Exists(fullPath))
-                    continue;
 
-                long size = new FileInfo(fullPath).Length;
-                if (size == 0)
+                if (size <= 0)
+                {
+                    if (!File.Exists(fullPath))
+                        continue;
+
+                    size = new FileInfo(fullPath).Length;
+                    if (size == 0)
+                        continue;
+
+                    context.Cache.SetFileSize(path, size);
+                }
+                else if (!File.Exists(fullPath))
+                {
                     continue;
+                }
 
                 bool isYaml = PCPFileUtils.IsUnityYamlAsset(fullPath);
                 pathsWithSizes.Add(new PathSizePair
@@ -166,7 +178,7 @@ namespace ProjectCleanPro.Editor
                 // Check the cache first (only for non-normalised; normalised
                 // hashes depend on content transforms so we always recompute).
                 string hash = null;
-                if (!useNormalized && context.Cache != null && !context.Cache.IsStale(entry.path))
+                if (!useNormalized && !context.Cache.IsStale(entry.path))
                 {
                     hash = context.Cache.GetHash(entry.path);
                 }
@@ -185,7 +197,7 @@ namespace ProjectCleanPro.Editor
                     }
 
                     // Store in cache (non-normalised only).
-                    if (!useNormalized && context.Cache != null && !string.IsNullOrEmpty(hash))
+                    if (!useNormalized && !string.IsNullOrEmpty(hash))
                     {
                         context.Cache.SetHash(entry.path, hash);
                     }

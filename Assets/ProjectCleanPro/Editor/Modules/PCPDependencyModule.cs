@@ -149,7 +149,7 @@ namespace ProjectCleanPro.Editor
                 _resolver.Build(roots, (p, label) =>
                 {
                     ReportProgress(p * 0.4f, label);
-                });
+                }, context.Cache);
             }
 
             if (ShouldCancel()) return;

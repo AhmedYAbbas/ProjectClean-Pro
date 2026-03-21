@@ -136,15 +136,18 @@ namespace ProjectCleanPro.Editor
 
                 Debug.Log(
                     $"[PCPCli] Report exported to: {outputPath}\n" +
-                    $"  Unused assets   : {result.UnusedAssetCount}\n" +
-                    $"  Missing refs    : {result.MissingReferenceCount}\n" +
-                    $"  Duplicate groups: {result.DuplicateGroupCount}\n" +
-                    $"  Scan duration   : {result.scanDurationSeconds:F2}s");
+                    $"  Unused assets       : {result.UnusedAssetCount}\n" +
+                    $"  Missing refs        : {result.MissingReferenceCount}\n" +
+                    $"  Duplicate groups    : {result.DuplicateGroupCount}\n" +
+                    $"  Circular deps       : {result.CircularDependencyCount}\n" +
+                    $"  Package audit       : {result.packageAuditEntries.Count}\n" +
+                    $"  Shader entries      : {result.shaderEntries.Count}\n" +
+                    $"  Size entries        : {result.sizeEntries.Count}\n" +
+                    $"  Total findings      : {result.TotalFindingCount}\n" +
+                    $"  Scan duration       : {result.scanDurationSeconds:F2}s");
 
                 bool failOnFindings = HasFlag("-pcpFailOnFindings");
-                bool hasFindings = result.UnusedAssetCount > 0 ||
-                                   result.MissingReferenceCount > 0 ||
-                                   result.DuplicateGroupCount > 0;
+                bool hasFindings = result.TotalFindingCount > 0;
 
                 int exitCode = (failOnFindings && hasFindings) ? 1 : 0;
 

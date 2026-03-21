@@ -89,27 +89,54 @@ namespace ProjectCleanPro.Editor
                 if (IsIgnored(assetPath, context))
                     continue;
 
-                // Get file info.
+                // Try cached file size first; fall back to disk.
+                long sizeBytes = context.Cache.GetFileSize(assetPath);
                 string fullPath = Path.GetFullPath(assetPath);
-                if (!File.Exists(fullPath))
-                    continue;
-
-                long sizeBytes;
-                try
-                {
-                    sizeBytes = new FileInfo(fullPath).Length;
-                }
-                catch (Exception)
-                {
-                    continue;
-                }
 
                 if (sizeBytes <= 0)
-                    continue;
+                {
+                    if (!File.Exists(fullPath))
+                        continue;
 
-                // Get asset type.
-                Type assetType = AssetDatabase.GetMainAssetTypeAtPath(assetPath);
-                string typeName = assetType != null ? assetType.Name : ClassifyByExtension(assetPath);
+                    try
+                    {
+                        sizeBytes = new FileInfo(fullPath).Length;
+                    }
+                    catch (Exception)
+                    {
+                        continue;
+                    }
+
+                    if (sizeBytes <= 0)
+                        continue;
+
+                    context.Cache.SetFileSize(assetPath, sizeBytes);
+                }
+                else if (!File.Exists(fullPath))
+                {
+                    continue;
+                }
+
+                // Get asset type — try cache first for unchanged assets.
+                Type assetType = null;
+                string typeName = null;
+
+                if (!context.Cache.IsStaleOrMetaStale(assetPath))
+                {
+                    typeName = context.Cache.GetMetadata(assetPath, "size.type");
+                }
+
+                if (typeName == null)
+                {
+                    assetType = AssetDatabase.GetMainAssetTypeAtPath(assetPath);
+                    typeName = assetType != null ? assetType.Name : ClassifyByExtension(assetPath);
+                    context.Cache.SetMetadata(assetPath, "size.type", typeName);
+                }
+                else
+                {
+                    // We still need the actual Type for importer analysis below.
+                    assetType = AssetDatabase.GetMainAssetTypeAtPath(assetPath);
+                }
 
                 string fileName = Path.GetFileNameWithoutExtension(assetPath);
                 string folderPath = Path.GetDirectoryName(assetPath)?
@@ -128,9 +155,28 @@ namespace ProjectCleanPro.Editor
                 };
 
                 // ----------------------------------------------------------
-                // Check for optimization opportunities by asset type
+                // Check for optimization opportunities by asset type.
+                // For unchanged assets (including .meta), reuse cached suggestions.
                 // ----------------------------------------------------------
-                if (assetType != null)
+                bool usedCachedSuggestion = false;
+                if (!context.Cache.IsStaleOrMetaStale(assetPath))
+                {
+                    string cachedSuggestion = context.Cache.GetMetadata(assetPath, "size.suggestions");
+                    if (cachedSuggestion != null)
+                    {
+                        // Format: "compressionInfo|suggestion" or empty.
+                        int sep = cachedSuggestion.IndexOf('|');
+                        if (sep >= 0)
+                        {
+                            entry.compressionInfo = cachedSuggestion.Substring(0, sep);
+                            entry.optimizationSuggestion = cachedSuggestion.Substring(sep + 1);
+                            entry.hasOptimizationSuggestion = entry.optimizationSuggestion.Length > 0;
+                        }
+                        usedCachedSuggestion = true;
+                    }
+                }
+
+                if (!usedCachedSuggestion && assetType != null)
                 {
                     if (IsTextureType(assetType))
                     {
@@ -144,6 +190,11 @@ namespace ProjectCleanPro.Editor
                     {
                         AnalyseMesh(assetPath, entry);
                     }
+
+                    // Cache the suggestion for next time.
+                    context.Cache.SetMetadata(assetPath, "size.suggestions",
+                        entry.compressionInfo + "|" + entry.optimizationSuggestion);
+                    context.Cache.StampMeta(assetPath);
                 }
 
                 _results.Add(entry);

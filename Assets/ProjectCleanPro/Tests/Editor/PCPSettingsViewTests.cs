@@ -19,6 +19,7 @@ namespace ProjectCleanPro.Tests.Editor
     {
         private PCPSettings m_Settings;
         private PCPSettingsView m_View;
+        private EditorWindow m_TestWindow;
 
         // ----------------------------------------------------------------
         // Setup / Teardown
@@ -60,12 +61,21 @@ namespace ProjectCleanPro.Tests.Editor
             m_Settings.ignoreRules.Clear();
             m_Settings.alwaysUsedRoots.Clear();
 
+            // Create a test window to provide a panel for UIElements event dispatch.
+            // Without a panel, RegisterValueChangedCallback and SendEvent do not work.
+            m_TestWindow = ScriptableObject.CreateInstance<EditorWindow>();
+            m_TestWindow.Show();
+
             m_View = new PCPSettingsView();
+            m_TestWindow.rootVisualElement.Add(m_View);
         }
 
         [TearDown]
         public void TearDown()
         {
+            if (m_TestWindow != null)
+                m_TestWindow.Close();
+
             // Restore original settings
             m_Settings.includeAllScenes = m_OriginalIncludeAllScenes;
             m_Settings.includeAddressables = m_OriginalIncludeAddressables;
@@ -239,7 +249,7 @@ namespace ProjectCleanPro.Tests.Editor
         public void ScanRoots_HasDescriptionLabel()
         {
             var captions = m_View.Query<Label>(className: "pcp-label-caption").ToList();
-            var desc = captions.FirstOrDefault(l => l.text.Contains("Additional folders"));
+            var desc = captions.FirstOrDefault(l => l.text.Contains("never be flagged as unused"));
             Assert.That(desc, Is.Not.Null);
         }
 
@@ -1066,8 +1076,10 @@ namespace ProjectCleanPro.Tests.Editor
 
         private static void ClickButton(Button button)
         {
-            // Simulate button click by invoking the click event
-            using (var evt = ClickEvent.GetPooled())
+            // ClickEvent does not trigger Button's Clickable handler.
+            // Use NavigationSubmitEvent which Button handles via
+            // ExecuteDefaultActionAtTarget → clickable.SimulateSingleClick.
+            using (var evt = NavigationSubmitEvent.GetPooled())
             {
                 evt.target = button;
                 button.SendEvent(evt);

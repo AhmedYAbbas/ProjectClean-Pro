@@ -219,9 +219,15 @@ namespace ProjectCleanPro.Editor
             _listView = new ListView
             {
                 name = "pcp-result-listview",
+#if UNITY_2021_2_OR_NEWER
                 fixedItemHeight = 26,
+#else
+                itemHeight = 26,
+#endif
                 selectionType = SelectionType.Multiple,
+#if UNITY_2021_2_OR_NEWER
                 virtualizationMethod = CollectionVirtualizationMethod.FixedHeight
+#endif
             };
             _listView.style.flexGrow = 1;
             _listView.makeItem = MakeItem;
@@ -353,7 +359,7 @@ namespace ProjectCleanPro.Editor
                 float newWidth = Mathf.Max(MinColumnWidth, _resizeStartWidth + delta);
                 _columns[captured].width = newWidth;
                 ApplyHeaderColumnWidth(captured);
-                _listView.RefreshItems();
+                RefreshListView();
                 evt.StopPropagation();
             });
 
@@ -653,7 +659,7 @@ namespace ProjectCleanPro.Editor
                 _selectedRawIndices.Clear();
             }
 
-            _listView.RefreshItems();
+            RefreshListView();
             onSelectionChanged?.Invoke(_selectedRawIndices.ToList());
         }
 
@@ -729,7 +735,7 @@ namespace ProjectCleanPro.Editor
         public void ClearSelection()
         {
             _selectedRawIndices.Clear();
-            _listView.RefreshItems();
+            RefreshListView();
             onSelectionChanged?.Invoke(new List<int>());
         }
 
@@ -742,7 +748,7 @@ namespace ProjectCleanPro.Editor
             if (columnIndex < 0 || columnIndex >= _columns.Length) return;
             _columns[columnIndex].width = width;
             ApplyHeaderColumnWidth(columnIndex);
-            _listView.RefreshItems();
+            RefreshListView();
         }
 
         /// <summary>
@@ -760,7 +766,7 @@ namespace ProjectCleanPro.Editor
             for (int i = 0; i < _columns.Length; i++)
                 ApplyHeaderColumnWidth(i);
 
-            _listView.RefreshItems();
+            RefreshListView();
         }
 
         private void ApplyHeaderColumnWidth(int colIndex)
@@ -792,7 +798,7 @@ namespace ProjectCleanPro.Editor
         {
             foreach (int rawIndex in _filteredIndices)
                 _selectedRawIndices.Add(rawIndex);
-            _listView.RefreshItems();
+            RefreshListView();
             onSelectionChanged?.Invoke(_selectedRawIndices.ToList());
         }
 
@@ -937,11 +943,23 @@ namespace ProjectCleanPro.Editor
         {
             // Provide the filtered rows as the list source
             _listView.itemsSource = _filteredRows as IList;
-            _listView.RefreshItems();
+            RefreshListView();
 
             // Show/hide empty state
             bool isEmpty = _filteredRows.Count == 0;
             _emptyLabel.style.display = isEmpty ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        /// <summary>
+        /// Cross-version helper: RefreshItems() was added in 2021.2, replacing Refresh().
+        /// </summary>
+        private void RefreshListView()
+        {
+#if UNITY_2021_2_OR_NEWER
+            _listView.RefreshItems();
+#else
+            _listView.Refresh();
+#endif
         }
     }
 }

@@ -355,7 +355,11 @@ namespace ProjectCleanPro.Editor
                             else if (prop.objectReferenceInstanceIDValue != 0)
                             {
                                 // The reference may point to an asset we can resolve via instance ID.
+#if UNITY_6000_3_OR_NEWER
                                 var obj = EditorUtility.EntityIdToObject(prop.entityIdValue);
+#else
+                                var obj = EditorUtility.InstanceIDToObject(prop.objectReferenceInstanceIDValue);
+#endif
                                 if (obj != null)
                                 {
                                     string objPath = AssetDatabase.GetAssetPath(obj);

@@ -156,6 +156,14 @@ namespace ProjectCleanPro.Editor
         /// </summary>
         protected abstract void PopulateResults();
 
+        /// <summary>
+        /// Override in subclasses to return the module key used by
+        /// <see cref="PCPReportExporter.CreateModuleSubset"/> so that
+        /// the Export button exports only this module's data.
+        /// Return null to export the full scan result.
+        /// </summary>
+        protected virtual string ModuleExportKey => null;
+
         // --------------------------------------------------------------------
         // Public API
         // --------------------------------------------------------------------
@@ -307,14 +315,11 @@ namespace ProjectCleanPro.Editor
             if (m_ScanResult == null)
                 return;
 
-            var menu = new GenericMenu();
-            menu.AddItem(new GUIContent("Export as JSON"), false,
-                () => PCPReportExporter.ExportJSON(m_ScanResult));
-            menu.AddItem(new GUIContent("Export as CSV"), false,
-                () => PCPReportExporter.ExportCSV(m_ScanResult));
-            menu.AddItem(new GUIContent("Export as HTML"), false,
-                () => PCPReportExporter.ExportHTML(m_ScanResult));
-            menu.ShowAsContext();
+            var exportResult = !string.IsNullOrEmpty(ModuleExportKey)
+                ? PCPReportExporter.CreateModuleSubset(m_ScanResult, ModuleExportKey)
+                : m_ScanResult;
+
+            PCPReportExporter.ShowExportMenu(exportResult);
         }
 
         // --------------------------------------------------------------------

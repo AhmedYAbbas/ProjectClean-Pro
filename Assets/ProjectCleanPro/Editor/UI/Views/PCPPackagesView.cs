@@ -87,6 +87,18 @@ namespace ProjectCleanPro.Editor
                 filterBar.Add(btn);
             }
 
+            var filterSpacer = new VisualElement();
+            filterSpacer.style.flexGrow = 1;
+            filterBar.Add(filterSpacer);
+
+            var exportBtn = new Button(OnExport) { text = "Export" };
+            exportBtn.AddToClassList("pcp-button-secondary");
+            exportBtn.style.paddingLeft = 10;
+            exportBtn.style.paddingRight = 10;
+            exportBtn.style.paddingTop = 3;
+            exportBtn.style.paddingBottom = 3;
+            filterBar.Add(exportBtn);
+
             Add(filterBar);
 
             // Selection action bar (hidden by default)
@@ -131,15 +143,16 @@ namespace ProjectCleanPro.Editor
             {
                 text = filter.ToString()
             };
-            btn.style.paddingLeft = 10;
-            btn.style.paddingRight = 10;
-            btn.style.paddingTop = 3;
-            btn.style.paddingBottom = 3;
-            btn.style.marginRight = 4;
-            btn.style.borderTopLeftRadius = 12;
-            btn.style.borderTopRightRadius = 12;
-            btn.style.borderBottomLeftRadius = 12;
-            btn.style.borderBottomRightRadius = 12;
+            btn.style.paddingLeft = 6;
+            btn.style.paddingRight = 6;
+            btn.style.paddingTop = 2;
+            btn.style.paddingBottom = 2;
+            btn.style.marginRight = 2;
+            btn.style.marginBottom = 2;
+            btn.style.borderTopLeftRadius = 10;
+            btn.style.borderTopRightRadius = 10;
+            btn.style.borderBottomLeftRadius = 10;
+            btn.style.borderBottomRightRadius = 10;
             btn.style.fontSize = 11;
             return btn;
         }
@@ -164,29 +177,36 @@ namespace ProjectCleanPro.Editor
                     ? m_ActiveFilters.Count == 0
                     : m_ActiveFilters.Contains(kvp.Key);
 
-                if (isActive)
-                {
-                    kvp.Value.style.backgroundColor = new Color(0.337f, 0.612f, 0.839f, 0.3f);
-                    kvp.Value.style.borderTopWidth = 1;
-                    kvp.Value.style.borderBottomWidth = 1;
-                    kvp.Value.style.borderLeftWidth = 1;
-                    kvp.Value.style.borderRightWidth = 1;
-                    kvp.Value.style.borderTopColor = new Color(0.337f, 0.612f, 0.839f, 0.6f);
-                    kvp.Value.style.borderBottomColor = new Color(0.337f, 0.612f, 0.839f, 0.6f);
-                    kvp.Value.style.borderLeftColor = new Color(0.337f, 0.612f, 0.839f, 0.6f);
-                    kvp.Value.style.borderRightColor = new Color(0.337f, 0.612f, 0.839f, 0.6f);
-                }
-                else
-                {
-                    kvp.Value.style.backgroundColor = Color.clear;
-                    kvp.Value.style.borderTopWidth = 0;
-                    kvp.Value.style.borderBottomWidth = 0;
-                    kvp.Value.style.borderLeftWidth = 0;
-                    kvp.Value.style.borderRightWidth = 0;
-                }
+                ApplyChipStyle(kvp.Value, isActive);
             }
 
             RefreshCards();
+        }
+
+        private static void ApplyChipStyle(Button chip, bool active)
+        {
+            if (active)
+            {
+                chip.style.backgroundColor = new Color(0.337f, 0.612f, 0.839f, 1f);
+                chip.style.color = Color.white;
+                chip.style.borderTopColor = new Color(0.337f, 0.612f, 0.839f, 1f);
+                chip.style.borderBottomColor = new Color(0.337f, 0.612f, 0.839f, 1f);
+                chip.style.borderLeftColor = new Color(0.337f, 0.612f, 0.839f, 1f);
+                chip.style.borderRightColor = new Color(0.337f, 0.612f, 0.839f, 1f);
+            }
+            else
+            {
+                chip.style.backgroundColor = new Color(0.22f, 0.22f, 0.22f, 1f);
+                chip.style.color = new Color(0.66f, 0.66f, 0.66f, 1f);
+                chip.style.borderTopColor = new Color(0.33f, 0.33f, 0.33f, 1f);
+                chip.style.borderBottomColor = new Color(0.33f, 0.33f, 0.33f, 1f);
+                chip.style.borderLeftColor = new Color(0.33f, 0.33f, 0.33f, 1f);
+                chip.style.borderRightColor = new Color(0.33f, 0.33f, 0.33f, 1f);
+            }
+            chip.style.borderTopWidth = 1;
+            chip.style.borderBottomWidth = 1;
+            chip.style.borderLeftWidth = 1;
+            chip.style.borderRightWidth = 1;
         }
 
         // --------------------------------------------------------------------
@@ -467,6 +487,15 @@ namespace ProjectCleanPro.Editor
                     RefreshCards();
                 }
             };
+        }
+
+        private void OnExport()
+        {
+            if (m_ScanResult == null)
+                return;
+
+            var moduleResult = PCPReportExporter.CreateModuleSubset(m_ScanResult, "packages");
+            PCPReportExporter.ShowExportMenu(moduleResult);
         }
 
         private void OnRemovePackage(PCPPackageAuditEntry entry)

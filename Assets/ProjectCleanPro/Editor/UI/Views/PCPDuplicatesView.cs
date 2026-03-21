@@ -85,6 +85,14 @@ namespace ProjectCleanPro.Editor
             spacer.style.flexGrow = 1;
             topBar.Add(spacer);
 
+            var exportBtn = new Button(OnExport) { text = "Export" };
+            exportBtn.AddToClassList("pcp-button-secondary");
+            exportBtn.style.paddingLeft = 10;
+            exportBtn.style.paddingRight = 10;
+            exportBtn.style.paddingTop = 4;
+            exportBtn.style.paddingBottom = 4;
+            topBar.Add(exportBtn);
+
             Add(topBar);
 
             // Scrollable group container
@@ -450,6 +458,15 @@ namespace ProjectCleanPro.Editor
                     settings.archiveBeforeDelete = originalArchive;
                 }
             }
+        }
+
+        private void OnExport()
+        {
+            if (m_ScanResult == null)
+                return;
+
+            var moduleResult = PCPReportExporter.CreateModuleSubset(m_ScanResult, "duplicates");
+            PCPReportExporter.ShowExportMenu(moduleResult);
         }
 
         // --------------------------------------------------------------------

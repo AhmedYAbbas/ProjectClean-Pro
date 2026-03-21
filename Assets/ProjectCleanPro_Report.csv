@@ -1,0 +1,390 @@
+﻿Module,Path,Detail1,Detail2,Detail3,SizeBytes,Severity
+Unused Asset,Assets/BIA-London.mp3,AudioClip,Safe to delete,,12265370,
+Unused Asset,Assets/Docs/projectclean_pro_docs.html,TextAsset,Safe to delete,,73261,
+Unused Asset,Assets/556430213_1371645721630007_8687275741614109558_n 1.jpg,Texture2D,Safe to delete,,72467,
+Unused Asset,Assets/556430213_1371645721630007_8687275741614109558_n 2.jpg,Texture2D,Safe to delete,,72467,
+Unused Asset,Assets/556430213_1371645721630007_8687275741614109558_n.jpg,Texture2D,Safe to delete,,72467,
+Unused Asset,Assets/InputSystem_Actions.inputactions,InputActionAsset,Safe to delete,,41005,
+Unused Asset,Assets/ProjectCleanPro/Editor/TestResults_20260321_195207.xml,TextAsset,Safe to delete,,38630,
+Unused Asset,Assets/ProjectCleanPro/Editor/TestResults_20260321_200529.xml,TextAsset,Safe to delete,,28562,
+Unused Asset,Assets/Settings/DefaultVolumeProfile.asset,VolumeProfile,Safe to delete,,24035,
+Unused Asset,Assets/Settings/UniversalRenderPipelineGlobalSettings.asset,UniversalRenderPipelineGlobalSettings,Safe to delete,,22478,
+Unused Asset,Assets/TutorialInfo/Layout.wlt,DefaultAsset,Safe to delete,,15479,
+Unused Asset,Assets/ProjectCleanPro/Editor/UI/Styles/PCPCommon.uss,StyleSheet,Safe to delete,,9269,
+Unused Asset,Assets/ProjectCleanPro/Editor/UI/Styles/PCPGraph.uss,StyleSheet,Safe to delete,,8390,
+Unused Asset,Assets/ProjectCleanPro/Editor/UI/Styles/PCPDashboard.uss,StyleSheet,Safe to delete,,7994,
+Unused Asset,Assets/ProjectCleanPro/Editor/UI/Styles/PCPResults.uss,StyleSheet,Safe to delete,,7891,
+Unused Asset,Assets/ProjectCleanPro/Editor/UI/Styles/PCPTreemap.uss,StyleSheet,Safe to delete,,7381,
+Unused Asset,Assets/Prefabs/Prefab.prefab,GameObject,Safe to delete,,7306,
+Unused Asset,Assets/Settings/PC_RPAsset.asset,UniversalRenderPipelineAsset,Safe to delete,,4669,
+Unused Asset,Assets/Settings/Mobile_RPAsset.asset,UniversalRenderPipelineAsset,Safe to delete,,4650,
+Unused Asset,Assets/AddressableAssetsData/AddressableAssetSettings.asset,AddressableAssetSettings,Safe to delete,,4433,
+Unused Asset,Assets/Settings/SampleSceneProfile.asset,VolumeProfile,Safe to delete,,3703,
+Unused Asset,Assets/ProjectCleanPro/Editor/UI/Styles/PCPVariables.uss,StyleSheet,Safe to delete,,3508,
+Unused Asset,Assets/Settings/PC_Renderer.asset,UniversalRendererData,Safe to delete,,3439,
+Unused Asset,Assets/AddressableAssetsData/AssetGroups/unifiedraytracing.asset,AddressableAssetGroup,Safe to delete,,3242,
+Unused Asset,Assets/AddressableAssetsData/Windows/addressables_content_state.bin,DefaultAsset,Safe to delete,,2957,
+Unused Asset,Assets/Prefabs/Prefab 8.prefab,GameObject,Safe to delete,,2946,
+Unused Asset,Assets/Prefabs/Prefab 7.prefab,GameObject,Safe to delete,,2946,
+Unused Asset,Assets/AddressableAssetsData/AssetGroupTemplates/Packed Assets.asset,AddressableAssetGroupTemplate,Safe to delete,,2527,
+Unused Asset,Assets/Settings/Mobile_Renderer 1.asset,UniversalRendererData,Safe to delete,,1753,
+Unused Asset,Assets/AddressableAssetsData/AssetGroups/Schemas/Default Local Group_BundledAssetGroupSchema.asset,BundledAssetGroupSchema,Safe to delete,,1741,
+Unused Asset,Assets/AddressableAssetsData/AssetGroups/Schemas/unifiedraytracing_BundledAssetGroupSchema.asset,BundledAssetGroupSchema,Safe to delete,,1739,
+Unused Asset,Assets/AddressableAssetsData/AssetGroups/Schemas/Packed Assets_BundledAssetGroupSchema.asset,BundledAssetGroupSchema,Safe to delete,,1735,
+Unused Asset,Assets/Settings/Mobile_Renderer.asset,UniversalRendererData,Safe to delete,,1713,
+Unused Asset,Assets/New Folder/New Animator Controller.controller,AnimatorController,Safe to delete,,1230,
+Unused Asset,Assets/AddressableAssetsData/ProfileDataSourceSettings.asset,ProfileDataSourceSettings,Safe to delete,,917,
+Unused Asset,Assets/AddressableAssetsData/DataBuilders/BuildScriptPackedPlayMode.asset,BuildScriptPackedPlayMode,Safe to delete,,917,
+Unused Asset,Assets/AddressableAssetsData/DataBuilders/BuildScriptPackedMode.asset,BuildScriptPackedMode,Safe to delete,,909,
+Unused Asset,Assets/ProjectCleanPro/Editor/BuildScriptFastMode.asset,BuildScriptFastMode,Safe to delete,,905,
+Unused Asset,Assets/AddressableAssetsData/AssetGroups/Default Local Group.asset,AddressableAssetGroup,Safe to delete,,874,
+Unused Asset,Assets/AddressableAssetsData/AssetGroups/Packed Assets.asset,AddressableAssetGroup,Safe to delete,,862,
+Unused Asset,Assets/NewBlitScriptableRenderPipelineShader.shader,Shader,Safe to delete,,859,
+Unused Asset,Assets/AddressableAssetsData/AddressableAssetGroupSortSettings.asset,AddressableAssetGroupSortSettings,Safe to delete,,658,
+Unused Asset,Assets/AddressableAssetsData/AssetGroups/Schemas/Default Local Group_ContentUpdateGroupSchema.asset,ContentUpdateGroupSchema,Safe to delete,,636,
+Unused Asset,Assets/AddressableAssetsData/AssetGroups/Schemas/unifiedraytracing_ContentUpdateGroupSchema.asset,ContentUpdateGroupSchema,Safe to delete,,634,
+Unused Asset,Assets/AddressableAssetsData/AssetGroups/Schemas/Packed Assets_ContentUpdateGroupSchema.asset,ContentUpdateGroupSchema,Safe to delete,,630,
+Unused Asset,Assets/AddressableAssetsData/DefaultObject.asset,AddressableAssetSettingsDefaultObject,Safe to delete,,563,
+Unused Asset,Assets/ProjectCleanPro_Report.csv,TextAsset,Safe to delete,,59,
+Missing Reference,Assets/Prefabs/Prefab 7.prefab,MissingReference,misRef,Prefab 7/GameObject,0,Warning
+Missing Reference,Assets/Settings/PC_Renderer.asset,UnityEngine.Rendering.Universal.UniversalRendererData,probeVolumeResources.probeVolumeDebugShader,,0,Warning
+Missing Reference,Assets/Settings/PC_Renderer.asset,UnityEngine.Rendering.Universal.UniversalRendererData,probeVolumeResources.probeVolumeFragmentationDebugShader,,0,Warning
+Missing Reference,Assets/Settings/PC_Renderer.asset,UnityEngine.Rendering.Universal.UniversalRendererData,probeVolumeResources.probeVolumeOffsetDebugShader,,0,Warning
+Missing Reference,Assets/Settings/PC_Renderer.asset,UnityEngine.Rendering.Universal.UniversalRendererData,probeVolumeResources.probeVolumeSamplingDebugShader,,0,Warning
+Missing Reference,Assets/Settings/PC_Renderer.asset,UnityEngine.Rendering.Universal.UniversalRendererData,probeVolumeResources.probeSamplingDebugMesh,,0,Warning
+Missing Reference,Assets/Settings/PC_Renderer.asset,UnityEngine.Rendering.Universal.UniversalRendererData,probeVolumeResources.probeSamplingDebugTexture,,0,Warning
+Missing Reference,Assets/Settings/PC_Renderer.asset,UnityEngine.Rendering.Universal.UniversalRendererData,probeVolumeResources.probeVolumeBlendStatesCS,,0,Warning
+Missing Reference,Assets/Prefabs/Prefab.prefab,MissingReference,misRef,Prefab/Prefab 7/GameObject,0,Warning
+Missing Reference,Assets/Prefabs/Prefab.prefab,MissingReference,misRef,Prefab/Prefab 8,0,Warning
+Missing Reference,Assets/Prefabs/Prefab.prefab,MissingReference,misRef,Prefab/Prefab 8/GameObject,0,Warning
+Missing Reference,Assets/Scenes/SampleScene.unity,MissingReference,misRef,GameObject/Prefab 7/GameObject,0,Warning
+Missing Reference,Assets/Scenes/SampleScene.unity,MissingReference,misRef,GameObject/Prefab 8,0,Warning
+Missing Reference,Assets/Scenes/SampleScene.unity,MissingReference,misRef,GameObject/Prefab 8/GameObject,0,Warning
+Missing Reference,Assets/Scenes/SampleScene.unity,UnityEngine.Transform,m_CorrespondingSourceObject,GameObject (1),0,Warning
+Missing Reference,Assets/Prefabs/Prefab 8.prefab,MissingReference,misRef,Prefab 8,0,Warning
+Missing Reference,Assets/Prefabs/Prefab 8.prefab,MissingReference,misRef,Prefab 8/GameObject,0,Warning
+Missing Reference,Assets/AddressableAssetsData/AddressableAssetSettings.asset,UnityEditor.AddressableAssets.Settings.AddressableAssetSettings,m_DataBuilders.Array.data[0],,0,Warning
+Duplicate,Assets/556430213_1371645721630007_8687275741614109558_n 2.jpg,Hash: 56cdeccd5feaa337d2ef5ae22381c2c81f19a3be6c89c3aa03b5e8647ac2a39b,Refs: 0,Duplicate,72467,
+Duplicate,Assets/556430213_1371645721630007_8687275741614109558_n.jpg,Hash: 56cdeccd5feaa337d2ef5ae22381c2c81f19a3be6c89c3aa03b5e8647ac2a39b,Refs: 0,Canonical,72467,
+Package Audit,com.unity.modules.cloth,Cloth,1.0.0,Unused,0,
+Package Audit,com.unity.modules.hierarchycore,Hierarchy Core,1.0.0,Unused,0,
+Package Audit,com.unity.ide.rider,JetBrains Rider Editor,3.0.39,Unused,0,
+Package Audit,com.unity.modules.physics2d,Physics 2D,1.0.0,Unused,0,
+Package Audit,com.unity.modules.screencapture,Screen Capture,1.0.0,Unused,0,
+Package Audit,com.unity.modules.subsystems,Subsystems,1.0.0,Unused,0,
+Package Audit,com.unity.modules.terrainphysics,Terrain Physics,1.0.0,Unused,0,
+Package Audit,com.unity.modules.tilemap,Tilemap,1.0.0,Unused,0,
+Package Audit,com.unity.modules.umbra,Umbra,1.0.0,Unused,0,
+Package Audit,com.unity.modules.unityanalytics,Unity Analytics,1.0.0,Unused,0,
+Package Audit,com.unity.collab-proxy,Unity Version Control,2.11.3,Unused,0,
+Package Audit,com.unity.modules.unitywebrequestaudio,Unity Web Request Audio,1.0.0,Unused,0,
+Package Audit,com.unity.modules.unitywebrequesttexture,Unity Web Request Texture,1.0.0,Unused,0,
+Package Audit,com.unity.modules.unitywebrequestwww,Unity Web Request WWW,1.0.0,Unused,0,
+Package Audit,com.unity.modules.vectorgraphics,Vector Graphics,1.0.0,Unused,0,
+Package Audit,com.unity.modules.vehicles,Vehicles,1.0.0,Unused,0,
+Package Audit,com.unity.modules.video,Video,1.0.0,Unused,0,
+Package Audit,com.unity.ide.visualstudio,Visual Studio Editor,2.0.26,Unused,0,
+Package Audit,com.unity.modules.vr,VR,1.0.0,Unused,0,
+Package Audit,com.unity.modules.wind,Wind,1.0.0,Unused,0,
+Package Audit,com.unity.modules.xr,XR,1.0.0,Unused,0,
+Package Audit,com.unity.modules.ai,AI,1.0.0,TransitiveOnly,0,
+Package Audit,com.unity.modules.animation,Animation,1.0.0,TransitiveOnly,0,
+Package Audit,com.unity.modules.assetbundle,Asset Bundle,1.0.0,TransitiveOnly,0,
+Package Audit,com.unity.modules.audio,Audio,1.0.0,TransitiveOnly,0,
+Package Audit,com.unity.ext.nunit,Custom NUnit,2.0.5,TransitiveOnly,0,
+Package Audit,com.unity.modules.director,Director,1.0.0,TransitiveOnly,0,
+Package Audit,com.unity.modules.imageconversion,Image Conversion,1.0.0,TransitiveOnly,0,
+Package Audit,com.unity.modules.imgui,IMGUI,1.0.0,TransitiveOnly,0,
+Package Audit,com.unity.modules.jsonserialize,JSONSerialize,1.0.0,TransitiveOnly,0,
+Package Audit,com.unity.nuget.mono-cecil,Mono Cecil,1.11.6,TransitiveOnly,0,
+Package Audit,com.unity.modules.particlesystem,Particle System,1.0.0,TransitiveOnly,0,
+Package Audit,com.unity.test-framework.performance,Performance testing API,3.2.0,TransitiveOnly,0,
+Package Audit,com.unity.modules.physics,Physics,1.0.0,TransitiveOnly,0,
+Package Audit,com.unity.searcher,Searcher,4.9.4,TransitiveOnly,0,
+Package Audit,com.unity.modules.terrain,Terrain,1.0.0,TransitiveOnly,0,
+Package Audit,com.unity.modules.ui,UI,1.0.0,TransitiveOnly,0,
+Package Audit,com.unity.modules.uielements,UIElements,1.0.0,TransitiveOnly,0,
+Package Audit,com.unity.modules.unitywebrequest,Unity Web Request,1.0.0,TransitiveOnly,0,
+Package Audit,com.unity.modules.unitywebrequestassetbundle,Unity Web Request Asset Bundle,1.0.0,TransitiveOnly,0,
+Package Audit,com.unity.addressables,Addressables,2.8.1,Used,0,
+Package Audit,com.unity.ai.navigation,AI Navigation,2.0.9,Used,0,
+Package Audit,com.unity.burst,Burst,1.8.27,Used,0,
+Package Audit,com.unity.collections,Collections,2.6.2,Used,0,
+Package Audit,com.unity.inputsystem,Input System,1.18.0,Used,0,
+Package Audit,com.unity.mathematics,Mathematics,1.3.3,Used,0,
+Package Audit,com.unity.multiplayer.center,Multiplayer Center,1.0.1,Used,0,
+Package Audit,com.unity.scriptablebuildpipeline,Scriptable Build Pipeline,2.5.2,Used,0,
+Package Audit,com.unity.render-pipelines.core,Scriptable Render Pipeline Core,17.3.0,Used,0,
+Package Audit,com.unity.shadergraph,Shader Graph,17.3.0,Used,0,
+Package Audit,com.unity.test-framework,Test Framework,1.6.0,Used,0,
+Package Audit,com.unity.timeline,Timeline,1.8.10,Used,0,
+Package Audit,com.unity.ugui,uGUI,2.0.0,Used,0,
+Package Audit,com.unity.profiling.core,Unity Profiling Core API,1.0.3,Used,0,
+Package Audit,com.unity.render-pipelines.universal,Universal Render Pipeline,17.3.0,Used,0,
+Package Audit,com.unity.render-pipelines.universal-config,Universal Render Pipeline Config,17.0.3,Used,0,
+Package Audit,com.unity.visualscripting,Visual Scripting,1.9.9,Used,0,
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/ComplexLit.shader,Universal Render Pipeline/Complex Lit,Variants: 2147483647,UNUSED,22995,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Lit.shader,Universal Render Pipeline/Lit,Variants: 2147483647,OK,22756,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Nature/SpeedTree7.shader,Universal Render Pipeline/Nature/SpeedTree7,Variants: 2147483647,UNUSED,8828,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/SimpleLit.shader,Universal Render Pipeline/Simple Lit,Variants: 2147483647,OK,19416,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Terrain/TerrainLit.shader,Universal Render Pipeline/Terrain/Lit,Variants: 148635648,OK,13829,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Particles/ParticlesLit.shader,Universal Render Pipeline/Particles/Lit,Variants: 27869184,UNUSED,18820,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Terrain/TerrainLitBase.shader,Hidden/Universal Render Pipeline/Terrain/Lit (Base Pass),Variants: 14155776,UNUSED,10050,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Nature/SpeedTree8.shader,Universal Render Pipeline/Nature/SpeedTree8,Variants: 7962624,UNUSED,10776,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Particles/ParticlesSimpleLit.shader,Universal Render Pipeline/Particles/Simple Lit,Variants: 6967296,UNUSED,19165,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Nature/SpeedTree7Billboard.shader,Universal Render Pipeline/Nature/SpeedTree7 Billboard,Variants: 5898240,UNUSED,5601,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Terrain/WavingGrass.shader,Hidden/TerrainEngine/Details/UniversalPipeline/WavingDoublePass,Variants: 1769472,UNUSED,8128,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Terrain/TerrainDetailLit.shader,Hidden/TerrainEngine/Details/UniversalPipeline/Vertexlit,Variants: 491520,UNUSED,10738,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Terrain/TerrainLitAdd.shader,Hidden/Universal Render Pipeline/Terrain/Lit (Add Pass),Variants: 196608,UNUSED,8605,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/BakedLit.shader,Universal Render Pipeline/Baked Lit,Variants: 98304,UNUSED,13096,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Terrain/WavingGrassBillboard.shader,Hidden/TerrainEngine/Details/UniversalPipeline/BillboardWavingDoublePass,Variants: 24576,UNUSED,6519,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Unlit.shader,Universal Render Pipeline/Unlit,Variants: 896,UNUSED,11295,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Utils/StencilDeferred.shader,Hidden/Universal Render Pipeline/StencilDeferred,Variants: 896,UNUSED,16606,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Utils/CoreBlit.shader,Hidden/Universal/CoreBlit,Variants: 100,UNUSED,10921,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/LensFlareDataDriven.shader,Hidden/Universal Render Pipeline/LensFlareDataDriven,Variants: 80,UNUSED,6262,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/2D/Light2D.shader,Hidden/Light2D,Variants: 64,UNUSED,9014,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Runtime/RendererFeatures/OnTileUberPost.shader,OnTileUberPost,Variants: 54,UNUSED,14333,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Utils/ClusterDeferred.shader,Hidden/Universal Render Pipeline/ClusterDeferred,Variants: 12,UNUSED,7133,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Utils/ScreenSpaceAmbientOcclusion.shader,Hidden/Universal Render Pipeline/ScreenSpaceAmbientOcclusion,Variants: 10,UNUSED,7560,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/BokehDepthOfField.shader,Hidden/Universal Render Pipeline/BokehDepthOfField,Variants: 10,UNUSED,13103,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/SubpixelMorphologicalAntialiasing.shader,Hidden/Universal Render Pipeline/SubpixelMorphologicalAntialiasing,Variants: 9,UNUSED,1692,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Utils/CopyDepth.shader,Hidden/Universal Render Pipeline/CopyDepth,Variants: 8,UNUSED,666,Warning
+Shader,Packages/com.unity.ugui/Editor Resources/Shaders/TMP_SDF Internal Editor.shader,Hidden/TMP/Internal/Editor/Distance Field SSD,Variants: 6,UNUSED,2414,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/CameraMotionBlur.shader,Hidden/Universal Render Pipeline/CameraMotionBlur,Variants: 6,UNUSED,7126,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/TemporalAA.shader,Hidden/Universal Render Pipeline/TemporalAA,Variants: 6,UNUSED,3390,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Utils/FallbackLoading.shader,Hidden/Universal Render Pipeline/FallbackLoading,Variants: 6,UNUSED,1960,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/LensFlareScreenSpace.shader,Hidden/Universal Render Pipeline/LensFlareScreenSpace,Variants: 5,UNUSED,5765,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/GaussianDepthOfField.shader,Hidden/Universal Render Pipeline/GaussianDepthOfField,Variants: 5,UNUSED,9581,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/FinalPost.shader,Hidden/Universal Render Pipeline/FinalPost,Variants: 4,UNUSED,8928,Warning
+Shader,Packages/com.unity.shadergraph/Editor/Resources/Shaders/FallbackError.shader,Hidden/Shader Graph/FallbackError,Variants: 4,UNUSED,1176,Warning
+Shader,Packages/com.unity.render-pipelines.core/Editor/PostProcessing/LensFlareResource/LensFlareDataDriven.shader,Hidden/Core/LensFlareDataDrivenPreview2,Variants: 4,UNUSED,3157,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Utils/CoreBlitColorAndDepth.shader,Hidden/Universal/CoreBlitColorAndDepth,Variants: 3,UNUSED,1246,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Utils/FallbackError.shader,Hidden/Universal Render Pipeline/FallbackError,Variants: 3,UNUSED,1926,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Utils/MaterialError.shader,Hidden/Universal Render Pipeline/MaterialError,Variants: 3,UNUSED,2075,Warning
+Shader,Packages/com.unity.render-pipelines.core/Runtime/RenderPipelineResources/FallbackShader.shader,Hidden/Core/FallbackError,Variants: 3,UNUSED,1061,Warning
+Shader,Packages/com.unity.render-pipelines.core/Editor/LookDev/Compositor.shader,Hidden/LookDev/Compositor,Variants: 3,UNUSED,18065,Warning
+Shader,Packages/com.unity.render-pipelines.core/Editor/Lighting/ProbeVolume/VoxelizeScene.shader,Hidden/ProbeVolume/VoxelizeScene,Variants: 3,UNUSED,1666,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/LutBuilderHdr.shader,Hidden/Universal Render Pipeline/LutBuilderHdr,Variants: 3,UNUSED,10857,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/2D/Shadow2D-Unshadow-Geometry.shader,Hidden/Shadow2DUnshadowGeometry,Variants: 2,UNUSED,2616,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/2D/Shadow2D-Unshadow-Sprite.shader,Hidden/Shadow2DUnshadowSprite,Variants: 2,UNUSED,3730,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/ObjectMotionVectorFallback.shader,Hidden/Universal Render Pipeline/ObjectMotionVectorFallback,Variants: 2,UNUSED,980,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Debug/HDRDebugView.shader,Hidden/Universal/HDRDebugView,Variants: 2,UNUSED,8962,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/BRGPicking.shader,Hidden/Universal Render Pipeline/BRGPicking,Variants: 2,UNUSED,4405,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/2D/Shadow2D-Projected.shader,Hidden/ShadowProjected2D,Variants: 2,UNUSED,3199,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Editor/Overrides/Shaders/CurveBackground.shader,Hidden/Universal Render Pipeline/Editor/CurveBackground,Variants: 2,UNUSED,1709,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/PaniniProjection.shader,Hidden/Universal Render Pipeline/PaniniProjection,Variants: 2,UNUSED,4296,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Tests/Editor/CustomDepthBlit.shader,Hidden/Core/CustomDepthBlit,Variants: 2,UNUSED,1395,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/XR/XROcclusionMesh.shader,Hidden/Universal Render Pipeline/XR/XROcclusionMesh,Variants: 2,UNUSED,2090,Warning
+Shader,Packages/com.unity.render-pipelines.core/Editor/LookDev/CubeToLatlong.shader,Hidden/LookDev/CubeToLatlong,Variants: 2,UNUSED,3962,Warning
+Shader,Packages/com.unity.render-pipelines.core/Editor/PostProcessing/LensFlareResource/LensFlareDataDrivenPreview.shader,Hidden/Core/LensFlareDataDrivenPreview,Variants: 2,UNUSED,1629,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Utils/ScreenSpaceShadows.shader,Hidden/Universal Render Pipeline/ScreenSpaceShadows,Variants: 2,UNUSED,2124,Warning
+Shader,Packages/com.unity.render-pipelines.core/Shaders/CoreCopy.shader,Hidden/CoreSRP/CoreCopy,Variants: 2,UNUSED,3364,Warning
+Shader,Packages/com.unity.render-pipelines.core/Tests/Editor/SimpleDots.shader,Unlit/SimpleDots,Variants: 2,UNUSED,2752,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Utils/BlitHDROverlay.shader,Hidden/Universal/BlitHDROverlay,Variants: 2,UNUSED,3915,Warning
+Shader,Packages/com.unity.render-pipelines.core/Tests/Editor/SimpleSpeedTreeDots.shader,Unlit/SimpleSpeedTreeDots,Variants: 2,UNUSED,2845,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Terrain/TerrainLitBasemapGen.shader,Hidden/Universal Render Pipeline/Terrain/Lit (Basemap Gen),Variants: 2,UNUSED,8409,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Editor/Overrides/Shaders/ShadowsMidtonesHighlightsCurves.shader,Hidden/Universal Render Pipeline/Editor/Shadows Midtones Highlights Curve,Variants: 2,UNUSED,3275,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Editor/Overrides/Shaders/TrackballEditor.shader,Hidden/Universal Render Pipeline/Editor/Trackball,Variants: 2,UNUSED,3836,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/UberPost.shader,Hidden/Universal Render Pipeline/UberPost,Variants: 2,UNUSED,15558,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/Bloom.shader,Hidden/Universal Render Pipeline/Bloom,Variants: 1,UNUSED,13000,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/LutBuilderLdr.shader,Hidden/Universal Render Pipeline/LutBuilderLdr,Variants: 1,UNUSED,6555,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/EdgeAdaptiveSpatialUpsampling.shader,Hidden/Universal Render Pipeline/Edge Adaptive Spatial Upsampling,Variants: 1,UNUSED,2220,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Debug/DebugReplacement.shader,Hidden/Universal Render Pipeline/Debug/DebugReplacement,Variants: 1,UNUSED,4769,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Utils/Sampling.shader,Hidden/Universal Render Pipeline/Sampling,Variants: 1,UNUSED,1516,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Utils/StencilDitherMaskSeed.shader,Hidden/Universal Render Pipeline/StencilDitherMaskSeed,Variants: 1,UNUSED,1718,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/XR/XRMirrorView.shader,Hidden/Universal Render Pipeline/XR/XRMirrorView,Variants: 1,UNUSED,1126,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/XR/XRMotionVector.shader,Hidden/Universal Render Pipeline/XR/XRMotionVector,Variants: 1,UNUSED,3403,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/StopNaN.shader,Hidden/Universal Render Pipeline/Stop NaN,Variants: 1,UNUSED,1104,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/ScalingSetup.shader,Hidden/Universal Render Pipeline/Scaling Setup,Variants: 1,UNUSED,3792,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Utils/Blit.shader,Hidden/Universal Render Pipeline/Blit,Variants: 1,UNUSED,1697,Warning
+Shader,Assets/NewBlitScriptableRenderPipelineShader.shader,Custom/NewBlitScriptableRenderPipelineShader,Variants: 1,UNUSED,859,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Tests/Editor/PostProcessDataTests/2.shader,Custom/Test Shader,Variants: 1,UNUSED,1649,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/2D/Shadow2D-Shadow-Geometry.shader,Hidden/Shadow2DShadowGeometry,Variants: 1,UNUSED,1155,Warning
+Shader,Packages/com.unity.shadergraph/Editor/Resources/Shaders/Checkerboard.shader,Hidden/Checkerboard,Variants: 1,UNUSED,949,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Runtime/Decal/DBuffer/DBufferClear.shader,Hidden/Universal Render Pipeline/DBufferClear,Variants: 1,UNUSED,1334,Warning
+Shader,Packages/com.unity.shadergraph/Editor/Resources/Shaders/BlitNoAlpha.shader,Hidden/BlitNoAlpha,Variants: 1,UNUSED,1380,Warning
+Shader,Packages/com.unity.render-pipelines.core/Tests/Editor/ShaderStripping/DummyPipelineShader.shader,Hidden/DummyPipeline/VariantStrippingTestsShader,Variants: 1,UNUSED,1414,Warning
+Shader,Packages/com.unity.render-pipelines.core/Runtime/Vrs/Shaders/VrsVisualization.shader,Hidden/Core/VrsVisualization,Variants: 1,UNUSED,1401,Warning
+Shader,Packages/com.unity.render-pipelines.core/Runtime/RenderPipelineResources/GPUDriven/DebugOcclusionTest.shader,Hidden/Core/DebugOcclusionTest,Variants: 1,UNUSED,4200,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/2D/Shadow2D-Shadow-Sprite.shader,Hidden/Shadow2DShadowSprite,Variants: 1,UNUSED,1698,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/CameraMotionVectors.shader,Hidden/Universal Render Pipeline/CameraMotionVectors,Variants: 1,UNUSED,5190,Warning
+Shader,Packages/com.unity.render-pipelines.core/Runtime/Debug/ProbeVolumeOffsetDebug.shader,Hidden/Core/ProbeVolumeOffsetDebug,Variants: 1,UNUSED,1259,Warning
+Shader,Packages/com.unity.test-framework.performance/Editor/TestReportGraph/TestReportShader.shader,Unlit/TestReportShader,Variants: 1,UNUSED,966,Warning
+Shader,Packages/com.unity.render-pipelines.core/Runtime/Debug/ProbeVolumeSamplingDebug.shader,Hidden/Core/ProbeVolumeSamplingDebug,Variants: 1,UNUSED,1076,Warning
+Shader,Packages/com.unity.render-pipelines.core/Editor/Gizmo/UnlitGizmo.shader,Hidden/UnlitTransparentColored,Variants: 1,UNUSED,405,Warning
+Shader,Packages/com.unity.render-pipelines.core/Runtime/Debug/ProbeVolumeDebug.shader,Hidden/Core/ProbeVolumeDebug,Variants: 1,UNUSED,1250,Warning
+Shader,Packages/com.unity.render-pipelines.core/Runtime/Debug/ProbeVolumeFragmentationDebug.shader,Hidden/Core/ProbeVolumeFragmentationDebug,Variants: 1,UNUSED,1199,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Tests/Editor/PostProcessDataTests/1.shader,Custom/Test Shader,Variants: 1,UNUSED,1649,Warning
+Shader,Packages/com.unity.render-pipelines.core/Runtime/RenderPipelineResources/GPUDriven/DebugOccluder.shader,Hidden/Core/DebugOccluder,Variants: 1,UNUSED,1727,Warning
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Particles/ParticlesUnlit.shader,Universal Render Pipeline/Particles/Unlit,Variants: 80,OK,12430,Info
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/2D/Sprite-Lit-Default.shader,Universal Render Pipeline/2D/Sprite-Lit-Default,Variants: 72,OK,6169,Info
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/2D/Mesh2D-Lit-Default.shader,Universal Render Pipeline/2D/Mesh2D-Lit-Default,Variants: 6,OK,4025,Info
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/2D/Sprite-Unlit-Default.shader,Universal Render Pipeline/2D/Sprite-Unlit-Default,Variants: 3,OK,2523,Info
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/2D/RenderAs2D-Flattening.shader,2D/RenderAs2D-Flattening,Variants: 3,OK,5899,Info
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/2D/Sprite-Mask.shader,Universal Render Pipeline/2D/Sprite-Mask,Variants: 3,OK,1749,Info
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/2D/Mesh2D-Unlit-Default.shader,Universal Render Pipeline/2D/Mesh2D-Unlit-Default,Variants: 1,OK,1898,Info
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/SpatialMappingOcclusion.shader,Universal Render Pipeline/VR/SpatialMapping/Occlusion,Variants: 1,OK,1760,Info
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/SpatialMappingWireframe.shader,Universal Render Pipeline/VR/SpatialMapping/Wireframe,Variants: 1,OK,6038,Info
+Shader,Packages/com.unity.render-pipelines.universal/Runtime/RendererFeatures/SurfaceCacheGI/FallbackMaterial.shader,Hidden/SurfaceCache/Fallback,Variants: 1,OK,735,Info
+Shader,Packages/com.unity.shadergraph/GraphTemplates/Cross Pipeline/1_Decal Material Volume.shadergraph,Hidden/Decal/1_Decal Material Volume,Variants: 0,OK,74221,Info
+Shader,Packages/com.unity.shadergraph/GraphTemplates/Cross Pipeline/0_Particle Unlit.shadergraph,Hidden/Shader Graphs/Particles/0_Particle Unlit,Variants: 0,OK,30497,Info
+Shader,Packages/com.unity.shadergraph/GraphTemplates/Cross Pipeline/1_Lit Full.shadergraph,Hidden/Lit/1_Lit Full,Variants: 0,OK,326019,Info
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/AutodeskInteractive/AutodeskInteractiveTransparent.shadergraph,Universal Render Pipeline/Autodesk Interactive/AutodeskInteractiveTransparent,Variants: 0,OK,118838,Info
+Shader,Packages/com.unity.shadergraph/GraphTemplates/Cross Pipeline/0_Decal Simple.shadergraph,Hidden/Decal/0_Decal Simple,Variants: 0,OK,32465,Info
+Shader,Packages/com.unity.shadergraph/GraphTemplates/BuiltIn/BuiltIn Unlit Basic.shadergraph,Hidden/Shader Graphs/BuiltIn Unlit Basic,Variants: 0,OK,22875,Info
+Shader,Packages/com.unity.shadergraph/GraphTemplates/BuiltIn/BuiltIn Lit Basic.shadergraph,Hidden/Shader Graphs/BuiltIn Lit Basic,Variants: 0,OK,75174,Info
+Shader,Packages/com.unity.shadergraph/GraphTemplates/Cross Pipeline/2_Particle Lit.shadergraph,Hidden/Shader Graphs/Particles/2_Particle Lit,Variants: 0,OK,81847,Info
+Shader,Packages/com.unity.shadergraph/GraphTemplates/Cross Pipeline/0_Lit Basic.shadergraph,Hidden/Lit/0_Lit Basic,Variants: 0,OK,80122,Info
+Shader,Packages/com.unity.shadergraph/GraphTemplates/Cross Pipeline/Terrain Simple.shadergraph,Hidden/Terrain/Terrain Simple,Variants: 0,OK,169032,Info
+Shader,Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/GraphTemplates/2D/1_2D Sprite Unlit.shadergraph,Hidden/Shader Graphs/1_2D Sprite Unlit,Variants: 0,OK,35679,Info
+Shader,Packages/com.unity.shadergraph/GraphTemplates/Cross Pipeline/UGUI Canvas Meter.shadergraph,Hidden/UGUI Canvas/UGUI Canvas Meter,Variants: 0,OK,43027,Info
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Decal.shadergraph,Shader Graphs/Decal,Variants: 0,OK,36370,Info
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/FullscreenInvertColors.shadergraph,Shader Graphs/FullscreenInvertColors,Variants: 0,OK,17209,Info
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/AutodeskInteractive/AutodeskInteractiveMasked.shadergraph,Universal Render Pipeline/Autodesk Interactive/AutodeskInteractiveMasked,Variants: 0,OK,127714,Info
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/AutodeskInteractive/AutodeskInteractive.shadergraph,Universal Render Pipeline/Autodesk Interactive/AutodeskInteractive,Variants: 0,OK,119038,Info
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/2D/VFXSpriteLit.shadergraph,VFX Graph/VFXSpriteLit,Variants: 0,OK,20514,Info
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Nature/SpeedTree8_PBRLit.shadergraph,Universal Render Pipeline/Nature/SpeedTree8_PBRLit,Variants: 0,OK,262214,Info
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/Nature/SpeedTree9_URP.shadergraph,Universal Render Pipeline/Nature/SpeedTree9_URP,Variants: 0,OK,244686,Info
+Shader,Packages/com.unity.render-pipelines.universal/Runtime/Materials/PhysicalMaterial3DsMax/PhysicalMaterial3DsMaxTransparent.shadergraph,Shader Graphs/PhysicalMaterial3DsMaxTransparent,Variants: 0,OK,196975,Info
+Shader,Packages/com.unity.render-pipelines.universal/Runtime/Materials/PhysicalMaterial3DsMax/PhysicalMaterial3DsMax.shadergraph,Shader Graphs/PhysicalMaterial3DsMax,Variants: 0,OK,179225,Info
+Shader,Packages/com.unity.render-pipelines.universal/Runtime/Materials/ArnoldStandardSurface/ArnoldStandardSurfaceTransparent.shadergraph,Shader Graphs/ArnoldStandardSurfaceTransparent,Variants: 0,OK,168947,Info
+Shader,Packages/com.unity.render-pipelines.universal/Runtime/Materials/ArnoldStandardSurface/ArnoldStandardSurface.shadergraph,Shader Graphs/ArnoldStandardSurface,Variants: 0,OK,152468,Info
+Shader,Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/GraphTemplates/UITKFullTemplate.shadergraph,Hidden/Shader Graphs/UITKFullTemplate,Variants: 0,OK,42638,Info
+Shader,Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/GraphTemplates/UITKBasicTemplate.shadergraph,Hidden/Shader Graphs/UITKBasicTemplate,Variants: 0,OK,19390,Info
+Shader,Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/GraphTemplates/Terrain Standard 4 Layers URP.shadergraph,Hidden/Terrain/Terrain Standard 4 Layers URP,Variants: 0,OK,182216,Info
+Shader,Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/GraphTemplates/Fullscreen Basic URP.shadergraph,Hidden/Shader Graphs/Fullscreen Basic URP,Variants: 0,OK,28025,Info
+Shader,Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/GraphTemplates/2D/2_2D Sprite Custom Lit.shadergraph,Hidden/Shader Graphs/2_2D Sprite Custom Lit,Variants: 0,OK,110798,Info
+Shader,Packages/com.unity.render-pipelines.universal/Editor/ShaderGraph/GraphTemplates/2D/0_2D Sprite Lit.shadergraph,Hidden/Shader Graphs/0_2D Sprite Lit,Variants: 0,OK,55091,Info
+Shader,Packages/com.unity.shadergraph/GraphTemplates/Custom Render Texture.shadergraph,Hidden/Shader Graphs/Custom Render Texture,Variants: 0,OK,12227,Info
+Shader,Packages/com.unity.shadergraph/GraphTemplates/Cross Pipeline/Unlit Simple.shadergraph,Hidden/Unlit/Unlit Simple,Variants: 0,OK,28800,Info
+Shader,Packages/com.unity.shadergraph/GraphTemplates/Cross Pipeline/UGUI Canvas Basic.shadergraph,Hidden/UGUI Canvas/UGUI Canvas Basic,Variants: 0,OK,26318,Info
+Shader,Packages/com.unity.render-pipelines.universal/Shaders/2D/VFXSpriteUnlit.shadergraph,VFX Graph/VFXSpriteUnlit,Variants: 0,OK,19083,Info
+Size,Assets/BIA-London.mp3,AudioClip,Vorbis,Large audio file - consider enabling streaming to reduce memory usage.,12265370,
+Size,Assets/Docs/projectclean_pro_docs.html,TextAsset,,,73261,
+Size,Assets/556430213_1371645721630007_8687275741614109558_n 1.jpg,Texture2D,"Compressed, max 2048px",,72467,
+Size,Assets/556430213_1371645721630007_8687275741614109558_n.jpg,Texture2D,"Compressed, max 2048px",,72467,
+Size,Assets/556430213_1371645721630007_8687275741614109558_n 2.jpg,Texture2D,"Compressed, max 2048px",,72467,
+Size,Assets/ProjectCleanPro/Tests/Editor/PCPSettingsViewTests.cs,MonoScript,,,42004,
+Size,Assets/InputSystem_Actions.inputactions,InputActionAsset,,,41005,
+Size,Assets/ProjectCleanPro/Editor/TestResults_20260321_195207.xml,TextAsset,,,38630,
+Size,Assets/ProjectCleanPro/Editor/UI/Controls/PCPResultListView.cs,MonoScript,,,36515,
+Size,Assets/ProjectCleanPro/Tests/Editor/PCPScanCacheTests.cs,MonoScript,,,31228,
+Size,Assets/ProjectCleanPro/Editor/TestResults_20260321_200529.xml,TextAsset,,,28562,
+Size,Assets/ProjectCleanPro/Editor/UI/Views/PCPDependencyGraphView.cs,MonoScript,,,26103,
+Size,Assets/ProjectCleanPro/Editor/Services/PCPReportExporter.cs,MonoScript,,,25131,
+Size,Assets/ProjectCleanPro/Editor/UI/PCPWindow.cs,MonoScript,,,24884,
+Size,Assets/ProjectCleanPro/Editor/UI/Views/PCPPackagesView.cs,MonoScript,,,24774,
+Size,Assets/Settings/DefaultVolumeProfile.asset,VolumeProfile,,,24035,
+Size,Assets/ProjectCleanPro/Editor/UI/PCPSettingsView.cs,MonoScript,,,23478,
+Size,Assets/Settings/UniversalRenderPipelineGlobalSettings.asset,UniversalRenderPipelineGlobalSettings,,,22478,
+Size,Assets/ProjectCleanPro/Editor/UI/Views/PCPSizeView.cs,MonoScript,,,21588,
+Size,Assets/ProjectCleanPro/Editor/Modules/PCPShaderAnalyzer.cs,MonoScript,,,20034,
+Size,Assets/ProjectCleanPro/Editor/UI/Views/PCPMissingRefsView.cs,MonoScript,,,19659,
+Size,Assets/ProjectCleanPro/Editor/UI/Controls/PCPTreemapView.cs,MonoScript,,,19569,
+Size,Assets/ProjectCleanPro/Editor/Modules/PCPSizeProfiler.cs,MonoScript,,,19021,
+Size,Assets/ProjectCleanPro/Editor/Modules/PCPPackageAuditor.cs,MonoScript,,,18837,
+Size,Assets/ProjectCleanPro/Editor/UI/Views/PCPDuplicatesView.cs,MonoScript,,,18811,
+Size,Assets/ProjectCleanPro/Editor/Modules/PCPDependencyModule.cs,MonoScript,,,17579,
+Size,Assets/ProjectCleanPro/Tests/Editor/PCPScanResultTests.cs,MonoScript,,,16802,
+Size,Assets/ProjectCleanPro/Editor/Services/PCPArchiveManager.cs,MonoScript,,,16719,
+Size,Assets/ProjectCleanPro/Editor/Services/PCPSafeDelete.cs,MonoScript,,,16352,
+Size,Assets/ProjectCleanPro/Editor/Core/PCPScanCache.cs,MonoScript,,,16290,
+Size,Assets/ProjectCleanPro/Editor/UI/Controls/PCPFilterBar.cs,MonoScript,,,15871,
+Size,Assets/TutorialInfo/Layout.wlt,DefaultAsset,,,15479,
+Size,Assets/ProjectCleanPro/Editor/UI/PCPDashboardView.cs,MonoScript,,,14566,
+Size,Assets/ProjectCleanPro/Editor/UI/Controls/PCPDeletePreviewDialog.cs,MonoScript,,,14444,
+Size,Assets/ProjectCleanPro/Editor/UI/Views/PCPModuleView.cs,MonoScript,,,14373,
+Size,Assets/ProjectCleanPro/Editor/UI/PCPArchiveView.cs,MonoScript,,,14336,
+Size,Assets/ProjectCleanPro/Editor/Modules/PCPMissingRefScanner.cs,MonoScript,,,14178,
+Size,Assets/ProjectCleanPro/Editor/Modules/PCPDuplicateDetector.cs,MonoScript,,,14131,
+Size,Assets/ProjectCleanPro/Tests/Editor/PCPFileUtilsTests.cs,MonoScript,,,13133,
+Size,Assets/Scenes/SampleScene.unity,SceneAsset,,,13121,
+Size,Assets/ProjectCleanPro/Editor/API/PCPAPI.cs,MonoScript,,,12970,
+Size,Assets/ProjectCleanPro/Tests/Editor/PCPIgnoreRulesTests.cs,MonoScript,,,12803,
+Size,Assets/ProjectCleanPro/Editor/Data/PCPScanResult.cs,MonoScript,,,11690,
+Size,Assets/ProjectCleanPro/Tests/Editor/PCPIntegrationTests.cs,MonoScript,,,11186,
+Size,Assets/ProjectCleanPro/Editor/UI/Views/PCPShadersView.cs,MonoScript,,,10613,
+Size,Assets/Scenes/New Scene.unity,SceneAsset,,,10329,
+Size,Assets/ProjectCleanPro/Tests/Editor/PCPDuplicateGroupTests.cs,MonoScript,,,9929,
+Size,Assets/ProjectCleanPro/Editor/UI/Controls/PCPModuleHeader.cs,MonoScript,,,9854,
+Size,Assets/ProjectCleanPro/Editor/UI/Controls/PCPProgressOverlay.cs,MonoScript,,,9607,
+Size,Assets/ProjectCleanPro/Editor/Modules/PCPUnusedScanner.cs,MonoScript,,,9563,
+Size,Assets/ProjectCleanPro/Editor/Core/PCPIgnoreRules.cs,MonoScript,,,9276,
+Size,Assets/ProjectCleanPro/Editor/UI/Styles/PCPCommon.uss,StyleSheet,,,9269,
+Size,Assets/ProjectCleanPro/Tests/Editor/PCPDependencyResolverTests.cs,MonoScript,,,9254,
+Size,Assets/ProjectCleanPro/Editor/Services/PCPFileUtils.cs,MonoScript,,,9172,
+Size,Assets/ProjectCleanPro/Tests/Editor/PCPDataModelTests.cs,MonoScript,,,9110,
+Size,Assets/ProjectCleanPro/Editor/Core/PCPDependencyResolver.cs,MonoScript,,,9080,
+Size,Assets/ProjectCleanPro/Editor/API/PCPCli.cs,MonoScript,,,8955,
+Size,Assets/ProjectCleanPro/Editor/Services/PCPAssetUtils.cs,MonoScript,,,8573,
+Size,Assets/ProjectCleanPro/Editor/UI/Styles/PCPGraph.uss,StyleSheet,,,8390,
+Size,Assets/ProjectCleanPro/Editor/UI/Styles/PCPDashboard.uss,StyleSheet,,,7994,
+Size,Assets/ProjectCleanPro/Editor/Services/PCPGitUtils.cs,MonoScript,,,7940,
+Size,Assets/ProjectCleanPro/Editor/UI/Styles/PCPResults.uss,StyleSheet,,,7891,
+Size,Assets/ProjectCleanPro/Editor/UI/Controls/PCPToolbar.cs,MonoScript,,,7680,
+Size,Assets/ProjectCleanPro/Editor/UI/Styles/PCPTreemap.uss,StyleSheet,,,7381,
+Size,Assets/Prefabs/Prefab.prefab,GameObject,,,7306,
+Size,Assets/ProjectCleanPro/Tests/Editor/PCPAssetUtilsTests.cs,MonoScript,,,6871,
+Size,Assets/TutorialInfo/Scripts/Editor/ReadmeEditor.cs,MonoScript,,,6677,
+Size,Assets/ProjectCleanPro/Tests/Editor/PCPPackageAuditEntryTests.cs,MonoScript,,,6270,
+Size,Assets/ProjectCleanPro/Editor/Core/PCPScanContext.cs,MonoScript,,,6218,
+Size,Assets/ProjectCleanPro/Tests/Editor/PCPShaderEntryTests.cs,MonoScript,,,6158,
+Size,Assets/ProjectCleanPro/Editor/Core/PCPSettings.cs,MonoScript,,,6144,
+Size,Assets/ProjectCleanPro/Editor/Integrations/PCPAddressablesSupport.cs,MonoScript,,,5760,
+Size,Assets/ProjectCleanPro/Tests/Editor/PCPSizeEntryTests.cs,MonoScript,,,5593,
+Size,Assets/ProjectCleanPro/Editor/Core/PCPRenderPipelineDetector.cs,MonoScript,,,5478,
+Size,Assets/ProjectCleanPro/Editor/UI/Controls/PCPBadge.cs,MonoScript,,,5346,
+Size,Assets/ProjectCleanPro/Tests/Editor/PCPMissingReferenceTests.cs,MonoScript,,,5125,
+Size,Assets/ProjectCleanPro/Tests/Editor/PCPSettingsTests.cs,MonoScript,,,4787,
+Size,Assets/Settings/PC_RPAsset.asset,UniversalRenderPipelineAsset,,,4669,
+Size,Assets/Settings/Mobile_RPAsset.asset,UniversalRenderPipelineAsset,,,4650,
+Size,Assets/ProjectCleanPro/Editor/Modules/PCPModuleBase.cs,MonoScript,,,4603,
+Size,Assets/ProjectCleanPro/Editor/UI/Views/PCPUnusedView.cs,MonoScript,,,4546,
+Size,Assets/AddressableAssetsData/AddressableAssetSettings.asset,AddressableAssetSettings,,,4433,
+Size,Assets/ProjectCleanPro/Editor/Core/PCPContext.cs,MonoScript,,,3946,
+Size,Assets/ProjectCleanPro/Editor/Data/PCPDuplicateGroup.cs,MonoScript,,,3777,
+Size,Assets/ProjectCleanPro/Editor/Core/PCPDefineManager.cs,MonoScript,,,3715,
+Size,Assets/Settings/SampleSceneProfile.asset,VolumeProfile,,,3703,
+Size,Assets/ProjectCleanPro/Tests/Editor/PCPContextTests.cs,MonoScript,,,3648,
+Size,Assets/ProjectCleanPro/Editor/UI/Styles/PCPVariables.uss,StyleSheet,,,3508,
+Size,Assets/Settings/PC_Renderer.asset,UniversalRendererData,,,3439,
+Size,Assets/ProjectCleanPro/Editor/Data/PCPSizeEntry.cs,MonoScript,,,3318,
+Size,Assets/ProjectCleanPro/Tests/Editor/PCPRenderPipelineDetectorTests.cs,MonoScript,,,3271,
+Size,Assets/AddressableAssetsData/AssetGroups/unifiedraytracing.asset,AddressableAssetGroup,,,3242,
+Size,Assets/ProjectCleanPro/Editor/Data/PCPShaderEntry.cs,MonoScript,,,3200,
+Size,Assets/ProjectCleanPro/Editor/Data/PCPPackageAuditEntry.cs,MonoScript,,,3107,
+Size,Assets/ProjectCleanPro/Editor/Data/PCPAssetInfo.cs,MonoScript,,,3047,
+Size,Assets/ProjectCleanPro/Editor/Data/PCPDeletePreview.cs,MonoScript,,,3045,
+Size,Assets/AddressableAssetsData/Windows/addressables_content_state.bin,DefaultAsset,,,2957,
+Size,Assets/Prefabs/Prefab 7.prefab,GameObject,,,2946,
+Size,Assets/Prefabs/Prefab 8.prefab,GameObject,,,2946,
+Size,Assets/ProjectCleanPro/Editor/Data/PCPMissingReference.cs,MonoScript,,,2712,
+Size,Assets/AddressableAssetsData/AssetGroupTemplates/Packed Assets.asset,AddressableAssetGroupTemplate,,,2527,
+Size,Assets/ProjectCleanPro/Editor/Data/PCPUnusedAsset.cs,MonoScript,,,2260,
+Size,Assets/ProjectCleanPro/Editor/Integrations/PCPAddressablesBridge.cs,MonoScript,,,2019,
+Size,Assets/Settings/Mobile_Renderer 1.asset,UniversalRendererData,,,1753,
+Size,Assets/AddressableAssetsData/AssetGroups/Schemas/Default Local Group_BundledAssetGroupSchema.asset,BundledAssetGroupSchema,,,1741,
+Size,Assets/AddressableAssetsData/AssetGroups/Schemas/unifiedraytracing_BundledAssetGroupSchema.asset,BundledAssetGroupSchema,,,1739,
+Size,Assets/AddressableAssetsData/AssetGroups/Schemas/Packed Assets_BundledAssetGroupSchema.asset,BundledAssetGroupSchema,,,1735,
+Size,Assets/Settings/Mobile_Renderer.asset,UniversalRendererData,,,1713,
+Size,Assets/ProjectCleanPro/Editor/Modules/IPCPModule.cs,MonoScript,,,1648,
+Size,Assets/New Folder/New Animator Controller.controller,AnimatorController,,,1230,
+Size,Assets/ProjectCleanPro/Editor/ProjectCleanPro.Editor.asmdef,AssemblyDefinitionAsset,,,1029,
+Size,Assets/AddressableAssetsData/ProfileDataSourceSettings.asset,ProfileDataSourceSettings,,,917,
+Size,Assets/AddressableAssetsData/DataBuilders/BuildScriptPackedPlayMode.asset,BuildScriptPackedPlayMode,,,917,
+Size,Assets/AddressableAssetsData/DataBuilders/BuildScriptPackedMode.asset,BuildScriptPackedMode,,,909,
+Size,Assets/ProjectCleanPro/Editor/BuildScriptFastMode.asset,BuildScriptFastMode,,,905,
+Size,Assets/AddressableAssetsData/AssetGroups/Default Local Group.asset,AddressableAssetGroup,,,874,
+Size,Assets/AddressableAssetsData/AssetGroups/Packed Assets.asset,AddressableAssetGroup,,,862,
+Size,Assets/NewBlitScriptableRenderPipelineShader.shader,Shader,,,859,
+Size,Assets/ProjectCleanPro/Editor/Data/PCPArchiveSession.cs,MonoScript,,,763,
+Size,Assets/AddressableAssetsData/AddressableAssetGroupSortSettings.asset,AddressableAssetGroupSortSettings,,,658,
+Size,Assets/AddressableAssetsData/AssetGroups/Schemas/Default Local Group_ContentUpdateGroupSchema.asset,ContentUpdateGroupSchema,,,636,
+Size,Assets/AddressableAssetsData/AssetGroups/Schemas/unifiedraytracing_ContentUpdateGroupSchema.asset,ContentUpdateGroupSchema,,,634,
+Size,Assets/AddressableAssetsData/AssetGroups/Schemas/Packed Assets_ContentUpdateGroupSchema.asset,ContentUpdateGroupSchema,,,630,
+Size,Assets/AddressableAssetsData/DefaultObject.asset,AddressableAssetSettingsDefaultObject,,,563,
+Size,Assets/ProjectCleanPro/Tests/Editor/ProjectCleanPro.Tests.Editor.asmdef,AssemblyDefinitionAsset,,,520,
+Size,Assets/ProjectCleanPro/Sandbox/MissingReference.cs,MonoScript,,,398,
+Size,Assets/TutorialInfo/Scripts/Readme.cs,MonoScript,,,302,
+Size,Assets/ProjectCleanPro/Editor/UI/IPCPRefreshable.cs,MonoScript,,,272,
+Size,Assets/ProjectCleanPro_Report.csv,TextAsset,,,59,

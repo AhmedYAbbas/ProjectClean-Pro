@@ -34,6 +34,8 @@ namespace ProjectCleanPro.Editor
         // Constructor
         // --------------------------------------------------------------------
 
+        protected override string ModuleExportKey => "shaders";
+
         public PCPShadersView(PCPScanResult scanResult, Func<PCPScanContext> createContext)
             : base(
                 scanResult,

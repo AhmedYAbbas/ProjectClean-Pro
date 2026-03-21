@@ -130,6 +130,18 @@ namespace ProjectCleanPro.Editor
                 filterRow.Add(btn);
             }
 
+            var filterSpacer = new VisualElement();
+            filterSpacer.style.flexGrow = 1;
+            filterRow.Add(filterSpacer);
+
+            var exportBtn = new Button(OnExport) { text = "Export" };
+            exportBtn.AddToClassList("pcp-button-secondary");
+            exportBtn.style.paddingLeft = 10;
+            exportBtn.style.paddingRight = 10;
+            exportBtn.style.paddingTop = 3;
+            exportBtn.style.paddingBottom = 3;
+            filterRow.Add(exportBtn);
+
             Add(filterRow);
 
             // Two-panel splitter: treemap (top) + list (bottom)
@@ -513,6 +525,15 @@ namespace ProjectCleanPro.Editor
         // --------------------------------------------------------------------
         // Actions
         // --------------------------------------------------------------------
+
+        private void OnExport()
+        {
+            if (m_ScanResult == null)
+                return;
+
+            var moduleResult = PCPReportExporter.CreateModuleSubset(m_ScanResult, "size");
+            PCPReportExporter.ShowExportMenu(moduleResult);
+        }
 
         private void OnScanClicked()
         {

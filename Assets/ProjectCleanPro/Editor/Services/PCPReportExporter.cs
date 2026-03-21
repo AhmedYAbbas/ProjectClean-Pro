@@ -33,7 +33,9 @@ namespace ProjectCleanPro.Editor
             if (result == null)
                 throw new ArgumentNullException(nameof(result));
 
-            if (string.IsNullOrEmpty(outputPath))
+            bool isExplicitPath = !string.IsNullOrEmpty(outputPath);
+
+            if (!isExplicitPath)
             {
                 outputPath = EditorUtility.SaveFilePanel(
                     "Export Report as JSON", "", "ProjectCleanPro_Report.json", "json");
@@ -44,8 +46,9 @@ namespace ProjectCleanPro.Editor
             string json = JsonUtility.ToJson(result, true);
             File.WriteAllText(outputPath, json, Encoding.UTF8);
 
-            EditorUtility.DisplayDialog("ProjectCleanPro",
-                $"JSON report exported successfully.\n\n{outputPath}", "OK");
+            if (!isExplicitPath)
+                EditorUtility.DisplayDialog("ProjectCleanPro",
+                    $"JSON report exported successfully.\n\n{outputPath}", "OK");
         }
 
         // ================================================================
@@ -64,7 +67,9 @@ namespace ProjectCleanPro.Editor
             if (result == null)
                 throw new ArgumentNullException(nameof(result));
 
-            if (string.IsNullOrEmpty(outputPath))
+            bool isExplicitPath = !string.IsNullOrEmpty(outputPath);
+
+            if (!isExplicitPath)
             {
                 outputPath = EditorUtility.SaveFilePanel(
                     "Export Report as CSV", "", "ProjectCleanPro_Report.csv", "csv");
@@ -140,10 +145,69 @@ namespace ProjectCleanPro.Editor
                 }
             }
 
+            // Shader Analysis
+            if (result.shaderEntries != null)
+            {
+                foreach (var shader in result.shaderEntries)
+                {
+                    sb.AppendLine(CsvRow("Shader",
+                        shader.assetPath ?? "",
+                        shader.shaderName ?? "",
+                        $"Variants: {shader.estimatedVariants}",
+                        shader.pipelineMismatch ? "MISMATCH" : shader.isUnused ? "UNUSED" : "OK",
+                        shader.sizeBytes,
+                        shader.GetSeverity().ToString()));
+                }
+            }
+
+            // Size Profiler
+            if (result.sizeEntries != null)
+            {
+                foreach (var entry in result.sizeEntries)
+                {
+                    sb.AppendLine(CsvRow("Size",
+                        entry.path ?? "",
+                        entry.assetTypeName ?? "",
+                        entry.compressionInfo ?? "",
+                        entry.hasOptimizationSuggestion ? entry.optimizationSuggestion ?? "" : "",
+                        entry.sizeBytes,
+                        ""));
+                }
+            }
+
+            // Circular Dependencies
+            if (result.circularDependencies != null)
+            {
+                foreach (var cd in result.circularDependencies)
+                {
+                    string chain = string.Join(" -> ", cd.chain);
+                    sb.AppendLine(CsvRow("Circular Dependency",
+                        chain,
+                        $"{cd.chain.Count} assets in cycle",
+                        "", "",
+                        0,
+                        "Warning"));
+                }
+            }
+
+            // Orphan Assets
+            if (result.orphanAssets != null)
+            {
+                foreach (var orphan in result.orphanAssets)
+                {
+                    sb.AppendLine(CsvRow("Orphan Asset",
+                        orphan,
+                        "", "", "",
+                        0,
+                        "Info"));
+                }
+            }
+
             File.WriteAllText(outputPath, sb.ToString(), Encoding.UTF8);
 
-            EditorUtility.DisplayDialog("ProjectCleanPro",
-                $"CSV report exported successfully.\n\n{outputPath}", "OK");
+            if (!isExplicitPath)
+                EditorUtility.DisplayDialog("ProjectCleanPro",
+                    $"CSV report exported successfully.\n\n{outputPath}", "OK");
         }
 
         // ================================================================
@@ -163,7 +227,9 @@ namespace ProjectCleanPro.Editor
             if (result == null)
                 throw new ArgumentNullException(nameof(result));
 
-            if (string.IsNullOrEmpty(outputPath))
+            bool isExplicitPath = !string.IsNullOrEmpty(outputPath);
+
+            if (!isExplicitPath)
             {
                 outputPath = EditorUtility.SaveFilePanel(
                     "Export Report as HTML", "", "ProjectCleanPro_Report.html", "html");
@@ -358,6 +424,101 @@ namespace ProjectCleanPro.Editor
                 html.AppendLine("</div>");
             }
 
+            // ---- Shader Analysis section ----
+            if (result.shaderEntries != null && result.shaderEntries.Count > 0)
+            {
+                html.AppendLine("<div class=\"section\">");
+                html.AppendLine("<h2 class=\"section-title\" style=\"border-color: #DDA0DD;\">Shader Analysis</h2>");
+                html.AppendLine("<table>");
+                html.AppendLine("<thead><tr>");
+                html.AppendLine("<th onclick=\"sortTable(this, 0)\">Shader</th>");
+                html.AppendLine("<th onclick=\"sortTable(this, 1)\">Pipeline</th>");
+                html.AppendLine("<th onclick=\"sortTable(this, 2)\">Variants</th>");
+                html.AppendLine("<th onclick=\"sortTable(this, 3)\">Keywords</th>");
+                html.AppendLine("<th onclick=\"sortTable(this, 4)\">Materials</th>");
+                html.AppendLine("<th onclick=\"sortTable(this, 5)\" data-type=\"size\">Size</th>");
+                html.AppendLine("<th onclick=\"sortTable(this, 6)\">Status</th>");
+                html.AppendLine("</tr></thead>");
+                html.AppendLine("<tbody>");
+
+                foreach (var shader in result.shaderEntries)
+                {
+                    string statusText;
+                    string statusClass;
+                    if (shader.pipelineMismatch)
+                    {
+                        statusText = "MISMATCH";
+                        statusClass = "badge-err";
+                    }
+                    else if (shader.isUnused)
+                    {
+                        statusText = "UNUSED";
+                        statusClass = "badge-warn";
+                    }
+                    else if (shader.estimatedVariants > 256)
+                    {
+                        statusText = "HIGH VARIANTS";
+                        statusClass = "badge-warn";
+                    }
+                    else
+                    {
+                        statusText = "OK";
+                        statusClass = "badge-ok";
+                    }
+
+                    html.AppendLine("<tr>");
+                    html.AppendLine($"<td>{HtmlEncode(shader.shaderName ?? "")}</td>");
+                    html.AppendLine($"<td>{shader.targetPipeline}</td>");
+                    html.AppendLine($"<td>{shader.estimatedVariants}</td>");
+                    html.AppendLine($"<td>{shader.keywordCount}</td>");
+                    html.AppendLine($"<td>{shader.materialCount}</td>");
+                    html.AppendLine($"<td data-sort=\"{shader.sizeBytes}\">{PCPAssetUtils.FormatSize(shader.sizeBytes)}</td>");
+                    html.AppendLine($"<td><span class=\"badge {statusClass}\">{statusText}</span></td>");
+                    html.AppendLine("</tr>");
+                }
+
+                html.AppendLine("</tbody></table>");
+                html.AppendLine("</div>");
+            }
+
+            // ---- Size Profiler section (top 100 largest) ----
+            if (result.sizeEntries != null && result.sizeEntries.Count > 0)
+            {
+                html.AppendLine("<div class=\"section\">");
+                html.AppendLine("<h2 class=\"section-title\" style=\"border-color: #45B7D1;\">Size Profiler (Top 100)</h2>");
+                html.AppendLine("<table>");
+                html.AppendLine("<thead><tr>");
+                html.AppendLine("<th onclick=\"sortTable(this, 0)\">Asset</th>");
+                html.AppendLine("<th onclick=\"sortTable(this, 1)\">Type</th>");
+                html.AppendLine("<th onclick=\"sortTable(this, 2)\" data-type=\"size\">Size</th>");
+                html.AppendLine("<th onclick=\"sortTable(this, 3)\">Optimization</th>");
+                html.AppendLine("</tr></thead>");
+                html.AppendLine("<tbody>");
+
+                // Sort by size descending, limit to top 100
+                var sortedSize = new List<PCPSizeEntry>(result.sizeEntries);
+                sortedSize.Sort((a, b) => b.sizeBytes.CompareTo(a.sizeBytes));
+                int limit = Math.Min(sortedSize.Count, 100);
+
+                for (int i = 0; i < limit; i++)
+                {
+                    var entry = sortedSize[i];
+                    string suggestion = entry.hasOptimizationSuggestion
+                        ? $"<span class=\"badge badge-warn\">OPTIMIZE</span> {HtmlEncode(entry.optimizationSuggestion ?? "")}"
+                        : "<span class=\"badge badge-ok\">OK</span>";
+
+                    html.AppendLine("<tr>");
+                    html.AppendLine($"<td>{HtmlEncode(entry.path ?? "")}</td>");
+                    html.AppendLine($"<td>{HtmlEncode(entry.assetTypeName ?? "")}</td>");
+                    html.AppendLine($"<td data-sort=\"{entry.sizeBytes}\">{PCPAssetUtils.FormatSize(entry.sizeBytes)}</td>");
+                    html.AppendLine($"<td>{suggestion}</td>");
+                    html.AppendLine("</tr>");
+                }
+
+                html.AppendLine("</tbody></table>");
+                html.AppendLine("</div>");
+            }
+
             // ---- Footer ----
             html.AppendLine("<div class=\"footer\">");
             html.AppendLine($"<p>Generated by ProjectCleanPro on {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC</p>");
@@ -373,8 +534,9 @@ namespace ProjectCleanPro.Editor
 
             File.WriteAllText(outputPath, html.ToString(), Encoding.UTF8);
 
-            EditorUtility.DisplayDialog("ProjectCleanPro",
-                $"HTML report exported successfully.\n\n{outputPath}", "OK");
+            if (!isExplicitPath)
+                EditorUtility.DisplayDialog("ProjectCleanPro",
+                    $"HTML report exported successfully.\n\n{outputPath}", "OK");
         }
 
         // ================================================================
@@ -580,6 +742,81 @@ function sortTable(header, colIndex) {
     rows.forEach(function(row) { tbody.appendChild(row); });
 }
 ";
+        }
+
+        // ================================================================
+        // Module subset & menu helpers
+        // ================================================================
+
+        /// <summary>
+        /// Creates a copy of <paramref name="source"/> that only contains the
+        /// data for a single module. Metadata (timestamps, project name, etc.)
+        /// is preserved; all other module lists are left empty.
+        /// </summary>
+        /// <param name="source">The full scan result.</param>
+        /// <param name="moduleKey">
+        /// One of: "unused", "missing", "duplicates", "dependencies", "packages", "shaders", "size".
+        /// </param>
+        public static PCPScanResult CreateModuleSubset(PCPScanResult source, string moduleKey)
+        {
+            if (source == null)
+                throw new ArgumentNullException(nameof(source));
+
+            var subset = new PCPScanResult
+            {
+                scanTimestampUtc    = source.scanTimestampUtc,
+                scanDurationSeconds = source.scanDurationSeconds,
+                projectName         = source.projectName,
+                unityVersion        = source.unityVersion,
+                totalAssetsScanned  = source.totalAssetsScanned
+            };
+
+            switch (moduleKey)
+            {
+                case "unused":
+                    subset.unusedAssets = new List<PCPUnusedAsset>(source.unusedAssets);
+                    break;
+                case "missing":
+                    subset.missingReferences = new List<PCPMissingReference>(source.missingReferences);
+                    break;
+                case "duplicates":
+                    subset.duplicateGroups = new List<PCPDuplicateGroup>(source.duplicateGroups);
+                    break;
+                case "dependencies":
+                    subset.circularDependencies = new List<PCPCircularDependency>(source.circularDependencies);
+                    subset.orphanAssets = new List<string>(source.orphanAssets);
+                    break;
+                case "packages":
+                    subset.packageAuditEntries = new List<PCPPackageAuditEntry>(source.packageAuditEntries);
+                    break;
+                case "shaders":
+                    subset.shaderEntries = new List<PCPShaderEntry>(source.shaderEntries);
+                    break;
+                case "size":
+                    subset.sizeEntries = new List<PCPSizeEntry>(source.sizeEntries);
+                    break;
+            }
+
+            return subset;
+        }
+
+        /// <summary>
+        /// Shows a context menu with JSON / CSV / HTML export options for the
+        /// given scan result.
+        /// </summary>
+        public static void ShowExportMenu(PCPScanResult result)
+        {
+            if (result == null)
+                return;
+
+            var menu = new GenericMenu();
+            menu.AddItem(new GUIContent("Export as JSON"), false,
+                () => ExportJSON(result));
+            menu.AddItem(new GUIContent("Export as CSV"), false,
+                () => ExportCSV(result));
+            menu.AddItem(new GUIContent("Export as HTML"), false,
+                () => ExportHTML(result));
+            menu.ShowAsContext();
         }
 
         // ================================================================

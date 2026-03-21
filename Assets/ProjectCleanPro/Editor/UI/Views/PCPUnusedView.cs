@@ -21,6 +21,8 @@ namespace ProjectCleanPro.Editor
         // Constructor
         // --------------------------------------------------------------------
 
+        protected override string ModuleExportKey => "unused";
+
         public PCPUnusedView(PCPScanResult scanResult, Func<PCPScanContext> createContext)
             : base(
                 scanResult,

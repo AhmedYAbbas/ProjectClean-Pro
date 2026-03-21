@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -114,17 +115,26 @@ namespace ProjectCleanPro.Editor
 
         private void BuildScanAllButton(VisualElement parent)
         {
-            var btnRow = new VisualElement();
-            btnRow.style.flexDirection = FlexDirection.Row;
-            btnRow.style.justifyContent = Justify.Center;
-            btnRow.style.marginBottom = 16;
+            var btnColumn = new VisualElement();
+            btnColumn.style.flexDirection = FlexDirection.Column;
+            btnColumn.style.alignItems = Align.Center;
+            btnColumn.style.marginBottom = 16;
 
             var scanAllBtn = new Button(() => m_OnScanAll?.Invoke());
             scanAllBtn.text = "Scan All Modules";
             scanAllBtn.AddToClassList("pcp-dashboard__scan-all-button");
-            btnRow.Add(scanAllBtn);
+            btnColumn.Add(scanAllBtn);
 
-            parent.Add(btnRow);
+            var exportBtn = new Button(OnExport) { text = "Export Report" };
+            exportBtn.AddToClassList("pcp-button-secondary");
+            exportBtn.style.paddingLeft = 12;
+            exportBtn.style.paddingRight = 12;
+            exportBtn.style.paddingTop = 6;
+            exportBtn.style.paddingBottom = 6;
+            exportBtn.style.marginTop = 8;
+            btnColumn.Add(exportBtn);
+
+            parent.Add(btnColumn);
         }
 
         // --------------------------------------------------------------------
@@ -268,6 +278,14 @@ namespace ProjectCleanPro.Editor
         // --------------------------------------------------------------------
         // Data refresh
         // --------------------------------------------------------------------
+
+        private void OnExport()
+        {
+            if (m_ScanResult == null)
+                return;
+
+            PCPReportExporter.ShowExportMenu(m_ScanResult);
+        }
 
         /// <summary>
         /// Refreshes all dashboard data from the current scan result.

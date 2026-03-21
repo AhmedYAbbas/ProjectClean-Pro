@@ -150,7 +150,8 @@ namespace ProjectCleanPro.Editor
                 float pct = 0.3f + 0.65f * ((float)shaderIndex / Math.Max(totalShaders, 1));
                 ReportProgress(pct, $"Analysing shader {shaderIndex}/{totalShaders}...");
 
-                var entry = AnalyseShader(shaderPath, materialCountByShader, projectPipeline);
+                var entry = AnalyseShader(shaderPath, materialCountByShader, projectPipeline,
+                    context.Cache);
                 if (entry != null)
                 {
                     _results.Add(entry);
@@ -180,7 +181,8 @@ namespace ProjectCleanPro.Editor
         private PCPShaderEntry AnalyseShader(
             string shaderPath,
             Dictionary<string, int> materialCountByShader,
-            PCPRenderPipeline projectPipeline)
+            PCPRenderPipeline projectPipeline,
+            PCPScanCache cache)
         {
             // Load the shader object.
             Shader shader = AssetDatabase.LoadAssetAtPath<Shader>(shaderPath);
@@ -209,7 +211,13 @@ namespace ProjectCleanPro.Editor
             string ext = Path.GetExtension(shaderPath);
             bool isShaderFile = string.Equals(ext, ".shader", StringComparison.OrdinalIgnoreCase);
 
-            // Calculate file size for any shader with an on-disk file.
+            // Calculate file size — try cache first.
+            long cachedSize = cache.GetFileSize(shaderPath);
+            if (cachedSize > 0 && !cache.IsStale(shaderPath))
+            {
+                entry.sizeBytes = cachedSize;
+            }
+            else
             {
                 string fullSizePath = Path.GetFullPath(shaderPath);
                 if (File.Exists(fullSizePath))
@@ -217,6 +225,7 @@ namespace ProjectCleanPro.Editor
                     try
                     {
                         entry.sizeBytes = new FileInfo(fullSizePath).Length;
+                        cache.SetFileSize(shaderPath, entry.sizeBytes);
                     }
                     catch (Exception)
                     {
@@ -227,22 +236,53 @@ namespace ProjectCleanPro.Editor
 
             if (isShaderFile)
             {
-                string fullPath = Path.GetFullPath(shaderPath);
-                if (File.Exists(fullPath))
+                // Try cached shader parse results for unchanged .shader files.
+                bool usedCache = false;
+                if (!cache.IsStale(shaderPath))
                 {
-                    string sourceText;
-                    try
-                    {
-                        sourceText = File.ReadAllText(fullPath);
-                    }
-                    catch (Exception)
-                    {
-                        sourceText = null;
-                    }
+                    string cachedKeywords = cache.GetMetadata(shaderPath, "shader.keywords");
+                    string cachedPassCount = cache.GetMetadata(shaderPath, "shader.passCount");
+                    string cachedVariants = cache.GetMetadata(shaderPath, "shader.variants");
 
-                    if (!string.IsNullOrEmpty(sourceText))
+                    if (cachedKeywords != null && cachedPassCount != null && cachedVariants != null)
                     {
-                        ParseShaderSource(sourceText, entry);
+                        entry.keywords = cachedKeywords.Length > 0
+                            ? new List<string>(cachedKeywords.Split(','))
+                            : new List<string>();
+                        entry.keywordCount = entry.keywords.Count;
+                        int.TryParse(cachedPassCount, out entry.passCount);
+                        int.TryParse(cachedVariants, out entry.estimatedVariants);
+                        usedCache = true;
+                    }
+                }
+
+                if (!usedCache)
+                {
+                    string fullPath = Path.GetFullPath(shaderPath);
+                    if (File.Exists(fullPath))
+                    {
+                        string sourceText;
+                        try
+                        {
+                            sourceText = File.ReadAllText(fullPath);
+                        }
+                        catch (Exception)
+                        {
+                            sourceText = null;
+                        }
+
+                        if (!string.IsNullOrEmpty(sourceText))
+                        {
+                            ParseShaderSource(sourceText, entry);
+
+                            // Store parse results in cache.
+                            cache.SetMetadata(shaderPath, "shader.keywords",
+                                entry.keywords != null ? string.Join(",", entry.keywords) : "");
+                            cache.SetMetadata(shaderPath, "shader.passCount",
+                                entry.passCount.ToString());
+                            cache.SetMetadata(shaderPath, "shader.variants",
+                                entry.estimatedVariants.ToString());
+                        }
                     }
                 }
             }

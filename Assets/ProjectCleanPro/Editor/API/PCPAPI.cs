@@ -301,6 +301,19 @@ namespace ProjectCleanPro.Editor
                 case "packages" when module is PCPPackageAuditor p:
                     result.packageAudit.AddRange(p.Results);
                     break;
+
+                case "shaders" when module is PCPShaderAnalyzer s:
+                    result.shaderEntries.AddRange(s.Results);
+                    break;
+
+                case "size" when module is PCPSizeProfiler sp:
+                    result.sizeEntries.AddRange(sp.Results);
+                    break;
+
+                case "dependencies" when module is PCPDependencyModule dep:
+                    result.circularDependencies.AddRange(dep.CircularDependencies);
+                    result.orphanAssets.AddRange(dep.OrphanAssets);
+                    break;
             }
         }
 
