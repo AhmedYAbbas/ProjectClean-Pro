@@ -64,7 +64,7 @@ namespace ProjectCleanPro.Editor
             onProgress?.Invoke(0f, "Gathering asset paths...");
 
             string[] allPaths = AssetDatabase.GetAllAssetPaths()
-                .Where(IsValidAssetPath)
+                .Where(PCPAssetUtils.IsValidAssetPath)
                 .ToArray();
 
             int total = allPaths.Length;
@@ -94,7 +94,7 @@ namespace ProjectCleanPro.Editor
 
                 foreach (string dep in deps)
                 {
-                    if (!IsValidAssetPath(dep) || string.Equals(dep, path, StringComparison.Ordinal))
+                    if (!PCPAssetUtils.IsValidAssetPath(dep) || string.Equals(dep, path, StringComparison.Ordinal))
                         continue;
 
                     forwardSet.Add(dep);
@@ -219,14 +219,6 @@ namespace ProjectCleanPro.Editor
             m_Reachable.Clear();
             m_AllAssets.Clear();
             IsBuilt = false;
-        }
-
-        private static bool IsValidAssetPath(string path)
-        {
-            // Only include assets under the Assets/ folder; skip Packages/ and built-in resources.
-            return !string.IsNullOrEmpty(path)
-                && path.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase)
-                && !AssetDatabase.IsValidFolder(path);
         }
 
         private static HashSet<string> GetOrCreateSet(

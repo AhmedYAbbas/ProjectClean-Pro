@@ -100,7 +100,7 @@ namespace ProjectCleanPro.Editor
         /// </summary>
         public static string GetArchiveRoot()
         {
-            string projectRoot = Directory.GetParent(Application.dataPath).FullName;
+            string projectRoot = PCPAssetUtils.GetProjectRoot();
             string archiveRoot = Path.Combine(projectRoot, ArchiveFolderName);
             if (!Directory.Exists(archiveRoot))
             {
@@ -133,7 +133,7 @@ namespace ProjectCleanPro.Editor
             string sessionPath = Path.Combine(archiveRoot, sessionId);
             Directory.CreateDirectory(sessionPath);
 
-            string projectRoot = Directory.GetParent(Application.dataPath).FullName;
+            string projectRoot = PCPAssetUtils.GetProjectRoot();
             var manifest = new PCPArchiveManifest
             {
                 sessionId = sessionId,
@@ -285,7 +285,7 @@ namespace ProjectCleanPro.Editor
             string json = File.ReadAllText(manifestPath);
             var manifest = JsonUtility.FromJson<PCPArchiveManifest>(json);
 
-            string projectRoot = Directory.GetParent(Application.dataPath).FullName;
+            string projectRoot = PCPAssetUtils.GetProjectRoot();
             int restoredCount = 0;
 
             foreach (var entry in manifest.entries)

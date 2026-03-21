@@ -49,8 +49,7 @@ namespace ProjectCleanPro.Editor
                 var item = new PCPDeleteItem
                 {
                     path = assetPath,
-                    isInResources = assetPath.Contains("/Resources/") ||
-                                    assetPath.StartsWith("Assets/Resources/", StringComparison.OrdinalIgnoreCase),
+                    isInResources = PCPAssetUtils.IsResourcesPath(assetPath),
                     isEditorOnly = PCPAssetUtils.IsEditorOnlyPath(assetPath)
                 };
 
@@ -117,7 +116,7 @@ namespace ProjectCleanPro.Editor
                 }
 
                 // Warning: scene in build settings
-                if (assetPath.EndsWith(".unity", StringComparison.OrdinalIgnoreCase))
+                if (PCPAssetUtils.IsScenePath(assetPath))
                 {
                     bool isInBuild = EditorBuildSettings.scenes
                         .Any(s => s.enabled && string.Equals(s.path, assetPath, StringComparison.Ordinal));

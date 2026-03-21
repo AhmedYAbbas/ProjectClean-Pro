@@ -24,9 +24,7 @@ namespace ProjectCleanPro.Editor
         public static string[] GetAllProjectAssets()
         {
             return AssetDatabase.GetAllAssetPaths()
-                .Where(p => !string.IsNullOrEmpty(p)
-                            && p.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase)
-                            && !AssetDatabase.IsValidFolder(p))
+                .Where(p => IsValidAssetPath(p))
                 .ToArray();
         }
 
@@ -85,6 +83,31 @@ namespace ProjectCleanPro.Editor
             }
 
             return result.Distinct().ToArray();
+        }
+
+        // ----------------------------------------------------------------
+        // Path validation
+        // ----------------------------------------------------------------
+
+        /// <summary>
+        /// Returns <c>true</c> if the path is a valid project asset path:
+        /// non-empty, starts with "Assets/", and is not a folder.
+        /// </summary>
+        public static bool IsValidAssetPath(string path)
+        {
+            return !string.IsNullOrEmpty(path)
+                && path.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase)
+                && !AssetDatabase.IsValidFolder(path);
+        }
+
+        /// <summary>
+        /// Returns <c>true</c> if the path ends with ".unity" (a scene file).
+        /// </summary>
+        public static bool IsScenePath(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return false;
+            return path.EndsWith(".unity", StringComparison.OrdinalIgnoreCase);
         }
 
         // ----------------------------------------------------------------
@@ -158,6 +181,15 @@ namespace ProjectCleanPro.Editor
         // ----------------------------------------------------------------
 
         /// <summary>
+        /// Returns the absolute path to the Unity project root directory
+        /// (the parent of <c>Application.dataPath</c>).
+        /// </summary>
+        public static string GetProjectRoot()
+        {
+            return Directory.GetParent(Application.dataPath).FullName;
+        }
+
+        /// <summary>
         /// Converts a project-relative asset path (e.g. "Assets/Textures/Hero.png") to an
         /// absolute file system path.
         /// </summary>
@@ -166,8 +198,7 @@ namespace ProjectCleanPro.Editor
             if (string.IsNullOrEmpty(assetPath))
                 return string.Empty;
 
-            string projectRoot = Directory.GetParent(Application.dataPath).FullName;
-            return Path.Combine(projectRoot, assetPath.Replace('/', Path.DirectorySeparatorChar));
+            return Path.Combine(GetProjectRoot(), assetPath.Replace('/', Path.DirectorySeparatorChar));
         }
 
         // ----------------------------------------------------------------

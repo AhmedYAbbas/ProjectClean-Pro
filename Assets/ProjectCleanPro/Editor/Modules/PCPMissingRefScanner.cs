@@ -60,17 +60,11 @@ namespace ProjectCleanPro.Editor
             ReportProgress(0f, "Finding prefabs, scenes, and assets...");
 
             var assetPaths = new List<string>();
-            string[] allPaths = AssetDatabase.GetAllAssetPaths();
+            string[] allPaths = PCPAssetUtils.GetAllProjectAssets();
 
             for (int i = 0; i < allPaths.Length; i++)
             {
                 string path = allPaths[i];
-
-                if (!path.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                if (AssetDatabase.IsValidFolder(path))
-                    continue;
 
                 string ext = System.IO.Path.GetExtension(path);
                 if (!s_ScannableExtensions.Contains(ext))

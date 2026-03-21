@@ -190,7 +190,7 @@ namespace ProjectCleanPro.Editor
 
             // Default: Library/ProjectCleanPro/report.<ext>
             string libraryDir = Path.Combine(
-                Directory.GetParent(Application.dataPath).FullName,
+                PCPAssetUtils.GetProjectRoot(),
                 "Library", "ProjectCleanPro");
 
             return Path.Combine(libraryDir, $"report.{extension}");

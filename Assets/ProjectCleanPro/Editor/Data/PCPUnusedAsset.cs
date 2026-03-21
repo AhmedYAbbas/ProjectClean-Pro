@@ -41,8 +41,7 @@ namespace ProjectCleanPro.Editor
             var unused = new PCPUnusedAsset
             {
                 assetInfo = PCPAssetInfo.FromPath(assetPath),
-                isInResources = assetPath.Contains("/Resources/") ||
-                                assetPath.StartsWith("Assets/Resources/"),
+                isInResources = PCPAssetUtils.IsResourcesPath(assetPath),
                 isInPackage = assetPath.StartsWith("Packages/"),
                 suggestedAction = "Safe to delete"
             };

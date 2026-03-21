@@ -68,22 +68,12 @@ namespace ProjectCleanPro.Editor
             // ----------------------------------------------------------
             ReportProgress(0f, "Collecting asset paths...");
 
-            string[] allPaths = AssetDatabase.GetAllAssetPaths();
+            string[] allPaths = PCPAssetUtils.GetAllProjectAssets();
             var pathsWithSizes = new List<PathSizePair>();
 
             for (int i = 0; i < allPaths.Length; i++)
             {
                 string path = allPaths[i];
-
-                if (!path.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                if (AssetDatabase.IsValidFolder(path))
-                    continue;
-
-                // Skip packages.
-                if (path.StartsWith("Packages/", StringComparison.OrdinalIgnoreCase))
-                    continue;
 
                 string ext = Path.GetExtension(path);
                 if (s_SkippedExtensions.Contains(ext))

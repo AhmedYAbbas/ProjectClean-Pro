@@ -133,12 +133,9 @@ namespace ProjectCleanPro.Editor
                 }
                 else
                 {
-                    var buildScenes = EditorBuildSettings.scenes;
-                    for (int i = 0; i < buildScenes.Length; i++)
-                    {
-                        if (buildScenes[i].enabled && !string.IsNullOrEmpty(buildScenes[i].path))
-                            roots.Add(buildScenes[i].path);
-                    }
+                    string[] buildScenePaths = PCPAssetUtils.GetBuildScenePaths();
+                    for (int i = 0; i < buildScenePaths.Length; i++)
+                        roots.Add(buildScenePaths[i]);
                 }
 
                 // Include Addressable entries as roots.
@@ -335,14 +332,7 @@ namespace ProjectCleanPro.Editor
                 return;
 
             // Build the set of root assets that should not be flagged as orphans.
-            var roots = new HashSet<string>(StringComparer.Ordinal);
-
-            var buildScenes = EditorBuildSettings.scenes;
-            for (int i = 0; i < buildScenes.Length; i++)
-            {
-                if (buildScenes[i].enabled && !string.IsNullOrEmpty(buildScenes[i].path))
-                    roots.Add(buildScenes[i].path);
-            }
+            var roots = new HashSet<string>(PCPAssetUtils.GetBuildScenePaths(), StringComparer.Ordinal);
 
             foreach (string asset in allAssets)
             {
@@ -357,8 +347,7 @@ namespace ProjectCleanPro.Editor
                     continue;
 
                 // Skip Resources assets.
-                if (asset.Contains("/Resources/") ||
-                    asset.StartsWith("Assets/Resources/", StringComparison.OrdinalIgnoreCase))
+                if (PCPAssetUtils.IsResourcesPath(asset))
                     continue;
 
                 // Skip scripts and editor-only assets.

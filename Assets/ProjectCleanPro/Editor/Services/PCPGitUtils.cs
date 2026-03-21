@@ -25,7 +25,7 @@ namespace ProjectCleanPro.Editor
         /// </summary>
         public static string GetProjectRoot()
         {
-            return Directory.GetParent(Application.dataPath).FullName;
+            return PCPAssetUtils.GetProjectRoot();
         }
 
         /// <summary>

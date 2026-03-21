@@ -78,33 +78,22 @@ namespace ProjectCleanPro.Editor
             }
             else
             {
-                var buildScenes = EditorBuildSettings.scenes;
-                for (int i = 0; i < buildScenes.Length; i++)
-                {
-                    if (buildScenes[i].enabled && !string.IsNullOrEmpty(buildScenes[i].path))
-                        roots.Add(buildScenes[i].path);
-                }
+                string[] buildScenePaths = PCPAssetUtils.GetBuildScenePaths();
+                for (int i = 0; i < buildScenePaths.Length; i++)
+                    roots.Add(buildScenePaths[i]);
             }
 
             // 1b. All assets under any Resources/ folder.
-            string[] allPaths = AssetDatabase.GetAllAssetPaths();
-            for (int i = 0; i < allPaths.Length; i++)
-            {
-                string p = allPaths[i];
-                if (IsInsideResourcesFolder(p))
-                    roots.Add(p);
-            }
+            string[] resourcesPaths = PCPAssetUtils.GetResourcesPaths();
+            for (int i = 0; i < resourcesPaths.Length; i++)
+                roots.Add(resourcesPaths[i]);
 
             // 1c. Assets assigned to AssetBundles.
             if (context.Settings.includeAssetBundles)
             {
-                string[] bundleNames = AssetDatabase.GetAllAssetBundleNames();
-                for (int i = 0; i < bundleNames.Length; i++)
-                {
-                    string[] bundleAssets = AssetDatabase.GetAssetPathsFromAssetBundle(bundleNames[i]);
-                    for (int j = 0; j < bundleAssets.Length; j++)
-                        roots.Add(bundleAssets[j]);
-                }
+                string[] bundleRoots = PCPAssetUtils.GetAssetBundleRoots();
+                for (int i = 0; i < bundleRoots.Length; i++)
+                    roots.Add(bundleRoots[i]);
             }
 
             // 1d. Addressable entries.
@@ -190,10 +179,8 @@ namespace ProjectCleanPro.Editor
             // ----------------------------------------------------------
             ReportProgress(0.65f, "Identifying unused assets...");
 
-            // Re-fetch in case the DB changed; filter to Assets/ prefix only.
-            string[] projectAssets = AssetDatabase.GetAllAssetPaths()
-                .Where(p => p.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase))
-                .ToArray();
+            // Re-fetch in case the DB changed.
+            string[] projectAssets = PCPAssetUtils.GetAllProjectAssets();
 
             int total = projectAssets.Length;
             int processed = 0;
@@ -211,21 +198,13 @@ namespace ProjectCleanPro.Editor
                     ReportProgress(pct, $"Checking asset {i}/{total}...");
                 }
 
-                // Skip folders.
-                if (AssetDatabase.IsValidFolder(path))
-                    continue;
-
                 // Skip scripts, assembly definitions, DLLs.
                 string ext = System.IO.Path.GetExtension(path);
                 if (s_SkippedExtensions.Contains(ext))
                     continue;
 
                 // Skip editor-only paths (unless settings opt-in).
-                if (!context.Settings.scanEditorAssets && IsEditorOnlyPath(path))
-                    continue;
-
-                // Skip Packages/.
-                if (path.StartsWith("Packages/", StringComparison.OrdinalIgnoreCase))
+                if (!context.Settings.scanEditorAssets && PCPAssetUtils.IsEditorOnlyPath(path))
                     continue;
 
                 // Skip ignored paths.
@@ -257,24 +236,5 @@ namespace ProjectCleanPro.Editor
             _results.Clear();
         }
 
-        // ----------------------------------------------------------------
-        // Helpers
-        // ----------------------------------------------------------------
-
-        private static bool IsInsideResourcesFolder(string path)
-        {
-            // Match both "Assets/Resources/..." and "Assets/.../Resources/..."
-            return path.Contains("/Resources/") ||
-                   path.StartsWith("Assets/Resources/", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static bool IsEditorOnlyPath(string path)
-        {
-            // A path segment named "Editor" at any level makes it editor-only.
-            // We check for "/Editor/" or paths that start/end with it.
-            return path.Contains("/Editor/") ||
-                   path.StartsWith("Assets/Editor/", StringComparison.OrdinalIgnoreCase) ||
-                   path.EndsWith("/Editor", StringComparison.OrdinalIgnoreCase);
-        }
     }
 }

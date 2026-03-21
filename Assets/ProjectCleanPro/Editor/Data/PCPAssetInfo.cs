@@ -71,16 +71,11 @@ namespace ProjectCleanPro.Editor
 
         /// <summary>
         /// Formats a byte count into a human-readable string (B, KB, MB, GB).
+        /// Delegates to <see cref="PCPAssetUtils.FormatSize"/>.
         /// </summary>
         internal static string FormatBytes(long bytes)
         {
-            if (bytes < 1024L)
-                return $"{bytes} B";
-            if (bytes < 1024L * 1024L)
-                return $"{bytes / 1024.0:F1} KB";
-            if (bytes < 1024L * 1024L * 1024L)
-                return $"{bytes / (1024.0 * 1024.0):F1} MB";
-            return $"{bytes / (1024.0 * 1024.0 * 1024.0):F2} GB";
+            return PCPAssetUtils.FormatSize(bytes);
         }
     }
 }
