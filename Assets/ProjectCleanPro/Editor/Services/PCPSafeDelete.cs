@@ -211,6 +211,13 @@ namespace ProjectCleanPro.Editor
                     if (tracked.Count > 0)
                     {
                         PCPGitUtils.GitRmMultiple(tracked);
+
+                        // git rm --cached only removes from the index; delete the
+                        // files from disk so they don't reappear as untracked.
+                        foreach (string path in tracked)
+                        {
+                            AssetDatabase.DeleteAsset(path);
+                        }
                     }
 
                     // Delete untracked files via AssetDatabase.
