@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 3449679862706842281}
   - component: {fileID: 6697093522946890513}
   m_Layer: 0
-  m_Name: Prefab
+  m_Name: Prefab 8
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -45,7 +45,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 58d5591c9025d4843a79cae5ed318d3e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MissingReference
-  misRef: {fileID: 1329547000520542388, guid: 424d41ae51ab7ac4181f86ae085e91a9, type: 3}
+  misRef: {fileID: 9131882348561953609, guid: 99cab9cca83b8e041ba52d1db0698fb4, type: 3}
   rb: {fileID: 0}
 --- !u!1 &4854490191141015616
 GameObject:
@@ -91,5 +91,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 58d5591c9025d4843a79cae5ed318d3e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MissingReference
-  misRef: {fileID: 1329547000520542388, guid: 424d41ae51ab7ac4181f86ae085e91a9, type: 3}
+  misRef: {fileID: 9131882348561953609, guid: 2b9d7dbed4babd74a899d2012deff34c, type: 3}
   rb: {fileID: 0}

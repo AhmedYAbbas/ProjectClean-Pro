@@ -244,8 +244,9 @@ namespace ProjectCleanPro.Editor
             // Flag unused shaders.
             entry.isUnused = entry.materialCount == 0;
 
-            // Flag pipeline mismatch.
-            if (entry.targetPipeline != PCPRenderPipeline.Custom &&
+            // Flag pipeline mismatch (only when the setting is enabled).
+            if (PCPSettings.instance.shaderAnalyzerCheckPipeline &&
+                entry.targetPipeline != PCPRenderPipeline.Custom &&
                 projectPipeline != PCPRenderPipeline.Custom &&
                 entry.targetPipeline != projectPipeline)
             {

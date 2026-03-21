@@ -272,7 +272,7 @@ namespace ProjectCleanPro.Editor
 
                 try
                 {
-                    PCPSafeDelete.ArchiveAndDelete(preview, settings);
+                    PCPSafeDelete.ArchiveAndDelete(preview, settings, resolver);
                     RescanAfterChange();
                 }
                 finally

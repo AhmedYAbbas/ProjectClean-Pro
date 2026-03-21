@@ -52,6 +52,12 @@ namespace ProjectCleanPro.Editor
         public List<PCPDuplicateEntry> entries = new List<PCPDuplicateEntry>();
 
         /// <summary>
+        /// True when the user has manually chosen which entry to keep.
+        /// Prevents <see cref="ElectCanonical"/> from overriding the selection.
+        /// </summary>
+        [NonSerialized] public bool hasUserOverride;
+
+        /// <summary>
         /// The total bytes that could be reclaimed by removing all but the canonical copy.
         /// Returns zero if the group has fewer than two entries.
         /// </summary>

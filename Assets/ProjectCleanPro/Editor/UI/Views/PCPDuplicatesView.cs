@@ -188,8 +188,9 @@ namespace ProjectCleanPro.Editor
             foldout.style.paddingTop = 6;
             foldout.style.paddingBottom = 6;
 
-            // Only auto-elect if no entry is already marked canonical
-            if (!group.entries.Exists(e => e.isCanonical))
+            // Auto-elect the entry with the highest reference count unless
+            // the user has manually chosen which copy to keep.
+            if (!group.hasUserOverride)
                 group.ElectCanonical();
 
             // Build entry rows
@@ -218,6 +219,7 @@ namespace ProjectCleanPro.Editor
                     foreach (var en in group.entries)
                         en.isCanonical = false;
                     entry.isCanonical = true;
+                    group.hasUserOverride = true;
                     RefreshGroups();
                 });
                 keepBtn.text = entry.isCanonical ? "\u25C9" : "\u25CB"; // ◉ filled / ○ empty
@@ -326,6 +328,11 @@ namespace ProjectCleanPro.Editor
                     var context = m_CreateContext?.Invoke();
                     if (context != null)
                     {
+                        // Ensure the dependency graph is built so we get
+                        // accurate reference counts and deletion warnings.
+                        if (!context.DependencyResolver.IsBuilt)
+                            context.DependencyResolver.Build(System.Array.Empty<string>());
+
                         var scanner = new PCPDuplicateDetector();
                         scanner.Scan(context);
 
@@ -360,7 +367,10 @@ namespace ProjectCleanPro.Editor
             var pathsToDelete = new List<string>();
             foreach (var group in m_ScanResult.duplicateGroups)
             {
-                group.ElectCanonical();
+                // Respect the user's radio-button selection – do NOT re-elect here.
+                if (!group.hasUserOverride)
+                    group.ElectCanonical();
+
                 foreach (var entry in group.entries)
                 {
                     if (!entry.isCanonical && !string.IsNullOrEmpty(entry.path))
@@ -387,7 +397,7 @@ namespace ProjectCleanPro.Editor
 
                 try
                 {
-                    PCPSafeDelete.ArchiveAndDelete(preview, settings);
+                    PCPSafeDelete.ArchiveAndDelete(preview, settings, resolver);
 
                     // Remove deleted entries from groups
                     var deletedSet = new HashSet<string>(pathsToDelete, StringComparer.Ordinal);

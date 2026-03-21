@@ -114,7 +114,8 @@ namespace ProjectCleanPro.Editor
         private readonly IntegerField m_DepthField;
         private readonly PCPDependencyGraphElement m_GraphView;
         private readonly Label m_StatusLabel;
-        private int m_MaxDepth = 2;
+        private int m_MaxDepth = PCPSettings.instance.dependencyGraphMaxDepth;
+        private bool m_SettingsChangedWhileDetached;
 
         // Track nodes by path for edge creation
         private readonly Dictionary<string, PCPAssetGraphNode> m_NodeMap =
@@ -172,7 +173,7 @@ namespace ProjectCleanPro.Editor
             m_DepthField.style.marginRight = 8;
             m_DepthField.RegisterValueChangedCallback(evt =>
             {
-                m_MaxDepth = Mathf.Clamp(evt.newValue, 1, 5);
+                m_MaxDepth = Mathf.Clamp(evt.newValue, 1, PCPSettings.instance.dependencyGraphMaxDepth);
                 m_DepthField.SetValueWithoutNotify(m_MaxDepth);
             });
             toolbar.Add(m_DepthField);
@@ -202,6 +203,41 @@ namespace ProjectCleanPro.Editor
             m_GraphView = new PCPDependencyGraphElement();
             m_GraphView.style.flexGrow = 1;
             Add(m_GraphView);
+
+            // Listen for settings changes.
+            // The view is detached on tab switch but the instance stays alive,
+            // so we keep the subscription and defer the refresh until re-attached.
+            PCPSettings.OnSettingsSaved += OnSettingsChanged;
+            RegisterCallback<AttachToPanelEvent>(OnAttachToPanel);
+        }
+
+        private void OnAttachToPanel(AttachToPanelEvent evt)
+        {
+            if (m_SettingsChangedWhileDetached)
+            {
+                m_SettingsChangedWhileDetached = false;
+                ApplySettingsMaxDepth();
+            }
+        }
+
+        private void OnSettingsChanged()
+        {
+            if (panel == null)
+            {
+                // Not currently visible — defer until re-attached.
+                m_SettingsChangedWhileDetached = true;
+                return;
+            }
+
+            ApplySettingsMaxDepth();
+        }
+
+        private void ApplySettingsMaxDepth()
+        {
+            int settingsMax = PCPSettings.instance.dependencyGraphMaxDepth;
+            m_MaxDepth = Mathf.Clamp(m_MaxDepth, 1, settingsMax);
+            m_DepthField.SetValueWithoutNotify(m_MaxDepth);
+            RefreshGraph();
         }
 
         // --------------------------------------------------------------------

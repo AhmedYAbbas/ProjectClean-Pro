@@ -118,6 +118,15 @@ namespace ProjectCleanPro.Editor
         public List<string> alwaysUsedRoots = new List<string>();
 
         // ----------------------------------------------------------------
+        // Events
+        // ----------------------------------------------------------------
+
+        /// <summary>
+        /// Raised after settings are saved to disk.
+        /// </summary>
+        public static event Action OnSettingsSaved;
+
+        // ----------------------------------------------------------------
         // Public API
         // ----------------------------------------------------------------
 
@@ -127,6 +136,7 @@ namespace ProjectCleanPro.Editor
         public void Save()
         {
             Save(true);
+            OnSettingsSaved?.Invoke();
         }
 
         // ----------------------------------------------------------------

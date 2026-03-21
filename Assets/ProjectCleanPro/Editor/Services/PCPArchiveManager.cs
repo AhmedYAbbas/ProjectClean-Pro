@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using UnityEditor;
 using UnityEngine;
 
 namespace ProjectCleanPro.Editor
@@ -347,6 +348,50 @@ namespace ProjectCleanPro.Editor
             }
 
             return purgedCount;
+        }
+
+        // ----------------------------------------------------------------
+        // Auto-purge on editor startup
+        // ----------------------------------------------------------------
+
+        /// <summary>
+        /// Automatically purges expired archive sessions once per editor session.
+        /// Runs silently on domain reload — no dialogs or user interaction.
+        /// </summary>
+        [InitializeOnLoadMethod]
+        private static void AutoPurgeOnStartup()
+        {
+            const string sessionKey = "PCP_AutoPurgeRan";
+            if (SessionState.GetBool(sessionKey, false))
+                return;
+
+            SessionState.SetBool(sessionKey, true);
+
+            // Delay so that ScriptableSingleton settings are ready.
+            EditorApplication.delayCall += () =>
+            {
+                try
+                {
+                    var settings = PCPContext.Settings;
+                    if (settings == null)
+                        return;
+
+                    int retentionDays = settings.archiveRetentionDays;
+                    if (retentionDays < 1)
+                        return;
+
+                    int purged = PurgeOldSessions(retentionDays);
+                    if (purged > 0)
+                    {
+                        Debug.Log($"[ProjectCleanPro] Auto-purged {purged} expired archive session(s) " +
+                                  $"(retention: {retentionDays} days).");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"[ProjectCleanPro] Auto-purge failed: {ex.Message}");
+                }
+            };
         }
 
         /// <summary>

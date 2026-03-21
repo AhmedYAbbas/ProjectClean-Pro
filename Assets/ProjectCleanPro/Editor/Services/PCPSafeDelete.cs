@@ -157,7 +157,8 @@ namespace ProjectCleanPro.Editor
         /// </summary>
         /// <param name="preview">A preview previously built via <see cref="Preview"/>.</param>
         /// <param name="settings">Project settings controlling archive and git behaviour.</param>
-        public static void ArchiveAndDelete(PCPDeletePreview preview, PCPSettings settings)
+        public static void ArchiveAndDelete(PCPDeletePreview preview, PCPSettings settings,
+            PCPDependencyResolver resolver = null)
         {
             if (preview == null || !preview.HasItems)
                 return;
@@ -184,6 +185,12 @@ namespace ProjectCleanPro.Editor
                         return;
                     }
                 }
+            }
+
+            // ---- Null-out references phase ----
+            if (settings.nullOutReferencesOnDelete)
+            {
+                NullOutReferences(preview, resolver);
             }
 
             // ---- Delete phase ----
@@ -247,6 +254,137 @@ namespace ProjectCleanPro.Editor
             int count = paths.Count;
             string size = preview.formattedTotalSize;
             Debug.Log($"[ProjectCleanPro] Deleted {count} asset(s) ({size}).");
+        }
+
+        /// <summary>
+        /// Walks every asset that references a to-be-deleted asset and sets those
+        /// references to <c>null</c>, preventing missing-reference errors at runtime.
+        /// Must be called <b>before</b> the assets are actually deleted so that the
+        /// GUIDs can still be resolved.
+        /// </summary>
+        private static void NullOutReferences(PCPDeletePreview preview,
+            PCPDependencyResolver resolver)
+        {
+            // Collect the set of asset paths being deleted.
+            var deletionSet = new HashSet<string>(
+                preview.items.Select(i => i.path), StringComparer.Ordinal);
+
+            // Collect all unique referencing assets that are NOT themselves being deleted.
+            var referencingPaths = new HashSet<string>(StringComparer.Ordinal);
+            if (resolver != null && resolver.IsBuilt)
+            {
+                foreach (string deletedPath in deletionSet)
+                {
+                    foreach (string dep in resolver.GetDependents(deletedPath))
+                    {
+                        if (!deletionSet.Contains(dep))
+                            referencingPaths.Add(dep);
+                    }
+                }
+            }
+            else
+            {
+                // Resolver not built — compute reverse dependencies directly.
+                // Check every asset's dependencies against the deletion set.
+                string[] allPaths = AssetDatabase.GetAllAssetPaths();
+                for (int i = 0; i < allPaths.Length; i++)
+                {
+                    string path = allPaths[i];
+                    if (!path.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (deletionSet.Contains(path))
+                        continue;
+
+                    string[] deps = AssetDatabase.GetDependencies(path, false);
+                    for (int d = 0; d < deps.Length; d++)
+                    {
+                        if (deletionSet.Contains(deps[d]))
+                        {
+                            referencingPaths.Add(path);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (referencingPaths.Count == 0)
+                return;
+
+            // Build a lookup of GUIDs we are about to delete.
+            var deletedGuids = new HashSet<string>(StringComparer.Ordinal);
+            foreach (string path in deletionSet)
+            {
+                string guid = AssetDatabase.AssetPathToGUID(path);
+                if (!string.IsNullOrEmpty(guid))
+                    deletedGuids.Add(guid);
+            }
+
+            if (deletedGuids.Count == 0)
+                return;
+
+            int nulledCount = 0;
+
+            foreach (string refPath in referencingPaths)
+            {
+                var assets = AssetDatabase.LoadAllAssetsAtPath(refPath);
+                if (assets == null)
+                    continue;
+
+                foreach (UnityEngine.Object asset in assets)
+                {
+                    if (asset == null)
+                        continue;
+
+                    using (var so = new SerializedObject(asset))
+                    {
+                        SerializedProperty prop = so.GetIterator();
+                        bool modified = false;
+
+                        while (prop.Next(true))
+                        {
+                            if (prop.propertyType != SerializedPropertyType.ObjectReference)
+                                continue;
+
+                            // Read the file-id / guid stored in the property.
+                            string refGuid = null;
+                            if (prop.objectReferenceValue != null)
+                            {
+                                string objPath = AssetDatabase.GetAssetPath(prop.objectReferenceValue);
+                                if (!string.IsNullOrEmpty(objPath))
+                                    refGuid = AssetDatabase.AssetPathToGUID(objPath);
+                            }
+                            else if (prop.objectReferenceInstanceIDValue != 0)
+                            {
+                                // The reference may point to an asset we can resolve via instance ID.
+                                var obj = EditorUtility.EntityIdToObject(prop.entityIdValue);
+                                if (obj != null)
+                                {
+                                    string objPath = AssetDatabase.GetAssetPath(obj);
+                                    if (!string.IsNullOrEmpty(objPath))
+                                        refGuid = AssetDatabase.AssetPathToGUID(objPath);
+                                }
+                            }
+
+                            if (refGuid != null && deletedGuids.Contains(refGuid))
+                            {
+                                prop.objectReferenceValue = null;
+                                modified = true;
+                                nulledCount++;
+                            }
+                        }
+
+                        if (modified)
+                            so.ApplyModifiedPropertiesWithoutUndo();
+                    }
+                }
+            }
+
+            if (nulledCount > 0)
+            {
+                AssetDatabase.SaveAssets();
+                Debug.Log($"[ProjectCleanPro] Nulled out {nulledCount} reference(s) in " +
+                          $"{referencingPaths.Count} asset(s).");
+            }
         }
 
         /// <summary>

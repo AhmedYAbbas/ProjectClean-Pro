@@ -244,40 +244,58 @@ namespace ProjectCleanPro.Editor
             // ----------------------------------------------------------
             ReportProgress(0.85f, "Building duplicate groups...");
 
+            bool compareImportSettings = context.Settings.duplicateCompareImportSettings;
+
             foreach (var kvp in hashGroups)
             {
                 if (kvp.Value.Count < 2)
                     continue;
 
-                var dupGroup = new PCPDuplicateGroup
+                // When importer-settings comparison is enabled, further
+                // subdivide the hash group so that assets with identical
+                // content but different import settings are NOT treated
+                // as duplicates.
+                IEnumerable<List<PathSizePair>> subGroups;
+                if (compareImportSettings)
+                    subGroups = SubdivideByImporterSettings(kvp.Value);
+                else
+                    subGroups = new List<List<PathSizePair>> { kvp.Value };
+
+                foreach (var subGroup in subGroups)
                 {
-                    hash = kvp.Key
-                };
+                    if (subGroup.Count < 2)
+                        continue;
 
-                for (int i = 0; i < kvp.Value.Count; i++)
-                {
-                    var item = kvp.Value[i];
-                    string guid = AssetDatabase.AssetPathToGUID(item.path);
-
-                    // Count references to this asset to help determine the canonical copy.
-                    var dependents = context.DependencyResolver.IsBuilt
-                        ? context.DependencyResolver.GetDependents(item.path)
-                        : null;
-
-                    int refCount = dependents != null ? dependents.Count : 0;
-
-                    dupGroup.entries.Add(new PCPDuplicateEntry
+                    var dupGroup = new PCPDuplicateGroup
                     {
-                        path = item.path,
-                        guid = guid,
-                        sizeBytes = item.size,
-                        referenceCount = refCount,
-                        isCanonical = false
-                    });
-                }
+                        hash = kvp.Key
+                    };
 
-                dupGroup.ElectCanonical();
-                _results.Add(dupGroup);
+                    for (int i = 0; i < subGroup.Count; i++)
+                    {
+                        var item = subGroup[i];
+                        string guid = AssetDatabase.AssetPathToGUID(item.path);
+
+                        // Count references to this asset to help determine the canonical copy.
+                        var dependents = context.DependencyResolver.IsBuilt
+                            ? context.DependencyResolver.GetDependents(item.path)
+                            : null;
+
+                        int refCount = dependents != null ? dependents.Count : 0;
+
+                        dupGroup.entries.Add(new PCPDuplicateEntry
+                        {
+                            path = item.path,
+                            guid = guid,
+                            sizeBytes = item.size,
+                            referenceCount = refCount,
+                            isCanonical = false
+                        });
+                    }
+
+                    dupGroup.ElectCanonical();
+                    _results.Add(dupGroup);
+                }
             }
 
             // ----------------------------------------------------------
@@ -293,6 +311,50 @@ namespace ProjectCleanPro.Editor
         {
             base.Clear();
             _results.Clear();
+        }
+
+        // ----------------------------------------------------------------
+        // Importer-settings comparison
+        // ----------------------------------------------------------------
+
+        /// <summary>
+        /// Splits a list of content-identical assets into sub-groups where
+        /// each sub-group also shares identical importer settings.
+        /// Assets with no importer are grouped together.
+        /// </summary>
+        private static IEnumerable<List<PathSizePair>> SubdivideByImporterSettings(
+            List<PathSizePair> group)
+        {
+            var subGroups = new Dictionary<string, List<PathSizePair>>(StringComparer.Ordinal);
+
+            for (int i = 0; i < group.Count; i++)
+            {
+                string key = GetImporterSettingsKey(group[i].path);
+
+                if (!subGroups.TryGetValue(key, out List<PathSizePair> list))
+                {
+                    list = new List<PathSizePair>();
+                    subGroups[key] = list;
+                }
+                list.Add(group[i]);
+            }
+
+            return subGroups.Values;
+        }
+
+        /// <summary>
+        /// Returns a string key representing the importer settings for a given
+        /// asset path. Assets with identical keys have identical import settings.
+        /// </summary>
+        private static string GetImporterSettingsKey(string assetPath)
+        {
+            AssetImporter importer = AssetImporter.GetAtPath(assetPath);
+            if (importer == null)
+                return string.Empty;
+
+            // EditorJsonUtility serializes all SerializedObject fields,
+            // giving us a complete, comparable snapshot of the importer state.
+            return EditorJsonUtility.ToJson(importer);
         }
 
         // ----------------------------------------------------------------

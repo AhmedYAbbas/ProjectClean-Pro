@@ -22,10 +22,10 @@ MonoBehaviour:
     comment: Added via context menu
     enabled: 1
   archiveBeforeDelete: 1
-  useGitRm: 0
-  nullOutReferencesOnDelete: 0
-  archiveRetentionDays: 30
-  dependencyGraphMaxDepth: 2
+  useGitRm: 1
+  nullOutReferencesOnDelete: 1
+  archiveRetentionDays: 1
+  dependencyGraphMaxDepth: 7
   shaderAnalyzerCheckPipeline: 1
   duplicateCompareImportSettings: 1
   moduleColors:
