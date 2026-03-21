@@ -34,7 +34,8 @@ namespace ProjectCleanPro.Editor
 
         public override int FindingCount => _results.Count;
 
-        public override long TotalSizeBytes => 0L;
+        private long _totalSizeBytes;
+        public override long TotalSizeBytes => _totalSizeBytes;
 
         // ----------------------------------------------------------------
         // Regex patterns for shader source parsing
@@ -65,6 +66,7 @@ namespace ProjectCleanPro.Editor
         protected override void DoScan(PCPScanContext context)
         {
             _results.Clear();
+            _totalSizeBytes = 0;
 
             // ----------------------------------------------------------
             // Phase 1: Find all shader assets
@@ -150,7 +152,10 @@ namespace ProjectCleanPro.Editor
 
                 var entry = AnalyseShader(shaderPath, materialCountByShader, projectPipeline);
                 if (entry != null)
+                {
                     _results.Add(entry);
+                    _totalSizeBytes += entry.sizeBytes;
+                }
             }
 
             // ----------------------------------------------------------
@@ -203,6 +208,22 @@ namespace ProjectCleanPro.Editor
             // ----------------------------------------------------------
             string ext = Path.GetExtension(shaderPath);
             bool isShaderFile = string.Equals(ext, ".shader", StringComparison.OrdinalIgnoreCase);
+
+            // Calculate file size for any shader with an on-disk file.
+            {
+                string fullSizePath = Path.GetFullPath(shaderPath);
+                if (File.Exists(fullSizePath))
+                {
+                    try
+                    {
+                        entry.sizeBytes = new FileInfo(fullSizePath).Length;
+                    }
+                    catch (Exception)
+                    {
+                        entry.sizeBytes = 0;
+                    }
+                }
+            }
 
             if (isShaderFile)
             {
@@ -391,6 +412,7 @@ namespace ProjectCleanPro.Editor
         {
             base.Clear();
             _results.Clear();
+            _totalSizeBytes = 0;
         }
 
         // ----------------------------------------------------------------

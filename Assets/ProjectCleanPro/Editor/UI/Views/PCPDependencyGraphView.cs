@@ -36,17 +36,26 @@ namespace ProjectCleanPro.Editor
             if (titleContainer != null)
             {
                 titleContainer.style.backgroundColor = headerColor;
+
+                // Use dark text for readability on bright header backgrounds
+                var titleLabel = titleContainer.Q<Label>("title-label");
+                if (titleLabel != null)
+                {
+                    titleLabel.style.color = new Color(0.1f, 0.1f, 0.1f, 1f);
+                }
             }
 
-            // Add input and output ports
+            // Add input and output ports (read-only — not interactable)
             var inputPort = InstantiatePort(Orientation.Horizontal, Direction.Input,
                 Port.Capacity.Multi, typeof(bool));
-            inputPort.portName = "In";
+            inputPort.portName = "Used By";
+            inputPort.SetEnabled(false);
             inputContainer.Add(inputPort);
 
             var outputPort = InstantiatePort(Orientation.Horizontal, Direction.Output,
                 Port.Capacity.Multi, typeof(bool));
-            outputPort.portName = "Out";
+            outputPort.portName = "Depends On";
+            outputPort.SetEnabled(false);
             outputContainer.Add(outputPort);
 
             RefreshExpandedState();
@@ -77,13 +86,14 @@ namespace ProjectCleanPro.Editor
 
         public override List<Port> GetCompatiblePorts(Port startPort, NodeAdapter nodeAdapter)
         {
-            var compatible = new List<Port>();
-            ports.ForEach(port =>
-            {
-                if (port.direction != startPort.direction && port.node != startPort.node)
-                    compatible.Add(port);
-            });
-            return compatible;
+            // Read-only view — no new connections allowed.
+            return new List<Port>();
+        }
+
+        public override EventPropagation DeleteSelection()
+        {
+            // Read-only view — prevent deletion of nodes and edges.
+            return EventPropagation.Stop;
         }
     }
 
@@ -124,6 +134,10 @@ namespace ProjectCleanPro.Editor
         // Track visited paths for circular dependency detection
         private readonly HashSet<string> m_VisitedPaths =
             new HashSet<string>(StringComparer.Ordinal);
+
+        // Parent → children mapping built during subgraph construction (for layout)
+        private readonly Dictionary<string, List<string>> m_ChildrenMap =
+            new Dictionary<string, List<string>>(StringComparer.Ordinal);
 
         // --------------------------------------------------------------------
         // Constructor
@@ -298,8 +312,8 @@ namespace ProjectCleanPro.Editor
                 }
             }
 
-            // Layout nodes in concentric circles
-            ArrangeConcentricLayout(centerPath);
+            // Layout nodes in a left-to-right hierarchical tree
+            ArrangeHierarchicalLayout(centerPath);
 
             m_StatusLabel.text = $"Showing {m_NodeMap.Count} node(s) for \"{centerPath}\" (depth {m_MaxDepth}).";
         }
@@ -335,6 +349,14 @@ namespace ProjectCleanPro.Editor
                 if (!dep.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase))
                     continue;
 
+                // Track parent → child for layout
+                if (!m_ChildrenMap.TryGetValue(assetPath, out var childList))
+                {
+                    childList = new List<string>();
+                    m_ChildrenMap[assetPath] = childList;
+                }
+                childList.Add(dep);
+
                 // Recursively build subgraph
                 BuildSubgraph(dep, currentDepth + 1, maxDepth);
 
@@ -357,6 +379,8 @@ namespace ProjectCleanPro.Editor
                     if (sourcePort != null && targetPort != null)
                     {
                         var edge = sourcePort.ConnectTo(targetPort);
+                        edge.capabilities &= ~Capabilities.Deletable;
+                        edge.capabilities &= ~Capabilities.Selectable;
 
                         // Check for circular dependency
                         bool isCircular = IsCircularDependency(assetPath, dep);
@@ -390,6 +414,7 @@ namespace ProjectCleanPro.Editor
             Color headerColor = GetColorForAssetType(assetPath);
 
             var node = new PCPAssetGraphNode(assetPath, displayName, headerColor);
+            node.capabilities &= ~Capabilities.Deletable;
             node.tooltip = assetPath;
 
             // Double-click to re-center on this asset
@@ -413,17 +438,24 @@ namespace ProjectCleanPro.Editor
         // Layout
         // --------------------------------------------------------------------
 
-        private void ArrangeConcentricLayout(string centerPath)
+        /// <summary>
+        /// Arranges nodes in a left-to-right hierarchical tree layout.
+        /// Each depth level occupies its own column, and children are stacked
+        /// vertically beneath their parent to minimize edge crossings.
+        /// </summary>
+        private void ArrangeHierarchicalLayout(string centerPath)
         {
             if (m_NodeMap.Count == 0)
                 return;
 
-            float centerX = 400f;
-            float centerY = 300f;
-            float radiusStep = 180f;
+            const float columnSpacing = 280f;
+            const float rowSpacing = 80f;
+            const float startX = 50f;
+            const float startY = 50f;
 
-            // BFS to determine depth layers
+            // BFS to assign each node to a depth layer.
             var depthMap = new Dictionary<string, int>(StringComparer.Ordinal);
+            var parentMap = new Dictionary<string, string>(StringComparer.Ordinal);
             var queue = new Queue<string>();
             queue.Enqueue(centerPath);
             depthMap[centerPath] = 0;
@@ -433,67 +465,149 @@ namespace ProjectCleanPro.Editor
                 string current = queue.Dequeue();
                 int depth = depthMap[current];
 
-                string[] deps = AssetDatabase.GetDependencies(current, false);
-                foreach (string dep in deps)
+                if (!m_ChildrenMap.TryGetValue(current, out var children))
+                    continue;
+
+                foreach (string child in children)
                 {
-                    if (string.Equals(dep, current, StringComparison.Ordinal))
-                        continue;
-                    if (!m_NodeMap.ContainsKey(dep))
-                        continue;
-                    if (depthMap.ContainsKey(dep))
+                    if (!m_NodeMap.ContainsKey(child))
                         continue;
 
-                    depthMap[dep] = depth + 1;
-                    queue.Enqueue(dep);
+                    // Only visit each node once to prevent infinite loops
+                    // on circular dependencies.
+                    if (depthMap.ContainsKey(child))
+                        continue;
+
+                    depthMap[child] = depth + 1;
+                    parentMap[child] = current;
+                    queue.Enqueue(child);
                 }
             }
 
-            // Also include nodes not reachable from center (reverse deps)
+            // Include orphan nodes (not reachable from root)
             foreach (var kvp in m_NodeMap)
             {
                 if (!depthMap.ContainsKey(kvp.Key))
                     depthMap[kvp.Key] = 1;
             }
 
-            // Group by depth
+            // Group nodes by depth
+            int maxDepth = 0;
             var layers = new Dictionary<int, List<string>>();
             foreach (var kvp in depthMap)
             {
                 if (!layers.ContainsKey(kvp.Value))
                     layers[kvp.Value] = new List<string>();
                 layers[kvp.Value].Add(kvp.Key);
+                if (kvp.Value > maxDepth)
+                    maxDepth = kvp.Value;
             }
 
-            // Position nodes in concentric circles
+            // Order children within each layer so that nodes sharing a parent
+            // are grouped together and ordered by their parent's position.
+            // This is a simple barycenter heuristic that reduces crossings.
+            for (int d = 1; d <= maxDepth; d++)
+            {
+                if (!layers.ContainsKey(d))
+                    continue;
+
+                var layer = layers[d];
+                var prevLayer = layers.ContainsKey(d - 1) ? layers[d - 1] : null;
+
+                if (prevLayer != null)
+                {
+                    // Build index lookup for parent positions
+                    var parentIndex = new Dictionary<string, int>(StringComparer.Ordinal);
+                    for (int i = 0; i < prevLayer.Count; i++)
+                        parentIndex[prevLayer[i]] = i;
+
+                    // Sort by parent index so siblings stay together
+                    layer.Sort((a, b) =>
+                    {
+                        parentMap.TryGetValue(a, out string pA);
+                        parentMap.TryGetValue(b, out string pB);
+                        int idxA = pA != null && parentIndex.ContainsKey(pA) ? parentIndex[pA] : int.MaxValue;
+                        int idxB = pB != null && parentIndex.ContainsKey(pB) ? parentIndex[pB] : int.MaxValue;
+                        return idxA.CompareTo(idxB);
+                    });
+                }
+            }
+
+            // Position nodes: each depth is a column, nodes stacked vertically.
+            // After initial placement, vertically center each parent over its children.
+            var positionY = new Dictionary<string, float>(StringComparer.Ordinal);
+
+            // First pass: assign y positions per layer top-to-bottom
             foreach (var kvp in layers)
             {
-                int depth = kvp.Key;
-                var nodes = kvp.Value;
-
-                if (depth == 0)
+                var layer = kvp.Value;
+                for (int i = 0; i < layer.Count; i++)
                 {
-                    // Center node
-                    if (m_NodeMap.TryGetValue(nodes[0], out var centerNode))
-                    {
-                        centerNode.SetPosition(new Rect(centerX, centerY, 0, 0));
-                    }
+                    positionY[layer[i]] = startY + i * rowSpacing;
                 }
-                else
+            }
+
+            // Second pass (bottom-up): shift parents to the vertical center of
+            // their children for a cleaner look.
+            for (int d = maxDepth - 1; d >= 0; d--)
+            {
+                if (!layers.ContainsKey(d))
+                    continue;
+
+                foreach (string nodePath in layers[d])
                 {
-                    float radius = depth * radiusStep;
-                    float angleStep = 360f / nodes.Count;
+                    if (!m_ChildrenMap.TryGetValue(nodePath, out var children) || children.Count == 0)
+                        continue;
 
-                    for (int i = 0; i < nodes.Count; i++)
+                    // Collect y positions of children in the graph
+                    float minY = float.MaxValue;
+                    float maxY = float.MinValue;
+                    int childCount = 0;
+                    foreach (string child in children)
                     {
-                        float angle = i * angleStep * Mathf.Deg2Rad;
-                        float x = centerX + Mathf.Cos(angle) * radius;
-                        float y = centerY + Mathf.Sin(angle) * radius;
-
-                        if (m_NodeMap.TryGetValue(nodes[i], out var node))
+                        if (positionY.TryGetValue(child, out float cy))
                         {
-                            node.SetPosition(new Rect(x, y, 0, 0));
+                            if (cy < minY) minY = cy;
+                            if (cy > maxY) maxY = cy;
+                            childCount++;
                         }
                     }
+
+                    if (childCount > 0)
+                    {
+                        positionY[nodePath] = (minY + maxY) / 2f;
+                    }
+                }
+            }
+
+            // Third pass: resolve vertical overlaps within each layer
+            foreach (var kvp in layers)
+            {
+                var layer = kvp.Value;
+                // Sort by current y position
+                layer.Sort((a, b) => positionY[a].CompareTo(positionY[b]));
+
+                for (int i = 1; i < layer.Count; i++)
+                {
+                    float prevBottom = positionY[layer[i - 1]] + rowSpacing;
+                    if (positionY[layer[i]] < prevBottom)
+                    {
+                        positionY[layer[i]] = prevBottom;
+                    }
+                }
+            }
+
+            // Apply positions
+            foreach (var kvp in depthMap)
+            {
+                string path = kvp.Key;
+                int depth = kvp.Value;
+                float x = startX + depth * columnSpacing;
+                float y = positionY.ContainsKey(path) ? positionY[path] : startY;
+
+                if (m_NodeMap.TryGetValue(path, out var node))
+                {
+                    node.SetPosition(new Rect(x, y, 0, 0));
                 }
             }
         }
@@ -506,6 +620,7 @@ namespace ProjectCleanPro.Editor
         {
             m_NodeMap.Clear();
             m_VisitedPaths.Clear();
+            m_ChildrenMap.Clear();
 
             // Remove all elements from the graph view
             var elements = new List<GraphElement>();

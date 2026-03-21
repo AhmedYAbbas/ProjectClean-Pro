@@ -25,7 +25,7 @@ MonoBehaviour:
   useGitRm: 1
   nullOutReferencesOnDelete: 1
   archiveRetentionDays: 1
-  dependencyGraphMaxDepth: 7
+  dependencyGraphMaxDepth: 5
   shaderAnalyzerCheckPipeline: 1
   duplicateCompareImportSettings: 1
   moduleColors:

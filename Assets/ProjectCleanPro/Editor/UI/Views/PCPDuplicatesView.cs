@@ -188,6 +188,30 @@ namespace ProjectCleanPro.Editor
             foldout.style.paddingTop = 6;
             foldout.style.paddingBottom = 6;
 
+            // Merge single group button – placed inside the foldout toggle so it
+            // sits on the header row. We stop propagation so the click doesn't
+            // toggle the foldout open/closed.
+            var mergeBtn = new Button(() => OnMergeSingleGroup(group))
+            {
+                text = "Merge"
+            };
+            mergeBtn.style.marginLeft = 8;
+            mergeBtn.style.paddingLeft = 8;
+            mergeBtn.style.paddingRight = 8;
+            mergeBtn.style.paddingTop = 2;
+            mergeBtn.style.paddingBottom = 2;
+            mergeBtn.style.fontSize = 11;
+            mergeBtn.style.backgroundColor = k_AccentColor;
+            mergeBtn.style.color = new Color(0.1f, 0.1f, 0.1f, 1f);
+            mergeBtn.style.unityFontStyleAndWeight = FontStyle.Bold;
+            mergeBtn.style.borderTopLeftRadius = 3;
+            mergeBtn.style.borderTopRightRadius = 3;
+            mergeBtn.style.borderBottomLeftRadius = 3;
+            mergeBtn.style.borderBottomRightRadius = 3;
+            mergeBtn.tooltip = "Merge this duplicate group only";
+            mergeBtn.RegisterCallback<ClickEvent>(evt => evt.StopPropagation());
+            foldout.Q<Toggle>().Add(mergeBtn);
+
             // Auto-elect the entry with the highest reference count unless
             // the user has manually chosen which copy to keep.
             if (!group.hasUserOverride)
@@ -353,6 +377,11 @@ namespace ProjectCleanPro.Editor
             };
         }
 
+        private void OnMergeSingleGroup(PCPDuplicateGroup group)
+        {
+            MergeGroups(new List<PCPDuplicateGroup> { group });
+        }
+
         private void OnMergeAllDuplicates()
         {
             if (m_ScanResult == null || m_ScanResult.duplicateGroups == null ||
@@ -363,9 +392,14 @@ namespace ProjectCleanPro.Editor
                 return;
             }
 
+            MergeGroups(m_ScanResult.duplicateGroups);
+        }
+
+        private void MergeGroups(List<PCPDuplicateGroup> groups)
+        {
             // Collect all non-canonical entries for deletion
             var pathsToDelete = new List<string>();
-            foreach (var group in m_ScanResult.duplicateGroups)
+            foreach (var group in groups)
             {
                 // Respect the user's radio-button selection – do NOT re-elect here.
                 if (!group.hasUserOverride)

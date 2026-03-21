@@ -44,6 +44,7 @@ namespace ProjectCleanPro.Editor
         {
             // Shaders: wider Type for pipeline/variant/keyword/material info
             m_ResultList.SetColumnWidths(name: 180, path: 200, type: 200, size: 60, status: 100);
+            m_FilterBar.ShowTypeChips = false;
             m_FilterBar.SetStatusChoices("All Statuses", "MISMATCH", "UNUSED", "HIGH VARIANTS", "OK");
 
             // Add a detail panel below the result list for showing keywords
@@ -165,7 +166,7 @@ namespace ProjectCleanPro.Editor
                 name = shader.shaderName ?? string.Empty,
                 path = shader.assetPath ?? string.Empty,
                 type = typeInfo,
-                sizeBytes = 0,
+                sizeBytes = shader.sizeBytes,
                 status = status,
                 statusColor = statusColor,
                 guid = string.Empty
@@ -257,7 +258,13 @@ namespace ProjectCleanPro.Editor
         private void UpdateHeader(int count)
         {
             m_Header.FindingCount = count;
-            m_Header.TotalSize = 0;
+            long total = 0;
+            if (m_ScanResult?.shaderEntries != null)
+            {
+                foreach (var entry in m_ScanResult.shaderEntries)
+                    total += entry.sizeBytes;
+            }
+            m_Header.TotalSize = total;
         }
     }
 }

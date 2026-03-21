@@ -42,6 +42,9 @@ namespace ProjectCleanPro.Editor
         private readonly Dictionary<PackageFilter, Button> m_FilterButtons =
             new Dictionary<PackageFilter, Button>();
         private readonly HashSet<PackageFilter> m_ActiveFilters = new HashSet<PackageFilter>();
+        private readonly HashSet<string> m_SelectedPackages = new HashSet<string>();
+        private VisualElement m_SelectionBar;
+        private Label m_SelectionCountLabel;
 
         // --------------------------------------------------------------------
         // Constructor
@@ -85,6 +88,10 @@ namespace ProjectCleanPro.Editor
             }
 
             Add(filterBar);
+
+            // Selection action bar (hidden by default)
+            m_SelectionBar = BuildSelectionBar();
+            Add(m_SelectionBar);
 
             // Scrollable card container
             var scrollView = new ScrollView(ScrollViewMode.Vertical);
@@ -206,6 +213,7 @@ namespace ProjectCleanPro.Editor
                 m_CardContainer.Add(m_EmptyLabel);
                 m_EmptyLabel.style.display = DisplayStyle.Flex;
                 m_Header.FindingCount = 0;
+                UpdateSelectionBar();
                 return;
             }
 
@@ -217,6 +225,8 @@ namespace ProjectCleanPro.Editor
                 var card = BuildPackageCard(entry);
                 m_CardContainer.Add(card);
             }
+
+            UpdateSelectionBar();
         }
 
         private List<PCPPackageAuditEntry> GetFilteredEntries()
@@ -281,11 +291,29 @@ namespace ProjectCleanPro.Editor
             card.style.borderLeftWidth = 4;
             card.style.borderLeftColor = borderColor;
 
-            // Top row: name + version + status badge
+            // Top row: checkbox + name + version + status badge
             var topRow = new VisualElement();
             topRow.style.flexDirection = FlexDirection.Row;
             topRow.style.alignItems = Align.Center;
             topRow.style.marginBottom = 6;
+
+            // Selection checkbox for unused packages
+            if (entry.status == PCPPackageStatus.Unused && !string.IsNullOrEmpty(entry.packageName))
+            {
+                var checkbox = new Toggle();
+                checkbox.value = m_SelectedPackages.Contains(entry.packageName);
+                checkbox.style.marginRight = 6;
+                string pkgName = entry.packageName;
+                checkbox.RegisterValueChangedCallback(evt =>
+                {
+                    if (evt.newValue)
+                        m_SelectedPackages.Add(pkgName);
+                    else
+                        m_SelectedPackages.Remove(pkgName);
+                    UpdateSelectionBar();
+                });
+                topRow.Add(checkbox);
+            }
 
             var nameLabel = new Label(entry.displayName ?? entry.packageName ?? "Unknown");
             nameLabel.style.fontSize = 14;
@@ -464,6 +492,128 @@ namespace ProjectCleanPro.Editor
             {
                 Debug.LogError($"[ProjectCleanPro] Failed to remove package: {ex.Message}");
             }
+        }
+
+        // --------------------------------------------------------------------
+        // Selection bar
+        // --------------------------------------------------------------------
+
+        private VisualElement BuildSelectionBar()
+        {
+            var bar = new VisualElement();
+            bar.style.flexDirection = FlexDirection.Row;
+            bar.style.alignItems = Align.Center;
+            bar.style.paddingLeft = 8;
+            bar.style.paddingRight = 8;
+            bar.style.paddingTop = 6;
+            bar.style.paddingBottom = 6;
+            bar.style.backgroundColor = new Color(0.15f, 0.15f, 0.15f, 1f);
+            bar.style.borderBottomWidth = 1;
+            bar.style.borderBottomColor = new Color(0.235f, 0.235f, 0.235f, 1f);
+            bar.style.flexShrink = 0;
+            bar.style.display = DisplayStyle.None;
+
+            m_SelectionCountLabel = new Label("0 selected");
+            m_SelectionCountLabel.style.fontSize = 12;
+            m_SelectionCountLabel.style.color = new Color(0.7f, 0.7f, 0.7f, 1f);
+            m_SelectionCountLabel.style.marginRight = 12;
+            bar.Add(m_SelectionCountLabel);
+
+            var selectAllBtn = new Button(OnSelectAllUnused) { text = "Select All Unused" };
+            StyleActionBarButton(selectAllBtn, new Color(0.3f, 0.3f, 0.3f, 1f));
+            bar.Add(selectAllBtn);
+
+            var deselectAllBtn = new Button(OnDeselectAll) { text = "Deselect All" };
+            StyleActionBarButton(deselectAllBtn, new Color(0.3f, 0.3f, 0.3f, 1f));
+            bar.Add(deselectAllBtn);
+
+            var spacer = new VisualElement();
+            spacer.style.flexGrow = 1;
+            bar.Add(spacer);
+
+            var removeBtn = new Button(OnRemoveSelected) { text = "Remove Selected" };
+            StyleActionBarButton(removeBtn, k_UnusedColor);
+            removeBtn.style.color = Color.white;
+            bar.Add(removeBtn);
+
+            return bar;
+        }
+
+        private static void StyleActionBarButton(Button btn, Color bgColor)
+        {
+            btn.style.paddingLeft = 10;
+            btn.style.paddingRight = 10;
+            btn.style.paddingTop = 3;
+            btn.style.paddingBottom = 3;
+            btn.style.marginRight = 4;
+            btn.style.fontSize = 11;
+            btn.style.backgroundColor = bgColor;
+            btn.style.borderTopLeftRadius = 3;
+            btn.style.borderTopRightRadius = 3;
+            btn.style.borderBottomLeftRadius = 3;
+            btn.style.borderBottomRightRadius = 3;
+        }
+
+        private void UpdateSelectionBar()
+        {
+            int count = m_SelectedPackages.Count;
+            bool hasSelection = count > 0;
+            m_SelectionBar.style.display = hasSelection ? DisplayStyle.Flex : DisplayStyle.None;
+            m_SelectionCountLabel.text = $"{count} selected";
+        }
+
+        private void OnSelectAllUnused()
+        {
+            if (m_ScanResult?.packageAuditEntries == null) return;
+
+            var visible = GetFilteredEntries();
+            foreach (var entry in visible)
+            {
+                if (entry.status == PCPPackageStatus.Unused && !string.IsNullOrEmpty(entry.packageName))
+                    m_SelectedPackages.Add(entry.packageName);
+            }
+
+            RefreshCards();
+        }
+
+        private void OnDeselectAll()
+        {
+            m_SelectedPackages.Clear();
+            RefreshCards();
+        }
+
+        private void OnRemoveSelected()
+        {
+            if (m_SelectedPackages.Count == 0) return;
+
+            // Build list of names for the dialog
+            var names = new List<string>(m_SelectedPackages);
+            names.Sort();
+
+            string list = string.Join("\n", names);
+            bool confirmed = EditorUtility.DisplayDialog(
+                "Remove Selected Packages",
+                $"Remove {names.Count} package(s)?\n\n{list}\n\n" +
+                "This will modify your project's manifest.json.",
+                "Remove All", "Cancel");
+
+            if (!confirmed) return;
+
+            foreach (string pkg in names)
+            {
+                try
+                {
+                    UnityEditor.PackageManager.Client.Remove(pkg);
+                    Debug.Log($"[ProjectCleanPro] Requested removal of package: {pkg}");
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[ProjectCleanPro] Failed to remove package {pkg}: {ex.Message}");
+                }
+            }
+
+            m_SelectedPackages.Clear();
+            UpdateSelectionBar();
         }
 
         // --------------------------------------------------------------------

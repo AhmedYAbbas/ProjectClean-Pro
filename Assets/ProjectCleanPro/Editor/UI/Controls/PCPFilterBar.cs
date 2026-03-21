@@ -107,6 +107,15 @@ namespace ProjectCleanPro.Editor
         public IReadOnlyCollection<string> ActiveTypes => _activeTypes;
 
         /// <summary>
+        /// Shows or hides the type filter chips row.
+        /// </summary>
+        public bool ShowTypeChips
+        {
+            get => _chipContainer.style.display == DisplayStyle.Flex;
+            set => _chipContainer.style.display = value ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        /// <summary>
         /// Replaces the status dropdown choices with the given values.
         /// Each view should call this to provide its own set of status labels.
         /// </summary>

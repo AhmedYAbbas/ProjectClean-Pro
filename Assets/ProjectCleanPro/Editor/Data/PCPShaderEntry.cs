@@ -34,6 +34,9 @@ namespace ProjectCleanPro.Editor
         /// <summary>Number of materials in the project that reference this shader.</summary>
         public int materialCount;
 
+        /// <summary>File size in bytes of the shader asset on disk.</summary>
+        public long sizeBytes;
+
         /// <summary>The render pipeline this shader is designed for.</summary>
         public PCPRenderPipeline targetPipeline;
 
