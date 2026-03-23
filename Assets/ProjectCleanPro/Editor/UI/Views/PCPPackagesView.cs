@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Threading;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -10,36 +9,25 @@ namespace ProjectCleanPro.Editor
     /// <summary>
     /// View for displaying package audit results as a card layout. Each package
     /// is shown as a card with its name, version, status badge, reference counts,
-    /// and dependent packages. Card border color indicates status:
-    /// green = used, red = unused, yellow = transitive only.
+    /// and dependent packages. Card border color indicates status.
     /// </summary>
-    public sealed class PCPPackagesView : VisualElement, IPCPRefreshable
+    public sealed class PCPPackagesView : PCPModuleView, IPCPExportableView
     {
         // Status colors
         private static readonly Color k_UsedColor = new Color(0.416f, 0.600f, 0.333f, 1f);
         private static readonly Color k_UnusedColor = new Color(0.957f, 0.278f, 0.278f, 1f);
         private static readonly Color k_TransitiveColor = new Color(0.800f, 0.655f, 0.000f, 1f);
         private static readonly Color k_UnknownColor = new Color(0.502f, 0.502f, 0.502f, 1f);
-        private Color k_AccentColor => PCPContext.Settings.GetModuleColor(4);
 
         // Filter enum
-        private enum PackageFilter
-        {
-            All,
-            Used,
-            Unused,
-            Transitive
-        }
+        private enum PackageFilter { All, Used, Unused, Transitive }
 
         // --------------------------------------------------------------------
         // State
         // --------------------------------------------------------------------
 
-        private readonly PCPScanResult m_ScanResult;
-        private readonly Func<PCPScanContext> m_CreateContext;
-        private readonly PCPModuleHeader m_Header;
-        private readonly VisualElement m_CardContainer;
-        private readonly Label m_EmptyLabel;
+        private VisualElement m_CardContainer;
+        private Label m_EmptyLabel;
         private readonly Dictionary<PackageFilter, Button> m_FilterButtons =
             new Dictionary<PackageFilter, Button>();
         private readonly HashSet<PackageFilter> m_ActiveFilters = new HashSet<PackageFilter>();
@@ -52,22 +40,29 @@ namespace ProjectCleanPro.Editor
         // --------------------------------------------------------------------
 
         public PCPPackagesView(PCPScanResult scanResult, Func<PCPScanContext> createContext)
-        {
-            m_ScanResult = scanResult;
-            m_CreateContext = createContext;
-
-            style.flexGrow = 1;
-            style.flexDirection = FlexDirection.Column;
-
-            // Module header
-            m_Header = new PCPModuleHeader(
+            : base(
+                scanResult,
+                createContext,
                 "Package Audit",
                 "\u2750",
-                k_AccentColor);
-            m_Header.onScan += OnScanClicked;
-            m_Header.style.flexShrink = 0;
-            Add(m_Header);
+                4)
+        {
+        }
 
+        protected override PCPModuleId GetModuleId() => PCPModuleId.Packages;
+
+        // --------------------------------------------------------------------
+        // IPCPExportableView
+        // --------------------------------------------------------------------
+
+        public string ModuleExportKey => "packages";
+
+        // --------------------------------------------------------------------
+        // BuildContent / RefreshContent
+        // --------------------------------------------------------------------
+
+        protected override void BuildContent(VisualElement content)
+        {
             // Filter bar
             var filterBar = new VisualElement();
             filterBar.style.flexDirection = FlexDirection.Row;
@@ -89,28 +84,16 @@ namespace ProjectCleanPro.Editor
                 filterBar.Add(btn);
             }
 
-            var filterSpacer = new VisualElement();
-            filterSpacer.style.flexGrow = 1;
-            filterBar.Add(filterSpacer);
-
-            var exportBtn = new Button(OnExport) { text = "Export" };
-            exportBtn.AddToClassList("pcp-button-secondary");
-            exportBtn.style.paddingLeft = 10;
-            exportBtn.style.paddingRight = 10;
-            exportBtn.style.paddingTop = 3;
-            exportBtn.style.paddingBottom = 3;
-            filterBar.Add(exportBtn);
-
-            Add(filterBar);
+            content.Add(filterBar);
 
             // Selection action bar (hidden by default)
             m_SelectionBar = BuildSelectionBar();
-            Add(m_SelectionBar);
+            content.Add(m_SelectionBar);
 
             // Scrollable card container
             var scrollView = new ScrollView(ScrollViewMode.Vertical);
             scrollView.style.flexGrow = 1;
-            Add(scrollView);
+            content.Add(scrollView);
 
             m_CardContainer = scrollView.contentContainer;
             m_CardContainer.style.paddingTop = 12;
@@ -130,8 +113,10 @@ namespace ProjectCleanPro.Editor
 
             // Set initial active filter
             SetActiveFilter(PackageFilter.All);
+        }
 
-            // Initial population
+        protected override void RefreshContent()
+        {
             RefreshCards();
         }
 
@@ -216,16 +201,7 @@ namespace ProjectCleanPro.Editor
         // Data population
         // --------------------------------------------------------------------
 
-        /// <summary>
-        /// Rebuilds the card display from current scan result data.
-        /// </summary>
-        public void Refresh()
-        {
-            m_Header.AccentColor = k_AccentColor;
-            RefreshCards();
-        }
-
-        public void RefreshCards()
+        private void RefreshCards()
         {
             m_CardContainer.Clear();
 
@@ -351,7 +327,6 @@ namespace ProjectCleanPro.Editor
             versionLabel.style.marginRight = 8;
             topRow.Add(versionLabel);
 
-            // Status badge
             var statusBadge = new PCPBadge(entry.status.ToString(), borderColor);
             topRow.Add(statusBadge);
 
@@ -389,7 +364,7 @@ namespace ProjectCleanPro.Editor
             idLabel.style.marginBottom = 8;
             card.Add(idLabel);
 
-            // Stats row: reference counts
+            // Stats row
             var statsRow = new VisualElement();
             statsRow.style.flexDirection = FlexDirection.Row;
             statsRow.style.alignItems = Align.Center;
@@ -440,7 +415,7 @@ namespace ProjectCleanPro.Editor
                 card.Add(depsRow);
             }
 
-            // Description (if available)
+            // Description
             if (!string.IsNullOrEmpty(entry.description))
             {
                 var descLabel = new Label(entry.description);
@@ -458,47 +433,8 @@ namespace ProjectCleanPro.Editor
         }
 
         // --------------------------------------------------------------------
-        // Actions
+        // Package removal
         // --------------------------------------------------------------------
-
-        private async void OnScanClicked()
-        {
-            m_Header.IsScanning = true;
-
-            await PCPEditorAsync.YieldToEditor();
-
-            try
-            {
-                var context = m_CreateContext?.Invoke();
-                if (context != null)
-                {
-                    var cts = new CancellationTokenSource();
-                    await PCPContext.Orchestrator.ScanModuleAsync(
-                        PCPModuleId.Packages, context, null, cts.Token);
-
-                    // Sync orchestrator results into the legacy scan result.
-                    PCPModuleView.SyncModuleToScanResult(PCPModuleId.Packages, m_ScanResult);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ProjectCleanPro] Package audit scan failed: {ex}");
-            }
-            finally
-            {
-                m_Header.IsScanning = false;
-                RefreshCards();
-            }
-        }
-
-        private void OnExport()
-        {
-            if (m_ScanResult == null)
-                return;
-
-            var moduleResult = PCPReportExporter.CreateModuleSubset(m_ScanResult, "packages");
-            PCPReportExporter.ShowExportMenu(moduleResult);
-        }
 
         private void OnRemovePackage(PCPPackageAuditEntry entry)
         {
@@ -551,11 +487,11 @@ namespace ProjectCleanPro.Editor
             bar.Add(m_SelectionCountLabel);
 
             var selectAllBtn = new Button(OnSelectAllUnused) { text = "Select All Unused" };
-            StyleActionBarButton(selectAllBtn, new Color(0.3f, 0.3f, 0.3f, 1f));
+            StyleSelectionBarButton(selectAllBtn, new Color(0.3f, 0.3f, 0.3f, 1f));
             bar.Add(selectAllBtn);
 
             var deselectAllBtn = new Button(OnDeselectAll) { text = "Deselect All" };
-            StyleActionBarButton(deselectAllBtn, new Color(0.3f, 0.3f, 0.3f, 1f));
+            StyleSelectionBarButton(deselectAllBtn, new Color(0.3f, 0.3f, 0.3f, 1f));
             bar.Add(deselectAllBtn);
 
             var spacer = new VisualElement();
@@ -563,14 +499,14 @@ namespace ProjectCleanPro.Editor
             bar.Add(spacer);
 
             var removeBtn = new Button(OnRemoveSelected) { text = "Remove Selected" };
-            StyleActionBarButton(removeBtn, k_UnusedColor);
+            StyleSelectionBarButton(removeBtn, k_UnusedColor);
             removeBtn.style.color = Color.white;
             bar.Add(removeBtn);
 
             return bar;
         }
 
-        private static void StyleActionBarButton(Button btn, Color bgColor)
+        private static void StyleSelectionBarButton(Button btn, Color bgColor)
         {
             btn.style.paddingLeft = 10;
             btn.style.paddingRight = 10;
@@ -617,7 +553,6 @@ namespace ProjectCleanPro.Editor
         {
             if (m_SelectedPackages.Count == 0) return;
 
-            // Build list of names for the dialog
             var names = new List<string>(m_SelectedPackages);
             names.Sort();
 

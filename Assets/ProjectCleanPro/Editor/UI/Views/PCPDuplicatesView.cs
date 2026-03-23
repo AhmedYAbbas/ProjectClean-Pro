@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -10,11 +9,12 @@ namespace ProjectCleanPro.Editor
 {
     /// <summary>
     /// View for displaying duplicate asset groups. Uses a custom grouped layout
-    /// with a <see cref="Foldout"/> per duplicate group rather than a flat list.
-    /// Each group shows its hash header, file count, wasted space, and a list
-    /// of entries with reference counts and radio-style "Keep" selection.
+    /// with a <see cref="Foldout"/> per duplicate group. Each group shows its
+    /// hash header, file count, wasted space, and a list of entries with
+    /// reference counts and radio-style "Keep" selection.
     /// </summary>
-    public sealed class PCPDuplicatesView : VisualElement, IPCPRefreshable
+    public sealed class PCPDuplicatesView : PCPModuleView,
+        IPCPMergeableView, IPCPExportableView
     {
         // Colors
         private Color k_AccentColor => PCPContext.Settings.GetModuleColor(2);
@@ -25,81 +25,146 @@ namespace ProjectCleanPro.Editor
         // State
         // --------------------------------------------------------------------
 
-        private readonly PCPScanResult m_ScanResult;
-        private readonly Func<PCPScanContext> m_CreateContext;
-        private readonly PCPModuleHeader m_Header;
-        private readonly VisualElement m_GroupContainer;
-        private readonly Label m_EmptyLabel;
+        private VisualElement m_GroupContainer;
+        private Label m_EmptyLabel;
+        private TextField m_SearchField;
+        private PopupField<string> m_TypeDropdown;
+        private PopupField<string> m_SortDropdown;
+
+        private string m_SearchText = string.Empty;
+        private string m_TypeFilter = "All Types";
+        private string m_SortMode = "Wasted Size";
 
         // --------------------------------------------------------------------
         // Constructor
         // --------------------------------------------------------------------
 
         public PCPDuplicatesView(PCPScanResult scanResult, Func<PCPScanContext> createContext)
-        {
-            m_ScanResult = scanResult;
-            m_CreateContext = createContext;
-
-            style.flexGrow = 1;
-            style.flexDirection = FlexDirection.Column;
-
-            // Module header
-            m_Header = new PCPModuleHeader(
+            : base(
+                scanResult,
+                createContext,
                 "Duplicate Assets",
                 "\u2687",
-                k_AccentColor);
-            m_Header.onScan += OnScanClicked;
-            m_Header.style.flexShrink = 0;
-            Add(m_Header);
+                2)
+        {
+        }
 
-            // Top action bar
-            var topBar = new VisualElement();
-            topBar.style.flexDirection = FlexDirection.Row;
-            topBar.style.alignItems = Align.Center;
-            topBar.style.paddingLeft = 8;
-            topBar.style.paddingRight = 8;
-            topBar.style.paddingTop = 4;
-            topBar.style.paddingBottom = 4;
-            topBar.style.backgroundColor = new Color(0.176f, 0.176f, 0.176f, 1f);
-            topBar.style.borderBottomWidth = 1;
-            topBar.style.borderBottomColor = new Color(0.235f, 0.235f, 0.235f, 1f);
-            topBar.style.flexShrink = 0;
+        protected override PCPModuleId GetModuleId() => PCPModuleId.Duplicates;
 
-            var mergeAllBtn = new Button(OnMergeAllDuplicates)
+        // --------------------------------------------------------------------
+        // IPCPExportableView
+        // --------------------------------------------------------------------
+
+        public string ModuleExportKey => "duplicates";
+
+        // --------------------------------------------------------------------
+        // IPCPMergeableView
+        // --------------------------------------------------------------------
+
+        public void MergeAll()
+        {
+            if (m_ScanResult == null || m_ScanResult.duplicateGroups == null ||
+                m_ScanResult.duplicateGroups.Count == 0)
             {
-                text = "Merge All Duplicates"
+                EditorUtility.DisplayDialog("ProjectCleanPro",
+                    "No duplicate groups to merge.", "OK");
+                return;
+            }
+
+            MergeGroups(m_ScanResult.duplicateGroups);
+        }
+
+        // --------------------------------------------------------------------
+        // BuildContent / RefreshContent
+        // --------------------------------------------------------------------
+
+        protected override void BuildContent(VisualElement content)
+        {
+            // Filter bar
+            var filterBar = new VisualElement();
+            filterBar.style.flexDirection = FlexDirection.Row;
+            filterBar.style.alignItems = Align.Center;
+            filterBar.style.minHeight = 32;
+            filterBar.style.paddingLeft = 8;
+            filterBar.style.paddingRight = 8;
+            filterBar.style.paddingTop = 4;
+            filterBar.style.paddingBottom = 4;
+            filterBar.style.backgroundColor = new Color(0.176f, 0.176f, 0.176f, 1f);
+            filterBar.style.borderBottomWidth = 1;
+            filterBar.style.borderBottomColor = new Color(0.235f, 0.235f, 0.235f, 1f);
+            filterBar.style.flexShrink = 0;
+
+            m_SearchField = new TextField();
+            m_SearchField.style.flexGrow = 1;
+            m_SearchField.style.height = 24;
+            m_SearchField.style.marginRight = 8;
+            m_SearchField.style.minWidth = 120;
+            m_SearchField.value = string.Empty;
+            m_SearchField.tooltip = "Search by file name...";
+            m_SearchField.RegisterValueChangedCallback(evt =>
+            {
+                m_SearchText = evt.newValue ?? string.Empty;
+                RefreshGroups();
+            });
+            filterBar.Add(m_SearchField);
+
+            var typeChoices = new List<string>
+            {
+                "All Types", "Textures", "Audio", "Models", "Materials", "Other"
             };
-            mergeAllBtn.style.paddingLeft = 12;
-            mergeAllBtn.style.paddingRight = 12;
-            mergeAllBtn.style.paddingTop = 4;
-            mergeAllBtn.style.paddingBottom = 4;
-            mergeAllBtn.style.backgroundColor = k_AccentColor;
-            mergeAllBtn.style.color = new Color(0.1f, 0.1f, 0.1f, 1f);
-            mergeAllBtn.style.unityFontStyleAndWeight = FontStyle.Bold;
-            mergeAllBtn.style.borderTopLeftRadius = 3;
-            mergeAllBtn.style.borderTopRightRadius = 3;
-            mergeAllBtn.style.borderBottomLeftRadius = 3;
-            mergeAllBtn.style.borderBottomRightRadius = 3;
-            topBar.Add(mergeAllBtn);
+            m_TypeDropdown = new PopupField<string>(typeChoices, 0);
+            m_TypeDropdown.style.minWidth = 110;
+            m_TypeDropdown.style.height = 24;
+            m_TypeDropdown.style.marginRight = 8;
+            m_TypeDropdown.RegisterValueChangedCallback(evt =>
+            {
+                m_TypeFilter = evt.newValue;
+                RefreshGroups();
+            });
+            filterBar.Add(m_TypeDropdown);
 
-            var spacer = new VisualElement();
-            spacer.style.flexGrow = 1;
-            topBar.Add(spacer);
+            var sortLabel = new Label("Sort:");
+            sortLabel.style.fontSize = 11;
+            sortLabel.style.color = new Color(0.6f, 0.6f, 0.6f, 1f);
+            sortLabel.style.marginRight = 4;
+            filterBar.Add(sortLabel);
 
-            var exportBtn = new Button(OnExport) { text = "Export" };
-            exportBtn.AddToClassList("pcp-button-secondary");
-            exportBtn.style.paddingLeft = 10;
-            exportBtn.style.paddingRight = 10;
-            exportBtn.style.paddingTop = 4;
-            exportBtn.style.paddingBottom = 4;
-            topBar.Add(exportBtn);
+            var sortChoices = new List<string>
+            {
+                "Wasted Size", "Copy Count", "File Size"
+            };
+            m_SortDropdown = new PopupField<string>(sortChoices, 0);
+            m_SortDropdown.style.minWidth = 110;
+            m_SortDropdown.style.height = 24;
+            m_SortDropdown.style.marginRight = 8;
+            m_SortDropdown.RegisterValueChangedCallback(evt =>
+            {
+                m_SortMode = evt.newValue;
+                RefreshGroups();
+            });
+            filterBar.Add(m_SortDropdown);
 
-            Add(topBar);
+            var clearBtn = new Button(() =>
+            {
+                m_SearchField.value = string.Empty;
+                m_TypeDropdown.value = "All Types";
+                m_SortDropdown.value = "Wasted Size";
+            })
+            {
+                text = "Clear"
+            };
+            clearBtn.style.paddingLeft = 8;
+            clearBtn.style.paddingRight = 8;
+            clearBtn.style.paddingTop = 3;
+            clearBtn.style.paddingBottom = 3;
+            filterBar.Add(clearBtn);
+
+            content.Add(filterBar);
 
             // Scrollable group container
             var scrollView = new ScrollView(ScrollViewMode.Vertical);
             scrollView.style.flexGrow = 1;
-            Add(scrollView);
+            content.Add(scrollView);
 
             m_GroupContainer = scrollView.contentContainer;
             m_GroupContainer.style.paddingTop = 8;
@@ -116,8 +181,10 @@ namespace ProjectCleanPro.Editor
             m_EmptyLabel.style.paddingBottom = 48;
             m_EmptyLabel.style.display = DisplayStyle.None;
             m_GroupContainer.Add(m_EmptyLabel);
+        }
 
-            // Initial population
+        protected override void RefreshContent()
+        {
             RefreshGroups();
         }
 
@@ -125,16 +192,7 @@ namespace ProjectCleanPro.Editor
         // Data population
         // --------------------------------------------------------------------
 
-        /// <summary>
-        /// Rebuilds the group display from the current scan result.
-        /// </summary>
-        public void Refresh()
-        {
-            m_Header.AccentColor = k_AccentColor;
-            RefreshGroups();
-        }
-
-        public void RefreshGroups()
+        private void RefreshGroups()
         {
             m_GroupContainer.Clear();
 
@@ -142,6 +200,7 @@ namespace ProjectCleanPro.Editor
                 m_ScanResult.duplicateGroups.Count == 0)
             {
                 m_GroupContainer.Add(m_EmptyLabel);
+                m_EmptyLabel.text = "No duplicate assets found.\nRun a scan to detect duplicates.";
                 m_EmptyLabel.style.display = DisplayStyle.Flex;
                 UpdateHeader(0, 0);
                 return;
@@ -149,20 +208,120 @@ namespace ProjectCleanPro.Editor
 
             m_EmptyLabel.style.display = DisplayStyle.None;
 
-            var groups = m_ScanResult.duplicateGroups;
+            // Filter groups
+            var filtered = new List<PCPDuplicateGroup>();
+            foreach (var group in m_ScanResult.duplicateGroups)
+            {
+                if (!MatchesFilters(group))
+                    continue;
+                filtered.Add(group);
+            }
+
+            if (filtered.Count == 0)
+            {
+                m_GroupContainer.Add(m_EmptyLabel);
+                m_EmptyLabel.text = "No results match the current filters.";
+                m_EmptyLabel.style.display = DisplayStyle.Flex;
+                UpdateHeader(0, 0);
+                return;
+            }
+
+            // Sort groups
+            switch (m_SortMode)
+            {
+                case "Copy Count":
+                    filtered.Sort((a, b) =>
+                    {
+                        int cmp = b.entries.Count.CompareTo(a.entries.Count);
+                        return cmp != 0 ? cmp : b.WastedBytes.CompareTo(a.WastedBytes);
+                    });
+                    break;
+                case "File Size":
+                    filtered.Sort((a, b) =>
+                    {
+                        long sizeA = a.entries.Count > 0 ? a.entries[0].sizeBytes : 0;
+                        long sizeB = b.entries.Count > 0 ? b.entries[0].sizeBytes : 0;
+                        return sizeB.CompareTo(sizeA);
+                    });
+                    break;
+                default: // "Wasted Size"
+                    filtered.Sort((a, b) => b.WastedBytes.CompareTo(a.WastedBytes));
+                    break;
+            }
 
             long totalWasted = 0;
-            foreach (var group in groups)
+            foreach (var group in filtered)
                 totalWasted += group.WastedBytes;
 
-            UpdateHeader(groups.Count, totalWasted);
+            UpdateHeader(filtered.Count, totalWasted);
 
-            for (int g = 0; g < groups.Count; g++)
+            for (int g = 0; g < filtered.Count; g++)
             {
-                var group = groups[g];
-                var groupElement = BuildGroupElement(group, g);
+                var groupElement = BuildGroupElement(filtered[g], g);
                 m_GroupContainer.Add(groupElement);
             }
+        }
+
+        private bool MatchesFilters(PCPDuplicateGroup group)
+        {
+            if (group.entries == null || group.entries.Count == 0)
+                return false;
+
+            // Name search — match if any entry's filename contains the search text
+            if (!string.IsNullOrEmpty(m_SearchText))
+            {
+                string searchLower = m_SearchText.ToLowerInvariant();
+                bool anyMatch = false;
+                foreach (var entry in group.entries)
+                {
+                    string fileName = System.IO.Path.GetFileName(entry.path) ?? string.Empty;
+                    if (fileName.ToLowerInvariant().IndexOf(searchLower, StringComparison.Ordinal) >= 0)
+                    {
+                        anyMatch = true;
+                        break;
+                    }
+                }
+                if (!anyMatch)
+                    return false;
+            }
+
+            // Type filter — match based on the first entry's extension
+            if (m_TypeFilter != "All Types")
+            {
+                string ext = System.IO.Path.GetExtension(group.entries[0].path).ToLowerInvariant();
+                bool matchesType = false;
+                switch (m_TypeFilter)
+                {
+                    case "Textures":
+                        matchesType = ext == ".png" || ext == ".jpg" || ext == ".jpeg" ||
+                                      ext == ".tga" || ext == ".psd" || ext == ".tif" ||
+                                      ext == ".tiff" || ext == ".bmp" || ext == ".exr" || ext == ".hdr";
+                        break;
+                    case "Audio":
+                        matchesType = ext == ".wav" || ext == ".mp3" || ext == ".ogg" || ext == ".aiff";
+                        break;
+                    case "Models":
+                        matchesType = ext == ".fbx" || ext == ".obj" || ext == ".blend" ||
+                                      ext == ".dae" || ext == ".3ds";
+                        break;
+                    case "Materials":
+                        matchesType = ext == ".mat" || ext == ".shader" || ext == ".shadergraph";
+                        break;
+                    case "Other":
+                        matchesType = !(ext == ".png" || ext == ".jpg" || ext == ".jpeg" ||
+                                        ext == ".tga" || ext == ".psd" || ext == ".tif" ||
+                                        ext == ".tiff" || ext == ".bmp" || ext == ".exr" || ext == ".hdr" ||
+                                        ext == ".wav" || ext == ".mp3" || ext == ".ogg" || ext == ".aiff" ||
+                                        ext == ".fbx" || ext == ".obj" || ext == ".blend" ||
+                                        ext == ".dae" || ext == ".3ds" ||
+                                        ext == ".mat" || ext == ".shader" || ext == ".shadergraph");
+                        break;
+                }
+                if (!matchesType)
+                    return false;
+            }
+
+            return true;
         }
 
         // --------------------------------------------------------------------
@@ -191,15 +350,13 @@ namespace ProjectCleanPro.Editor
                 $"{PCPAssetInfo.FormatBytes(group.WastedBytes)} wasted";
 
             var foldout = new Foldout { text = foldoutTitle };
-            foldout.value = groupIndex < 5; // Expand first 5 groups by default
+            foldout.value = groupIndex < 5;
             foldout.style.paddingLeft = 8;
             foldout.style.paddingRight = 8;
             foldout.style.paddingTop = 6;
             foldout.style.paddingBottom = 6;
 
-            // Merge single group button – placed inside the foldout toggle so it
-            // sits on the header row. We stop propagation so the click doesn't
-            // toggle the foldout open/closed.
+            // Merge single group button
             var mergeBtn = new Button(() => OnMergeSingleGroup(group))
             {
                 text = "Merge"
@@ -230,7 +387,6 @@ namespace ProjectCleanPro.Editor
             for (int e = 0; e < group.entries.Count; e++)
             {
                 var entry = group.entries[e];
-                int entryIndex = e;
 
                 var entryRow = new VisualElement();
                 entryRow.style.flexDirection = FlexDirection.Row;
@@ -248,14 +404,14 @@ namespace ProjectCleanPro.Editor
                 // "Keep" radio button
                 var keepBtn = new Button(() =>
                 {
-                    if (entry.isCanonical) return; // Already selected
+                    if (entry.isCanonical) return;
                     foreach (var en in group.entries)
                         en.isCanonical = false;
                     entry.isCanonical = true;
                     group.hasUserOverride = true;
                     RefreshGroups();
                 });
-                keepBtn.text = entry.isCanonical ? "\u25C9" : "\u25CB"; // ◉ filled / ○ empty
+                keepBtn.text = entry.isCanonical ? "\u25C9" : "\u25CB";
                 keepBtn.style.width = 22;
                 keepBtn.style.height = 22;
                 keepBtn.style.marginRight = 8;
@@ -347,55 +503,12 @@ namespace ProjectCleanPro.Editor
         }
 
         // --------------------------------------------------------------------
-        // Actions
+        // Merge logic
         // --------------------------------------------------------------------
-
-        private async void OnScanClicked()
-        {
-            m_Header.IsScanning = true;
-
-            await PCPEditorAsync.YieldToEditor();
-
-            try
-            {
-                var context = m_CreateContext?.Invoke();
-                if (context != null)
-                {
-                    var cts = new CancellationTokenSource();
-                    await PCPContext.Orchestrator.ScanModuleAsync(
-                        PCPModuleId.Duplicates, context, null, cts.Token);
-
-                    // Sync orchestrator results into the legacy scan result.
-                    PCPModuleView.SyncModuleToScanResult(PCPModuleId.Duplicates, m_ScanResult);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ProjectCleanPro] Duplicate scan failed: {ex}");
-            }
-            finally
-            {
-                m_Header.IsScanning = false;
-                RefreshGroups();
-            }
-        }
 
         private void OnMergeSingleGroup(PCPDuplicateGroup group)
         {
             MergeGroups(new List<PCPDuplicateGroup> { group });
-        }
-
-        private void OnMergeAllDuplicates()
-        {
-            if (m_ScanResult == null || m_ScanResult.duplicateGroups == null ||
-                m_ScanResult.duplicateGroups.Count == 0)
-            {
-                EditorUtility.DisplayDialog("ProjectCleanPro",
-                    "No duplicate groups to merge.", "OK");
-                return;
-            }
-
-            MergeGroups(m_ScanResult.duplicateGroups);
         }
 
         private void MergeGroups(List<PCPDuplicateGroup> groups)
@@ -404,7 +517,6 @@ namespace ProjectCleanPro.Editor
             var pathsToDelete = new List<string>();
             foreach (var group in groups)
             {
-                // Respect the user's radio-button selection – do NOT re-elect here.
                 if (!group.hasUserOverride)
                     group.ElectCanonical();
 
@@ -453,15 +565,6 @@ namespace ProjectCleanPro.Editor
                     settings.archiveBeforeDelete = originalArchive;
                 }
             }
-        }
-
-        private void OnExport()
-        {
-            if (m_ScanResult == null)
-                return;
-
-            var moduleResult = PCPReportExporter.CreateModuleSubset(m_ScanResult, "duplicates");
-            PCPReportExporter.ShowExportMenu(moduleResult);
         }
 
         // --------------------------------------------------------------------

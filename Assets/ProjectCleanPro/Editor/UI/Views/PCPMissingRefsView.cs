@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Threading;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -13,10 +12,9 @@ namespace ProjectCleanPro.Editor
     /// Each asset appears as a collapsible foldout with a count badge and severity
     /// indicator, expandable to show individual broken properties.
     /// </summary>
-    public sealed class PCPMissingRefsView : VisualElement, IPCPRefreshable
+    public sealed class PCPMissingRefsView : PCPModuleView, IPCPExportableView
     {
         // Badge colors
-        private Color k_AccentColor => PCPContext.Settings.GetModuleColor(1);
         private static readonly Color k_ErrorColor = new Color(0.957f, 0.278f, 0.278f, 1f);
         private static readonly Color k_WarningColor = new Color(0.800f, 0.655f, 0.000f, 1f);
         private static readonly Color k_InfoColor = new Color(0.337f, 0.612f, 0.839f, 1f);
@@ -25,39 +23,47 @@ namespace ProjectCleanPro.Editor
         // State
         // --------------------------------------------------------------------
 
-        private readonly PCPScanResult m_ScanResult;
-        private readonly Func<PCPScanContext> m_CreateContext;
-        private readonly PCPModuleHeader m_Header;
-        private readonly VisualElement m_GroupContainer;
-        private readonly Label m_EmptyLabel;
-        private readonly TextField m_SearchField;
-        private readonly PopupField<string> m_SeverityDropdown;
+        private VisualElement m_GroupContainer;
+        private Label m_EmptyLabel;
+        private TextField m_SearchField;
+        private PopupField<string> m_SeverityDropdown;
+        private PopupField<string> m_TypeDropdown;
+        private PopupField<string> m_SortDropdown;
 
         private string m_SearchText = string.Empty;
         private string m_SeverityFilter = "All Severities";
+        private string m_TypeFilter = "All Types";
+        private string m_SortMode = "Severity";
 
         // --------------------------------------------------------------------
         // Constructor
         // --------------------------------------------------------------------
 
         public PCPMissingRefsView(PCPScanResult scanResult, Func<PCPScanContext> createContext)
-        {
-            m_ScanResult = scanResult;
-            m_CreateContext = createContext;
-
-            style.flexGrow = 1;
-            style.flexDirection = FlexDirection.Column;
-
-            // Module header
-            m_Header = new PCPModuleHeader(
+            : base(
+                scanResult,
+                createContext,
                 "Missing References",
                 "\u26A0",
-                k_AccentColor);
-            m_Header.onScan += OnScanClicked;
-            m_Header.style.flexShrink = 0;
-            Add(m_Header);
+                1)
+        {
+        }
 
-            // Filter bar
+        protected override PCPModuleId GetModuleId() => PCPModuleId.Missing;
+
+        // --------------------------------------------------------------------
+        // IPCPExportableView
+        // --------------------------------------------------------------------
+
+        public string ModuleExportKey => "missing";
+
+        // --------------------------------------------------------------------
+        // BuildContent / RefreshContent
+        // --------------------------------------------------------------------
+
+        protected override void BuildContent(VisualElement content)
+        {
+            // Custom filter bar with search + severity dropdown
             var filterBar = new VisualElement();
             filterBar.style.flexDirection = FlexDirection.Row;
             filterBar.style.alignItems = Align.Center;
@@ -77,7 +83,6 @@ namespace ProjectCleanPro.Editor
             m_SearchField.style.marginRight = 8;
             m_SearchField.style.minWidth = 120;
             m_SearchField.value = string.Empty;
-            // Use placeholder via tooltip since TextField placeholder varies by Unity version
             m_SearchField.tooltip = "Search by asset name or path...";
             m_SearchField.RegisterValueChangedCallback(evt =>
             {
@@ -101,10 +106,48 @@ namespace ProjectCleanPro.Editor
             });
             filterBar.Add(m_SeverityDropdown);
 
+            var typeChoices = new List<string>
+            {
+                "All Types", "Prefab", "Scene", "ScriptableObject"
+            };
+            m_TypeDropdown = new PopupField<string>(typeChoices, 0);
+            m_TypeDropdown.style.minWidth = 120;
+            m_TypeDropdown.style.height = 24;
+            m_TypeDropdown.style.marginRight = 8;
+            m_TypeDropdown.RegisterValueChangedCallback(evt =>
+            {
+                m_TypeFilter = evt.newValue;
+                RefreshGroups();
+            });
+            filterBar.Add(m_TypeDropdown);
+
+            var sortLabel = new Label("Sort:");
+            sortLabel.style.fontSize = 11;
+            sortLabel.style.color = new Color(0.6f, 0.6f, 0.6f, 1f);
+            sortLabel.style.marginRight = 4;
+            filterBar.Add(sortLabel);
+
+            var sortChoices = new List<string>
+            {
+                "Severity", "Count", "Name"
+            };
+            m_SortDropdown = new PopupField<string>(sortChoices, 0);
+            m_SortDropdown.style.minWidth = 100;
+            m_SortDropdown.style.height = 24;
+            m_SortDropdown.style.marginRight = 8;
+            m_SortDropdown.RegisterValueChangedCallback(evt =>
+            {
+                m_SortMode = evt.newValue;
+                RefreshGroups();
+            });
+            filterBar.Add(m_SortDropdown);
+
             var clearBtn = new Button(() =>
             {
                 m_SearchField.value = string.Empty;
                 m_SeverityDropdown.value = "All Severities";
+                m_TypeDropdown.value = "All Types";
+                m_SortDropdown.value = "Severity";
             })
             {
                 text = "Clear"
@@ -115,24 +158,12 @@ namespace ProjectCleanPro.Editor
             clearBtn.style.paddingBottom = 3;
             filterBar.Add(clearBtn);
 
-            var exportSpacer = new VisualElement();
-            exportSpacer.style.flexGrow = 1;
-            filterBar.Add(exportSpacer);
-
-            var exportBtn = new Button(OnExport) { text = "Export" };
-            exportBtn.AddToClassList("pcp-button-secondary");
-            exportBtn.style.paddingLeft = 10;
-            exportBtn.style.paddingRight = 10;
-            exportBtn.style.paddingTop = 3;
-            exportBtn.style.paddingBottom = 3;
-            filterBar.Add(exportBtn);
-
-            Add(filterBar);
+            content.Add(filterBar);
 
             // Scrollable group container
             var scrollView = new ScrollView(ScrollViewMode.Vertical);
             scrollView.style.flexGrow = 1;
-            Add(scrollView);
+            content.Add(scrollView);
 
             m_GroupContainer = scrollView.contentContainer;
             m_GroupContainer.style.paddingTop = 8;
@@ -149,20 +180,16 @@ namespace ProjectCleanPro.Editor
             m_EmptyLabel.style.paddingBottom = 48;
             m_EmptyLabel.style.display = DisplayStyle.None;
             m_GroupContainer.Add(m_EmptyLabel);
+        }
 
-            // Initial population
+        protected override void RefreshContent()
+        {
             RefreshGroups();
         }
 
         // --------------------------------------------------------------------
         // Data population
         // --------------------------------------------------------------------
-
-        public void Refresh()
-        {
-            m_Header.AccentColor = k_AccentColor;
-            RefreshGroups();
-        }
 
         private void RefreshGroups()
         {
@@ -172,6 +199,7 @@ namespace ProjectCleanPro.Editor
                 m_ScanResult.missingReferences.Count == 0)
             {
                 m_GroupContainer.Add(m_EmptyLabel);
+                m_EmptyLabel.text = "No missing references found.\nRun a scan to detect broken references.";
                 m_EmptyLabel.style.display = DisplayStyle.Flex;
                 m_Header.FindingCount = 0;
                 m_Header.TotalSize = 0;
@@ -210,6 +238,21 @@ namespace ProjectCleanPro.Editor
                         continue;
                 }
 
+                // Type filter
+                if (m_TypeFilter != "All Types")
+                {
+                    string ext = Path.GetExtension(assetPath).ToLowerInvariant();
+                    bool matchesType = false;
+                    switch (m_TypeFilter)
+                    {
+                        case "Prefab":           matchesType = ext == ".prefab"; break;
+                        case "Scene":            matchesType = ext == ".unity";  break;
+                        case "ScriptableObject": matchesType = ext == ".asset";  break;
+                    }
+                    if (!matchesType)
+                        continue;
+                }
+
                 // Severity filter
                 if (m_SeverityFilter != "All Severities")
                 {
@@ -229,15 +272,35 @@ namespace ProjectCleanPro.Editor
                 totalFilteredEntries += entries.Count;
             }
 
-            // Sort: worst severity first, then by entry count descending
-            filteredGroups.Sort((a, b) =>
+            // Sort based on selected mode
+            switch (m_SortMode)
             {
-                int sevA = GetWorstSeverityPriority(a.Value);
-                int sevB = GetWorstSeverityPriority(b.Value);
-                if (sevA != sevB)
-                    return sevA.CompareTo(sevB);
-                return b.Value.Count.CompareTo(a.Value.Count);
-            });
+                case "Count":
+                    filteredGroups.Sort((a, b) =>
+                    {
+                        int cmp = b.Value.Count.CompareTo(a.Value.Count);
+                        if (cmp != 0) return cmp;
+                        return GetWorstSeverityPriority(a.Value).CompareTo(GetWorstSeverityPriority(b.Value));
+                    });
+                    break;
+                case "Name":
+                    filteredGroups.Sort((a, b) =>
+                        string.Compare(
+                            Path.GetFileName(a.Key),
+                            Path.GetFileName(b.Key),
+                            StringComparison.OrdinalIgnoreCase));
+                    break;
+                default: // "Severity"
+                    filteredGroups.Sort((a, b) =>
+                    {
+                        int sevA = GetWorstSeverityPriority(a.Value);
+                        int sevB = GetWorstSeverityPriority(b.Value);
+                        if (sevA != sevB)
+                            return sevA.CompareTo(sevB);
+                        return b.Value.Count.CompareTo(a.Value.Count);
+                    });
+                    break;
+            }
 
             if (filteredGroups.Count == 0)
             {
@@ -378,7 +441,6 @@ namespace ProjectCleanPro.Editor
 
             // Component type
             string compType = entry.componentType ?? "(unknown)";
-            // Shorten fully qualified type names
             int lastDot = compType.LastIndexOf('.');
             if (lastDot >= 0 && lastDot < compType.Length - 1)
                 compType = compType.Substring(lastDot + 1);
@@ -422,49 +484,6 @@ namespace ProjectCleanPro.Editor
             }
 
             return row;
-        }
-
-        // --------------------------------------------------------------------
-        // Actions
-        // --------------------------------------------------------------------
-
-        private async void OnScanClicked()
-        {
-            m_Header.IsScanning = true;
-
-            await PCPEditorAsync.YieldToEditor();
-
-            try
-            {
-                var context = m_CreateContext?.Invoke();
-                if (context != null)
-                {
-                    var cts = new CancellationTokenSource();
-                    await PCPContext.Orchestrator.ScanModuleAsync(
-                        PCPModuleId.Missing, context, null, cts.Token);
-
-                    // Sync orchestrator results into the legacy scan result.
-                    PCPModuleView.SyncModuleToScanResult(PCPModuleId.Missing, m_ScanResult);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ProjectCleanPro] Missing references scan failed: {ex}");
-            }
-            finally
-            {
-                m_Header.IsScanning = false;
-                RefreshGroups();
-            }
-        }
-
-        private void OnExport()
-        {
-            if (m_ScanResult == null)
-                return;
-
-            var moduleResult = PCPReportExporter.CreateModuleSubset(m_ScanResult, "missing");
-            PCPReportExporter.ShowExportMenu(moduleResult);
         }
 
         // --------------------------------------------------------------------
@@ -528,5 +547,6 @@ namespace ProjectCleanPro.Editor
                 default: return k_InfoColor;
             }
         }
+
     }
 }

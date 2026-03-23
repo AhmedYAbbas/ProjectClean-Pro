@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -15,7 +14,7 @@ namespace ProjectCleanPro.Editor
     /// in the bottom half. Includes type filter tabs, a summary bar with percentage
     /// breakdowns, and optimization suggestion badges.
     /// </summary>
-    public sealed class PCPSizeView : VisualElement, IPCPRefreshable
+    public sealed class PCPSizeView : PCPModuleView, IPCPExportableView
     {
         // Type categories and their colors
         private static readonly (string label, Color color, string[] extensions)[] k_TypeCategories = new[]
@@ -40,14 +39,11 @@ namespace ProjectCleanPro.Editor
         // State
         // --------------------------------------------------------------------
 
-        private readonly PCPScanResult m_ScanResult;
-        private readonly Func<PCPScanContext> m_CreateContext;
-        private readonly PCPModuleHeader m_Header;
-        private readonly PCPTreemapView m_TreemapView;
-        private readonly PCPResultListView m_ResultList;
-        private readonly VisualElement m_SummaryBar;
-        private readonly VisualElement m_BreakdownContainer;
-        private readonly Label m_TotalSizeLabel;
+        private PCPTreemapView m_TreemapView;
+        private PCPResultListView m_ResultList;
+        private VisualElement m_SummaryBar;
+        private VisualElement m_BreakdownContainer;
+        private Label m_TotalSizeLabel;
         private readonly Dictionary<string, Button> m_FilterButtons = new Dictionary<string, Button>();
         private readonly HashSet<string> m_ActiveFilters = new HashSet<string>();
 
@@ -56,22 +52,29 @@ namespace ProjectCleanPro.Editor
         // --------------------------------------------------------------------
 
         public PCPSizeView(PCPScanResult scanResult, Func<PCPScanContext> createContext)
-        {
-            m_ScanResult = scanResult;
-            m_CreateContext = createContext;
-
-            style.flexGrow = 1;
-            style.flexDirection = FlexDirection.Column;
-
-            // Module header
-            m_Header = new PCPModuleHeader(
+            : base(
+                scanResult,
+                createContext,
                 "Size Profiler",
                 "\u25A3",
-                PCPContext.Settings.GetModuleColor(6));
-            m_Header.onScan += OnScanClicked;
-            m_Header.style.flexShrink = 0;
-            Add(m_Header);
+                6)
+        {
+        }
 
+        protected override PCPModuleId GetModuleId() => PCPModuleId.Size;
+
+        // --------------------------------------------------------------------
+        // IPCPExportableView
+        // --------------------------------------------------------------------
+
+        public string ModuleExportKey => "size";
+
+        // --------------------------------------------------------------------
+        // BuildContent / RefreshContent
+        // --------------------------------------------------------------------
+
+        protected override void BuildContent(VisualElement content)
+        {
             // Summary bar with total size and type percentage bars
             m_SummaryBar = new VisualElement();
             m_SummaryBar.style.paddingLeft = 12;
@@ -108,7 +111,7 @@ namespace ProjectCleanPro.Editor
             m_BreakdownContainer.style.overflow = Overflow.Hidden;
             m_SummaryBar.Add(m_BreakdownContainer);
 
-            Add(m_SummaryBar);
+            content.Add(m_SummaryBar);
 
             // Type filter tabs
             var filterRow = new VisualElement();
@@ -131,19 +134,7 @@ namespace ProjectCleanPro.Editor
                 filterRow.Add(btn);
             }
 
-            var filterSpacer = new VisualElement();
-            filterSpacer.style.flexGrow = 1;
-            filterRow.Add(filterSpacer);
-
-            var exportBtn = new Button(OnExport) { text = "Export" };
-            exportBtn.AddToClassList("pcp-button-secondary");
-            exportBtn.style.paddingLeft = 10;
-            exportBtn.style.paddingRight = 10;
-            exportBtn.style.paddingTop = 3;
-            exportBtn.style.paddingBottom = 3;
-            filterRow.Add(exportBtn);
-
-            Add(filterRow);
+            content.Add(filterRow);
 
             // Two-panel splitter: treemap (top) + list (bottom)
             var splitContainer = new TwoPaneSplitView(0, 200, TwoPaneSplitViewOrientation.Vertical);
@@ -155,16 +146,18 @@ namespace ProjectCleanPro.Editor
             splitContainer.Add(m_TreemapView);
 
             // Bottom half: Result list
-            m_ResultList = new PCPResultListView();
+            m_ResultList = CreateResultList();
             m_ResultList.style.minHeight = 100;
             splitContainer.Add(m_ResultList);
 
-            Add(splitContainer);
+            content.Add(splitContainer);
 
             // Set initial active filter
             SetActiveFilter("All");
+        }
 
-            // Initial population
+        protected override void RefreshContent()
+        {
             RefreshData();
         }
 
@@ -242,16 +235,7 @@ namespace ProjectCleanPro.Editor
         // Data population
         // --------------------------------------------------------------------
 
-        /// <summary>
-        /// Rebuilds both the treemap and the list from current scan data.
-        /// </summary>
-        public void Refresh()
-        {
-            m_Header.AccentColor = PCPContext.Settings.GetModuleColor(6);
-            RefreshData();
-        }
-
-        public void RefreshData()
+        private void RefreshData()
         {
             var filteredEntries = GetFilteredEntries();
 
@@ -266,7 +250,7 @@ namespace ProjectCleanPro.Editor
             // Update summary bar
             UpdateSummaryBar();
 
-            // Sort by size descending (default)
+            // Sort by size descending
             filteredEntries.Sort((a, b) => b.sizeBytes.CompareTo(a.sizeBytes));
 
             // Populate result list
@@ -286,7 +270,6 @@ namespace ProjectCleanPro.Editor
 
             bool includeOther = m_ActiveFilters.Contains("Other");
 
-            // Collect all type name extensions for active (non-Other) filters
             var matchTypeSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (string activeFilter in m_ActiveFilters)
             {
@@ -302,7 +285,6 @@ namespace ProjectCleanPro.Editor
                 }
             }
 
-            // Build known-types set for "Other" exclusion check
             var knownTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (includeOther)
             {
@@ -348,10 +330,9 @@ namespace ProjectCleanPro.Editor
 
             m_TotalSizeLabel.text = $"Total project size: {PCPAssetInfo.FormatBytes(totalSize)}";
 
-            // Calculate per-category sizes
             m_BreakdownContainer.Clear();
 
-            for (int i = 1; i < k_TypeCategories.Length; i++) // Skip "All"
+            for (int i = 1; i < k_TypeCategories.Length; i++)
             {
                 var cat = k_TypeCategories[i];
                 long catSize = 0;
@@ -415,7 +396,6 @@ namespace ProjectCleanPro.Editor
                 return;
             }
 
-            // Build treemap hierarchy by folder
             var root = new PCPTreemapNode
             {
                 name = "Project",
@@ -424,7 +404,6 @@ namespace ProjectCleanPro.Editor
                 path = "Assets"
             };
 
-            // Group entries by folder
             var folderMap = new Dictionary<string, PCPTreemapNode>(StringComparer.Ordinal);
 
             foreach (var entry in entries)
@@ -450,7 +429,6 @@ namespace ProjectCleanPro.Editor
                     root.children.Add(folderNode);
                 }
 
-                // Add leaf node for each entry
                 var leaf = new PCPTreemapNode
                 {
                     name = entry.name ?? "Unknown",
@@ -464,7 +442,6 @@ namespace ProjectCleanPro.Editor
                 root.size += entry.sizeBytes;
             }
 
-            // Sort folder children by size
             root.children.Sort((a, b) => b.size.CompareTo(a.size));
 
             m_TreemapView.SetData(root);
@@ -480,7 +457,6 @@ namespace ProjectCleanPro.Editor
             if (sizeEntry == null)
                 return default;
 
-            // Status badge: optimization suggestion or OK
             string status;
             Color statusColor;
 
@@ -495,19 +471,13 @@ namespace ProjectCleanPro.Editor
                 statusColor = k_OkColor;
             }
 
-            // Load icon
             Texture2D icon = null;
             if (!string.IsNullOrEmpty(sizeEntry.path))
-            {
                 icon = AssetDatabase.GetCachedIcon(sizeEntry.path) as Texture2D;
-            }
 
-            // Type column shows asset type + compression info
             string typeDisplay = sizeEntry.assetTypeName ?? "Unknown";
             if (!string.IsNullOrEmpty(sizeEntry.compressionInfo))
-            {
                 typeDisplay += $" ({sizeEntry.compressionInfo})";
-            }
 
             return new PCPRowData
             {
@@ -521,49 +491,6 @@ namespace ProjectCleanPro.Editor
                 statusColor = statusColor,
                 guid = string.Empty
             };
-        }
-
-        // --------------------------------------------------------------------
-        // Actions
-        // --------------------------------------------------------------------
-
-        private void OnExport()
-        {
-            if (m_ScanResult == null)
-                return;
-
-            var moduleResult = PCPReportExporter.CreateModuleSubset(m_ScanResult, "size");
-            PCPReportExporter.ShowExportMenu(moduleResult);
-        }
-
-        private async void OnScanClicked()
-        {
-            m_Header.IsScanning = true;
-
-            await PCPEditorAsync.YieldToEditor();
-
-            try
-            {
-                var context = m_CreateContext?.Invoke();
-                if (context != null)
-                {
-                    var cts = new CancellationTokenSource();
-                    await PCPContext.Orchestrator.ScanModuleAsync(
-                        PCPModuleId.Size, context, null, cts.Token);
-
-                    // Sync orchestrator results into the legacy scan result.
-                    PCPModuleView.SyncModuleToScanResult(PCPModuleId.Size, m_ScanResult);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ProjectCleanPro] Size profiler scan failed: {ex}");
-            }
-            finally
-            {
-                m_Header.IsScanning = false;
-                RefreshData();
-            }
         }
 
         // --------------------------------------------------------------------

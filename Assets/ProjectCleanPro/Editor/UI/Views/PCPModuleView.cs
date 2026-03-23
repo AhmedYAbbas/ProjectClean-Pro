@@ -9,11 +9,19 @@ using UnityEngine.UIElements;
 namespace ProjectCleanPro.Editor
 {
     /// <summary>
-    /// Abstract base class for module-specific views. Provides a standard layout:
-    /// <see cref="PCPModuleHeader"/> at the top, <see cref="PCPFilterBar"/> below it,
-    /// <see cref="PCPResultListView"/> in the center, and an action bar at the bottom.
-    /// Concrete views override <see cref="PopulateResults"/> to convert module data
-    /// into <see cref="PCPRowData"/> for display.
+    /// Abstract base class for all module views. Provides:
+    /// <list type="bullet">
+    ///   <item><see cref="PCPModuleHeader"/> with scan button wiring</item>
+    ///   <item>Scan orchestration (<see cref="OnScanClicked"/>, <see cref="RescanAfterChange"/>)</item>
+    ///   <item>Auto-built action bar from capability interfaces
+    ///         (<see cref="IPCPDeletableView"/>, <see cref="IPCPIgnorableView"/>,
+    ///          <see cref="IPCPExportableView"/>, <see cref="IPCPMergeableView"/>)</item>
+    ///   <item>Protected helpers for optional standard components
+    ///         (<see cref="CreateFilterBar"/>, <see cref="CreateResultList"/>)</item>
+    /// </list>
+    /// Subclasses override <see cref="BuildContent"/> to lay out their custom UI
+    /// between the header and action bar, and <see cref="RefreshContent"/> to
+    /// update their display when scan results change.
     /// </summary>
     public abstract class PCPModuleView : VisualElement, IPCPRefreshable
     {
@@ -25,12 +33,13 @@ namespace ProjectCleanPro.Editor
         protected readonly Func<PCPScanContext> m_CreateContext;
         protected readonly PCPModuleHeader m_Header;
         private readonly int m_ModuleColorIndex;
-        protected readonly PCPFilterBar m_FilterBar;
-        protected readonly PCPResultListView m_ResultList;
-        protected readonly VisualElement m_ActionBar;
-        protected readonly Button m_DeleteSelectedBtn;
-        protected readonly Button m_IgnoreSelectedBtn;
-        protected readonly Button m_ExportBtn;
+        private VisualElement m_ActionBar;
+
+        /// <summary>
+        /// Container for the subclass content area, inserted between
+        /// the header and the action bar.
+        /// </summary>
+        private readonly VisualElement m_ContentContainer;
 
         /// <summary>
         /// Invoked after a single-module scan completes so the window can
@@ -43,7 +52,7 @@ namespace ProjectCleanPro.Editor
         // --------------------------------------------------------------------
 
         /// <summary>
-        /// Creates the standard module view layout.
+        /// Creates the module view layout: header → content → action bar.
         /// </summary>
         /// <param name="scanResult">Shared scan result reference.</param>
         /// <param name="createContext">
@@ -72,78 +81,19 @@ namespace ProjectCleanPro.Editor
             m_Header.style.flexShrink = 0;
             Add(m_Header);
 
-            // ---- Filter bar ----
-            m_FilterBar = new PCPFilterBar();
-            m_FilterBar.onFilterChanged += OnFilterChanged;
-            m_FilterBar.style.flexShrink = 0;
-            Add(m_FilterBar);
+            // ---- Content area (subclass fills this) ----
+            m_ContentContainer = new VisualElement();
+            m_ContentContainer.style.flexGrow = 1;
+            m_ContentContainer.style.flexDirection = FlexDirection.Column;
+            Add(m_ContentContainer);
 
-            // ---- Result list (center, grows to fill) ----
-            m_ResultList = new PCPResultListView();
-            Add(m_ResultList);
+            BuildContent(m_ContentContainer);
 
-            // ---- Action bar at bottom ----
-            m_ActionBar = new VisualElement();
-            m_ActionBar.style.flexDirection = FlexDirection.Row;
-            m_ActionBar.style.alignItems = Align.Center;
-            m_ActionBar.style.paddingLeft = 8;
-            m_ActionBar.style.paddingRight = 8;
-            m_ActionBar.style.paddingTop = 6;
-            m_ActionBar.style.paddingBottom = 6;
-            m_ActionBar.style.backgroundColor = new Color(0.176f, 0.176f, 0.176f, 1f);
-            m_ActionBar.style.borderTopWidth = 1;
-            m_ActionBar.style.borderTopColor = new Color(0.235f, 0.235f, 0.235f, 1f);
-            m_ActionBar.style.flexShrink = 0;
-
-            m_DeleteSelectedBtn = new Button(OnDeleteSelected)
-            {
-                text = "Delete Selected"
-            };
-            m_DeleteSelectedBtn.style.paddingLeft = 10;
-            m_DeleteSelectedBtn.style.paddingRight = 10;
-            m_DeleteSelectedBtn.style.paddingTop = 4;
-            m_DeleteSelectedBtn.style.paddingBottom = 4;
-            m_DeleteSelectedBtn.style.marginRight = 4;
-            m_DeleteSelectedBtn.style.backgroundColor = new Color(0.753f, 0.224f, 0.169f, 1f);
-            m_DeleteSelectedBtn.style.color = Color.white;
-            m_DeleteSelectedBtn.style.borderTopLeftRadius = 3;
-            m_DeleteSelectedBtn.style.borderTopRightRadius = 3;
-            m_DeleteSelectedBtn.style.borderBottomLeftRadius = 3;
-            m_DeleteSelectedBtn.style.borderBottomRightRadius = 3;
-            m_ActionBar.Add(m_DeleteSelectedBtn);
-
-            m_IgnoreSelectedBtn = new Button(OnIgnoreSelected)
-            {
-                text = "Ignore Selected"
-            };
-            m_IgnoreSelectedBtn.AddToClassList("pcp-button-secondary");
-            m_IgnoreSelectedBtn.style.paddingLeft = 10;
-            m_IgnoreSelectedBtn.style.paddingRight = 10;
-            m_IgnoreSelectedBtn.style.paddingTop = 4;
-            m_IgnoreSelectedBtn.style.paddingBottom = 4;
-            m_IgnoreSelectedBtn.style.marginRight = 4;
-            m_ActionBar.Add(m_IgnoreSelectedBtn);
-
-            m_ExportBtn = new Button(OnExport)
-            {
-                text = "Export"
-            };
-            m_ExportBtn.AddToClassList("pcp-button-secondary");
-            m_ExportBtn.style.paddingLeft = 10;
-            m_ExportBtn.style.paddingRight = 10;
-            m_ExportBtn.style.paddingTop = 4;
-            m_ExportBtn.style.paddingBottom = 4;
-            m_ActionBar.Add(m_ExportBtn);
-
-            // Spacer + selection count
-            var spacer = new VisualElement();
-            spacer.style.flexGrow = 1;
-            m_ActionBar.Add(spacer);
-
-            Add(m_ActionBar);
+            // ---- Action bar (auto-built from interfaces) ----
+            BuildActionBar();
 
             // Initial population
-            RefreshFromModule();
+            RefreshContent();
         }
 
         // --------------------------------------------------------------------
@@ -158,50 +108,81 @@ namespace ProjectCleanPro.Editor
         protected abstract PCPModuleId GetModuleId();
 
         /// <summary>
-        /// Called after a scan completes (or on initial display) to convert
-        /// module-specific result data into the result list's data source.
-        /// Subclasses should call <see cref="PCPResultListView.SetData"/>
-        /// on <see cref="m_ResultList"/>.
+        /// Called once during construction. Subclasses add their custom UI
+        /// elements to the provided container. Use <see cref="CreateFilterBar"/>
+        /// and <see cref="CreateResultList"/> helpers for standard components.
         /// </summary>
-        protected abstract void PopulateResults();
+        /// <param name="content">The container to add content elements to.</param>
+        protected abstract void BuildContent(VisualElement content);
 
         /// <summary>
-        /// Override in subclasses to return the module key used by
-        /// <see cref="PCPReportExporter.CreateModuleSubset"/> so that
-        /// the Export button exports only this module's data.
-        /// Return null to export the full scan result.
+        /// Called after a scan completes or on initial display.
+        /// Subclasses update their display from the current scan result data.
         /// </summary>
-        protected virtual string ModuleExportKey => null;
+        protected abstract void RefreshContent();
+
+        // --------------------------------------------------------------------
+        // Protected helpers – optional standard components
+        // --------------------------------------------------------------------
+
+        /// <summary>
+        /// Creates a standard <see cref="PCPFilterBar"/> wired to a
+        /// <see cref="PCPResultListView"/>. The caller is responsible for
+        /// adding the returned element to their layout.
+        /// </summary>
+        /// <param name="resultList">The result list to apply filters to.</param>
+        /// <returns>A configured filter bar.</returns>
+        protected PCPFilterBar CreateFilterBar(PCPResultListView resultList)
+        {
+            var filterBar = new PCPFilterBar();
+            filterBar.onFilterChanged += filterState =>
+            {
+                if (filterState == null || resultList == null)
+                    return;
+
+                resultList.ApplyFilters(
+                    filterState.searchText,
+                    filterState.activeTypes.Count > 0 ? filterState.activeTypes : null,
+                    filterState.statusFilter);
+            };
+            filterBar.style.flexShrink = 0;
+            return filterBar;
+        }
+
+        /// <summary>
+        /// Creates a standard <see cref="PCPResultListView"/>. The caller
+        /// is responsible for adding the returned element to their layout.
+        /// </summary>
+        /// <returns>A new result list view.</returns>
+        protected PCPResultListView CreateResultList()
+        {
+            return new PCPResultListView();
+        }
 
         // --------------------------------------------------------------------
         // Public API
         // --------------------------------------------------------------------
 
         /// <summary>
-        /// Reads current module data and populates the list.
+        /// Reads current module data and refreshes the view.
         /// </summary>
         public void Refresh()
         {
             m_Header.AccentColor = PCPContext.Settings.GetModuleColor(m_ModuleColorIndex);
-            RefreshFromModule();
-        }
-
-        public void RefreshFromModule()
-        {
-            PopulateResults();
+            RefreshContent();
         }
 
         /// <summary>
-        /// Called when a scan completes. Refreshes the list with new data.
+        /// Called when a scan completes. Refreshes the view with new data.
         /// </summary>
         public void OnScanComplete()
         {
             m_Header.IsScanning = false;
-            RefreshFromModule();
+            RefreshContent();
         }
 
         // --------------------------------------------------------------------
-        // Event handlers
+        // Scan orchestration
         // --------------------------------------------------------------------
 
         private async void OnScanClicked()
@@ -217,11 +198,9 @@ namespace ProjectCleanPro.Editor
                 if (context != null)
                 {
                     var cts = new CancellationTokenSource();
-                    var manifest = await PCPContext.Orchestrator.ScanModuleAsync(
+                    await PCPContext.Orchestrator.ScanModuleAsync(
                         GetModuleId(), context, null, cts.Token);
 
-                    // Sync the orchestrator's module results into the legacy
-                    // PCPScanResult so the view's PopulateResults() sees them.
                     SyncModuleToScanResult(GetModuleId(), m_ScanResult);
 
                     m_ScanResult.totalAssetsScanned = context.AllProjectAssets.Length;
@@ -239,45 +218,169 @@ namespace ProjectCleanPro.Editor
             }
         }
 
-        private void OnFilterChanged(PCPFilterState filterState)
+        /// <summary>
+        /// Runs a fresh module scan and refreshes the view.
+        /// Used after deletions or ignore-list changes to ensure
+        /// the displayed results reflect the current project state.
+        /// </summary>
+        protected async void RescanAfterChange()
         {
-            if (filterState == null)
-                return;
+            m_Header.IsScanning = true;
 
-            m_ResultList.ApplyFilters(
-                filterState.searchText,
-                filterState.activeTypes.Count > 0 ? filterState.activeTypes : null,
-                filterState.statusFilter);
+            await PCPEditorAsync.YieldToEditor();
+
+            try
+            {
+                var context = m_CreateContext?.Invoke();
+                if (context != null)
+                {
+                    context.Cache.MarkModuleDirty(GetModuleId());
+
+                    var cts = new CancellationTokenSource();
+                    await PCPContext.Orchestrator.ScanModuleAsync(
+                        GetModuleId(), context, null, cts.Token);
+
+                    SyncModuleToScanResult(GetModuleId(), m_ScanResult);
+                    m_ScanResult.totalAssetsScanned = context.AllProjectAssets.Length;
+                    m_ScanResult.scanTimestampUtc = DateTime.UtcNow.ToString("o");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ProjectCleanPro] Re-scan after change failed: {ex}");
+            }
+            finally
+            {
+                OnScanComplete();
+                onScanComplete?.Invoke();
+            }
         }
 
+        // --------------------------------------------------------------------
+        // Action bar – auto-built from capability interfaces
+        // --------------------------------------------------------------------
+
+        private void BuildActionBar()
+        {
+            bool isDeletable = this is IPCPDeletableView;
+            bool isIgnorable = this is IPCPIgnorableView;
+            bool isExportable = this is IPCPExportableView;
+            bool isMergeable = this is IPCPMergeableView;
+
+            // Only create the bar if at least one capability is present
+            if (!isDeletable && !isIgnorable && !isExportable && !isMergeable)
+                return;
+
+            m_ActionBar = new VisualElement();
+            m_ActionBar.style.flexDirection = FlexDirection.Row;
+            m_ActionBar.style.alignItems = Align.Center;
+            m_ActionBar.style.paddingLeft = 8;
+            m_ActionBar.style.paddingRight = 8;
+            m_ActionBar.style.paddingTop = 6;
+            m_ActionBar.style.paddingBottom = 6;
+            m_ActionBar.style.backgroundColor = new Color(0.176f, 0.176f, 0.176f, 1f);
+            m_ActionBar.style.borderTopWidth = 1;
+            m_ActionBar.style.borderTopColor = new Color(0.235f, 0.235f, 0.235f, 1f);
+            m_ActionBar.style.flexShrink = 0;
+
+            if (isMergeable)
+            {
+                var mergeBtn = new Button(OnMergeAllClicked)
+                {
+                    text = "Merge All"
+                };
+                StyleActionButton(mergeBtn, new Color(0.557f, 0.267f, 0.678f, 1f));
+                mergeBtn.style.unityFontStyleAndWeight = FontStyle.Bold;
+                m_ActionBar.Add(mergeBtn);
+            }
+
+            if (isDeletable)
+            {
+                var deleteBtn = new Button(OnDeleteSelected)
+                {
+                    text = "Delete Selected"
+                };
+                StyleActionButton(deleteBtn, new Color(0.753f, 0.224f, 0.169f, 1f));
+                deleteBtn.style.color = Color.white;
+                m_ActionBar.Add(deleteBtn);
+            }
+
+            if (isIgnorable)
+            {
+                var ignoreBtn = new Button(OnIgnoreSelected)
+                {
+                    text = "Ignore Selected"
+                };
+                ignoreBtn.AddToClassList("pcp-button-secondary");
+                StyleActionButton(ignoreBtn, Color.clear);
+                m_ActionBar.Add(ignoreBtn);
+            }
+
+            if (isExportable)
+            {
+                var exportBtn = new Button(OnExport)
+                {
+                    text = "Export"
+                };
+                exportBtn.AddToClassList("pcp-button-secondary");
+                StyleActionButton(exportBtn, Color.clear);
+                m_ActionBar.Add(exportBtn);
+            }
+
+            // Spacer
+            var spacer = new VisualElement();
+            spacer.style.flexGrow = 1;
+            m_ActionBar.Add(spacer);
+
+            Add(m_ActionBar);
+        }
+
+        private static void StyleActionButton(Button btn, Color bgColor)
+        {
+            btn.style.paddingLeft = 10;
+            btn.style.paddingRight = 10;
+            btn.style.paddingTop = 4;
+            btn.style.paddingBottom = 4;
+            btn.style.marginRight = 4;
+            btn.style.borderTopLeftRadius = 3;
+            btn.style.borderTopRightRadius = 3;
+            btn.style.borderBottomLeftRadius = 3;
+            btn.style.borderBottomRightRadius = 3;
+
+            if (bgColor != Color.clear)
+                btn.style.backgroundColor = bgColor;
+        }
 
         // --------------------------------------------------------------------
-        // Actions
+        // Action handlers – delegate to interfaces
         // --------------------------------------------------------------------
 
         private void OnDeleteSelected()
         {
-            var selectedRows = m_ResultList.GetSelectedRowData();
-            if (selectedRows.Count == 0)
+            var deletable = this as IPCPDeletableView;
+            if (deletable == null) return;
+
+            var paths = deletable.GetSelectedPaths();
+            if (paths == null || paths.Count == 0)
             {
                 EditorUtility.DisplayDialog("ProjectCleanPro",
                     "No items selected. Use the checkboxes to select items.", "OK");
                 return;
             }
 
-            var paths = new List<string>();
-            foreach (var row in selectedRows)
+            var pathList = new List<string>();
+            foreach (var p in paths)
             {
-                if (!string.IsNullOrEmpty(row.path))
-                    paths.Add(row.path);
+                if (!string.IsNullOrEmpty(p))
+                    pathList.Add(p);
             }
 
-            if (paths.Count == 0)
+            if (pathList.Count == 0)
                 return;
 
             var context = m_CreateContext?.Invoke();
             var resolver = context?.DependencyResolver;
-            var preview = PCPSafeDelete.Preview(paths, resolver);
+            var preview = PCPSafeDelete.Preview(pathList, resolver);
 
             if (PCPDeletePreviewDialog.Show(preview, out bool archive))
             {
@@ -289,9 +392,6 @@ namespace ProjectCleanPro.Editor
                 {
                     PCPSafeDelete.ArchiveAndDelete(preview, settings, resolver);
 
-                    // Smart delete: if none of the deleted files had
-                    // dependents, skip the expensive module rescan and
-                    // just remove the paths from the cached results.
                     bool anyHadDependents = preview.items.Any(item => item.referenceCount > 0);
 
                     if (anyHadDependents)
@@ -326,21 +426,24 @@ namespace ProjectCleanPro.Editor
 
         private void OnIgnoreSelected()
         {
-            var selectedRows = m_ResultList.GetSelectedRowData();
-            if (selectedRows.Count == 0)
+            var ignorable = this as IPCPIgnorableView;
+            if (ignorable == null) return;
+
+            var paths = ignorable.GetSelectedPaths();
+            if (paths == null || paths.Count == 0)
             {
                 EditorUtility.DisplayDialog("ProjectCleanPro",
                     "No items selected. Use the checkboxes to select items.", "OK");
                 return;
             }
 
-            foreach (var row in selectedRows)
+            foreach (var path in paths)
             {
-                if (!string.IsNullOrEmpty(row.path))
-                    AddPathToIgnoreList(row.path);
+                if (!string.IsNullOrEmpty(path))
+                    AddPathToIgnoreList(path);
             }
 
-            m_ResultList.ClearSelection();
+            ignorable.ClearSelection();
             RescanAfterChange();
         }
 
@@ -349,11 +452,20 @@ namespace ProjectCleanPro.Editor
             if (m_ScanResult == null)
                 return;
 
-            var exportResult = !string.IsNullOrEmpty(ModuleExportKey)
-                ? PCPReportExporter.CreateModuleSubset(m_ScanResult, ModuleExportKey)
+            var exportable = this as IPCPExportableView;
+            string key = exportable?.ModuleExportKey;
+
+            var exportResult = !string.IsNullOrEmpty(key)
+                ? PCPReportExporter.CreateModuleSubset(m_ScanResult, key)
                 : m_ScanResult;
 
             PCPReportExporter.ShowExportMenu(exportResult);
+        }
+
+        private void OnMergeAllClicked()
+        {
+            var mergeable = this as IPCPMergeableView;
+            mergeable?.MergeAll();
         }
 
         // --------------------------------------------------------------------
@@ -378,57 +490,15 @@ namespace ProjectCleanPro.Editor
             settings.Save();
             Debug.Log($"[ProjectCleanPro] Added ignore rule: {path}");
 
-            // Notify the settings view so its ignore rules list updates immediately
             var windows = Resources.FindObjectsOfTypeAll<PCPWindow>();
             if (windows.Length > 0)
                 windows[0].RefreshSettingsView();
         }
 
-
-        /// <summary>
-        /// Runs a fresh module scan and refreshes the view.
-        /// Used after deletions or ignore-list changes to ensure
-        /// the displayed results reflect the current project state.
-        /// </summary>
-        private async void RescanAfterChange()
-        {
-            m_Header.IsScanning = true;
-
-            await PCPEditorAsync.YieldToEditor();
-
-            try
-            {
-                var context = m_CreateContext?.Invoke();
-                if (context != null)
-                {
-                    // Force the module dirty so the orchestrator re-runs it
-                    // even if no file-level changes are detected.
-                    context.Cache.MarkModuleDirty(GetModuleId());
-
-                    var cts = new CancellationTokenSource();
-                    await PCPContext.Orchestrator.ScanModuleAsync(
-                        GetModuleId(), context, null, cts.Token);
-
-                    SyncModuleToScanResult(GetModuleId(), m_ScanResult);
-                    m_ScanResult.totalAssetsScanned = context.AllProjectAssets.Length;
-                    m_ScanResult.scanTimestampUtc = DateTime.UtcNow.ToString("o");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ProjectCleanPro] Re-scan after change failed: {ex}");
-            }
-            finally
-            {
-                OnScanComplete();
-                onScanComplete?.Invoke();
-            }
-        }
-
         /// <summary>
         /// Copies the orchestrator's module results into the legacy
-        /// <see cref="PCPScanResult"/> so that <see cref="PopulateResults"/>
-        /// and the report exporter see up-to-date data.
+        /// <see cref="PCPScanResult"/> so that views and the report
+        /// exporter see up-to-date data.
         /// </summary>
         internal static void SyncModuleToScanResult(PCPModuleId moduleId, PCPScanResult result)
         {

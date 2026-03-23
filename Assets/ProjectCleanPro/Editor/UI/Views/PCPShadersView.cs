@@ -9,12 +9,11 @@ namespace ProjectCleanPro.Editor
 {
     /// <summary>
     /// View for displaying shader analysis results. Extends <see cref="PCPModuleView"/>
-    /// and overrides <see cref="PopulateResults"/> to convert <see cref="PCPShaderEntry"/>
-    /// data into rows. Highlights high variant counts in red, pipeline mismatches
-    /// with warning badges, and unused shaders with "UNUSED" badges.
-    /// Includes a detail panel that shows keyword lists on selection.
+    /// with delete, ignore, and export capabilities, plus a detail panel that
+    /// shows keyword lists on selection.
     /// </summary>
-    public sealed class PCPShadersView : PCPModuleView
+    public sealed class PCPShadersView : PCPModuleView,
+        IPCPDeletableView, IPCPIgnorableView, IPCPExportableView
     {
         // Colors
         private static readonly Color k_HighVariantColor = new Color(0.957f, 0.278f, 0.278f, 1f);
@@ -24,19 +23,17 @@ namespace ProjectCleanPro.Editor
 
         private const int HighVariantThreshold = 256;
 
-        // Detail panel
-        private readonly VisualElement m_DetailPanel;
-        private readonly Label m_DetailTitle;
-        private readonly Label m_DetailInfo;
-        private readonly VisualElement m_KeywordsList;
+        // UI elements
+        private PCPFilterBar m_FilterBar;
+        private PCPResultListView m_ResultList;
+        private VisualElement m_DetailPanel;
+        private Label m_DetailTitle;
+        private Label m_DetailInfo;
+        private VisualElement m_KeywordsList;
 
         // --------------------------------------------------------------------
         // Constructor
         // --------------------------------------------------------------------
-
-        protected override PCPModuleId GetModuleId() => PCPModuleId.Shaders;
-
-        protected override string ModuleExportKey => "shaders";
 
         public PCPShadersView(PCPScanResult scanResult, Func<PCPScanContext> createContext)
             : base(
@@ -46,12 +43,81 @@ namespace ProjectCleanPro.Editor
                 "\u2726",
                 5)
         {
+        }
+
+        protected override PCPModuleId GetModuleId() => PCPModuleId.Shaders;
+
+        // --------------------------------------------------------------------
+        // IPCPExportableView
+        // --------------------------------------------------------------------
+
+        public string ModuleExportKey => "shaders";
+
+        // --------------------------------------------------------------------
+        // IPCPDeletableView / IPCPIgnorableView
+        // --------------------------------------------------------------------
+
+        public IReadOnlyList<string> GetSelectedPaths()
+        {
+            var selectedRows = m_ResultList.GetSelectedRowData();
+            var paths = new List<string>();
+            foreach (var row in selectedRows)
+            {
+                if (!string.IsNullOrEmpty(row.path))
+                    paths.Add(row.path);
+            }
+            return paths;
+        }
+
+        public void ClearSelection() => m_ResultList.ClearSelection();
+
+        // --------------------------------------------------------------------
+        // BuildContent / RefreshContent
+        // --------------------------------------------------------------------
+
+        protected override void BuildContent(VisualElement content)
+        {
+            m_ResultList = CreateResultList();
+            m_FilterBar = CreateFilterBar(m_ResultList);
+            content.Add(m_FilterBar);
+            content.Add(m_ResultList);
+
             // Shaders: wider Type for pipeline/variant/keyword/material info
             m_ResultList.SetColumnWidths(name: 180, path: 200, type: 200, size: 60, status: 100);
             m_FilterBar.ShowTypeChips = false;
             m_FilterBar.SetStatusChoices("All Statuses", "MISMATCH", "UNUSED", "HIGH VARIANTS", "OK");
 
-            // Add a detail panel below the result list for showing keywords
+            // Detail panel below the result list
+            BuildDetailPanel(content);
+
+            // Listen for selection changes to update detail panel
+            m_ResultList.onSelectionChanged += OnSelectionChanged;
+        }
+
+        protected override void RefreshContent()
+        {
+            if (m_ScanResult == null || m_ScanResult.shaderEntries == null)
+            {
+                m_ResultList.SetData(new ArrayList(), _ => default);
+                UpdateHeader(0);
+                return;
+            }
+
+            var items = m_ScanResult.shaderEntries;
+            m_ResultList.SetData(items as IList, ConvertRow);
+            UpdateHeader(items.Count);
+
+            // Hide detail panel on refresh
+            if (m_DetailPanel != null)
+                m_DetailPanel.style.display = DisplayStyle.None;
+        }
+
+        // --------------------------------------------------------------------
+        // Detail panel
+        // --------------------------------------------------------------------
+
+        private void BuildDetailPanel(VisualElement content)
+        {
             m_DetailPanel = new VisualElement();
             m_DetailPanel.style.minHeight = 120;
             m_DetailPanel.style.maxHeight = 200;
@@ -91,95 +157,8 @@ namespace ProjectCleanPro.Editor
 
             m_KeywordsList = keywordsScroll.contentContainer;
 
-            // Insert detail panel before the action bar
-            int actionBarIndex = IndexOf(m_ActionBar);
-            if (actionBarIndex >= 0)
-                Insert(actionBarIndex, m_DetailPanel);
-            else
-                Add(m_DetailPanel);
-
-            // Listen for selection changes to update detail panel
-            m_ResultList.onSelectionChanged += OnSelectionChanged;
+            content.Add(m_DetailPanel);
         }
-
-        // --------------------------------------------------------------------
-        // PopulateResults override
-        // --------------------------------------------------------------------
-
-        protected override void PopulateResults()
-        {
-            if (m_ScanResult == null || m_ScanResult.shaderEntries == null)
-            {
-                m_ResultList.SetData(new ArrayList(), _ => default);
-                UpdateHeader(0);
-                return;
-            }
-
-            var items = m_ScanResult.shaderEntries;
-            m_ResultList.SetData(items as IList, ConvertRow);
-            UpdateHeader(items.Count);
-
-            // Hide detail panel on refresh
-            if (m_DetailPanel != null)
-                m_DetailPanel.style.display = DisplayStyle.None;
-        }
-
-        // --------------------------------------------------------------------
-        // Row conversion
-        // --------------------------------------------------------------------
-
-        private PCPRowData ConvertRow(object item)
-        {
-            var shader = item as PCPShaderEntry;
-            if (shader == null)
-                return default;
-
-            // Determine status badge
-            string status;
-            Color statusColor;
-
-            if (shader.pipelineMismatch)
-            {
-                status = "MISMATCH";
-                statusColor = k_MismatchColor;
-            }
-            else if (shader.isUnused)
-            {
-                status = "UNUSED";
-                statusColor = k_UnusedColor;
-            }
-            else if (shader.estimatedVariants > HighVariantThreshold)
-            {
-                status = "HIGH VARIANTS";
-                statusColor = k_HighVariantColor;
-            }
-            else
-            {
-                status = "OK";
-                statusColor = k_OkColor;
-            }
-
-            // Type column shows pipeline + variant/keyword/material counts
-            string typeInfo = $"{shader.targetPipeline} | " +
-                $"V:{shader.estimatedVariants} K:{shader.keywordCount} M:{shader.materialCount}";
-
-            return new PCPRowData
-            {
-                selected = false,
-                icon = null,
-                name = shader.shaderName ?? string.Empty,
-                path = shader.assetPath ?? string.Empty,
-                type = typeInfo,
-                sizeBytes = shader.sizeBytes,
-                status = status,
-                statusColor = statusColor,
-                guid = string.Empty
-            };
-        }
-
-        // --------------------------------------------------------------------
-        // Detail panel
-        // --------------------------------------------------------------------
 
         private void OnSelectionChanged(IReadOnlyList<int> selectedIndices)
         {
@@ -189,7 +168,6 @@ namespace ProjectCleanPro.Editor
                 return;
             }
 
-            // Show details for the first selected item
             int rawIndex = selectedIndices[0];
             var items = m_ScanResult?.shaderEntries;
             if (items == null || rawIndex < 0 || rawIndex >= items.Count)
@@ -198,8 +176,7 @@ namespace ProjectCleanPro.Editor
                 return;
             }
 
-            var shader = items[rawIndex];
-            ShowShaderDetails(shader);
+            ShowShaderDetails(items[rawIndex]);
         }
 
         private void ShowShaderDetails(PCPShaderEntry shader)
@@ -243,6 +220,57 @@ namespace ProjectCleanPro.Editor
                 noKeywords.style.unityFontStyleAndWeight = FontStyle.Italic;
                 m_KeywordsList.Add(noKeywords);
             }
+        }
+
+        // --------------------------------------------------------------------
+        // Row conversion
+        // --------------------------------------------------------------------
+
+        private PCPRowData ConvertRow(object item)
+        {
+            var shader = item as PCPShaderEntry;
+            if (shader == null)
+                return default;
+
+            string status;
+            Color statusColor;
+
+            if (shader.pipelineMismatch)
+            {
+                status = "MISMATCH";
+                statusColor = k_MismatchColor;
+            }
+            else if (shader.isUnused)
+            {
+                status = "UNUSED";
+                statusColor = k_UnusedColor;
+            }
+            else if (shader.estimatedVariants > HighVariantThreshold)
+            {
+                status = "HIGH VARIANTS";
+                statusColor = k_HighVariantColor;
+            }
+            else
+            {
+                status = "OK";
+                statusColor = k_OkColor;
+            }
+
+            string typeInfo = $"{shader.targetPipeline} | " +
+                $"V:{shader.estimatedVariants} K:{shader.keywordCount} M:{shader.materialCount}";
+
+            return new PCPRowData
+            {
+                selected = false,
+                icon = null,
+                name = shader.shaderName ?? string.Empty,
+                path = shader.assetPath ?? string.Empty,
+                type = typeInfo,
+                sizeBytes = shader.sizeBytes,
+                status = status,
+                statusColor = statusColor,
+                guid = string.Empty
+            };
         }
 
         // --------------------------------------------------------------------
