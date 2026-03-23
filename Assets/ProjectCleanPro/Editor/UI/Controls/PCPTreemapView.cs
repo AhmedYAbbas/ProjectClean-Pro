@@ -57,6 +57,12 @@ namespace ProjectCleanPro.Editor
             public PCPTreemapNode node;
         }
 
+        // Each Painter2D rect (fill + stroke) tessellates into ~20-30 vertices.
+        // UI Toolkit enforces a 65535 vertex limit per VisualElement, so we cap
+        // the number of rects to stay well within that budget.
+        private const int k_MaxDrawnRects = 1500;
+        private const float k_MinRectPixels = 3f;
+
         // --------------------------------------------------------------------
         // State
         // --------------------------------------------------------------------
@@ -262,6 +268,28 @@ namespace ProjectCleanPro.Editor
             if (sorted.Count == 0)
                 return;
 
+            // If there are too many nodes, merge the smallest ones into an
+            // "Other" bucket so we don't exceed the vertex limit.
+            if (sorted.Count > k_MaxDrawnRects)
+            {
+                long otherSize = 0;
+                for (int i = k_MaxDrawnRects - 1; i < sorted.Count; i++)
+                    otherSize += sorted[i].size;
+
+                sorted.RemoveRange(k_MaxDrawnRects - 1, sorted.Count - (k_MaxDrawnRects - 1));
+
+                if (otherSize > 0)
+                {
+                    sorted.Add(new PCPTreemapNode
+                    {
+                        name = $"Other ({sorted.Count} more)",
+                        size = otherSize,
+                        color = new Color(0.35f, 0.35f, 0.35f, 1f),
+                        path = string.Empty
+                    });
+                }
+            }
+
             var area = new Rect(0, 0, width, height);
             SquarifyLayout(sorted, area);
         }
@@ -442,7 +470,7 @@ namespace ProjectCleanPro.Editor
                     Mathf.Max(0, rect.width - padding * 2),
                     Mathf.Max(0, rect.height - padding * 2));
 
-                if (inset.width <= 0 || inset.height <= 0)
+                if (inset.width < k_MinRectPixels || inset.height < k_MinRectPixels)
                     continue;
 
                 // Fill color - slightly brighter if hovered

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -26,6 +27,7 @@ namespace ProjectCleanPro.Editor
             "Assets/ProjectCleanPro/Editor/UI/Styles/PCPVariables.uss",
             "Assets/ProjectCleanPro/Editor/UI/Styles/PCPCommon.uss",
             "Assets/ProjectCleanPro/Editor/UI/Styles/PCPDashboard.uss",
+            "Assets/ProjectCleanPro/Editor/UI/Styles/PCPResults.uss",
         };
 
         // --------------------------------------------------------------------
@@ -98,15 +100,17 @@ namespace ProjectCleanPro.Editor
         private void OnEnable()
         {
             PCPContext.Initialize();
-            m_LastScanResult = new PCPScanResult();
 
-            RegisterModule(new PCPUnusedScanner());
-            RegisterModule(new PCPMissingRefScanner());
-            RegisterModule(new PCPDuplicateDetector());
-            RegisterModule(new PCPDependencyModule());
-            RegisterModule(new PCPPackageAuditor());
-            RegisterModule(new PCPShaderAnalyzer());
-            RegisterModule(new PCPSizeProfiler());
+            // Register modules from the orchestrator (single source of truth).
+            var allModules = PCPContext.Orchestrator.AllModules;
+            for (int i = 0; i < allModules.Count; i++)
+            {
+                if (allModules[i] != null)
+                    RegisterModule(allModules[i]);
+            }
+
+            // Try loading results — manifest-first, then legacy fallback.
+            LoadCachedResults();
         }
 
         private void OnDisable()
@@ -114,7 +118,11 @@ namespace ProjectCleanPro.Editor
             m_ScanCts?.Cancel();
             m_ScanCts?.Dispose();
             m_ScanCts = null;
-            PCPContext.Dispose();
+
+            // Save cache but keep the context alive so that reopening the
+            // window reuses the in-memory dependency graph and cache entries
+            // instead of rescanning from scratch.
+            PCPContext.SaveCache();
         }
 
         private void CreateGUI()
@@ -428,9 +436,11 @@ namespace ProjectCleanPro.Editor
         // --------------------------------------------------------------------
 
         /// <summary>
-        /// Runs all registered modules sequentially and updates the UI.
+        /// Runs all registered modules via the orchestrator and updates the UI.
+        /// Delegates staleness, skip-detection, module ordering, incremental
+        /// caching, and result persistence to <see cref="PCPScanOrchestrator"/>.
         /// </summary>
-        public void ScanAll()
+        public async void ScanAll()
         {
             if (m_ScanCts != null)
                 return; // Already scanning
@@ -439,52 +449,33 @@ namespace ProjectCleanPro.Editor
             m_LastScanTime = DateTime.UtcNow;
             ShowProgressOverlay(true);
 
-            EditorApplication.delayCall += () =>
+            try
             {
-                try
-                {
-                    var scanContext = CreateScanContext();
-                    int total = m_Modules.Count;
+                var context = CreateScanContext();
+                var manifest = await PCPContext.Orchestrator.ScanAllAsync(
+                    context, UpdateProgress, m_ScanCts.Token);
 
-                    m_LastScanResult.Clear();
+                PCPContext.LastScanManifest = manifest;
 
-                    for (int i = 0; i < total; i++)
-                    {
-                        if (m_ScanCts == null || m_ScanCts.IsCancellationRequested)
-                            break;
-
-                        var module = m_Modules[i];
-                        float baseProgress = (float)i / total;
-                        UpdateProgress(baseProgress, $"Scanning: {module.DisplayName}...");
-
-                        module.Scan(scanContext);
-                        CollectModuleResults(module, m_LastScanResult);
-                    }
-
-                    // Aggregate results
-                    m_LastScanResult.totalAssetsScanned = UnityEditor.AssetDatabase.GetAllAssetPaths().Length;
-                    m_LastScanResult.scanTimestampUtc = m_LastScanTime.ToString("o");
-                    m_LastScanResult.scanDurationSeconds = (float)(DateTime.UtcNow - m_LastScanTime).TotalSeconds;
-                    m_LastScanTime = DateTime.UtcNow;
-
-                    UpdateStatusBar();
-                    RefreshActiveView();
-                }
-                catch (OperationCanceledException)
-                {
-                    Debug.Log("[ProjectCleanPro] Scan cancelled.");
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogError($"[ProjectCleanPro] Scan failed: {ex}");
-                }
-                finally
-                {
-                    ShowProgressOverlay(false);
-                    m_ScanCts?.Dispose();
-                    m_ScanCts = null;
-                }
-            };
+                // Populate the legacy PCPScanResult so existing views keep working.
+                PopulateScanResult(manifest);
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.Log("[ProjectCleanPro] Scan cancelled.");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ProjectCleanPro] Scan failed: {ex}");
+            }
+            finally
+            {
+                m_ScanCts?.Dispose();
+                m_ScanCts = null;
+                ShowProgressOverlay(false);
+                UpdateStatusBar();
+                RefreshActiveView();
+            }
         }
 
         private void CancelScan()
@@ -499,6 +490,79 @@ namespace ProjectCleanPro.Editor
         private PCPScanContext CreateScanContext()
         {
             return PCPScanContext.FromGlobalContext(PCPContext.Settings.alwaysUsedRoots);
+        }
+
+        /// <summary>
+        /// Attempts to restore results from the most recent scan, checking
+        /// multiple sources in priority order:
+        /// 1. In-memory manifest from the same editor session
+        /// 2. Disk-based manifest + per-module binary caches
+        /// 3. Legacy in-memory PCPScanResult (backward compat)
+        /// 4. Legacy disk-based PCPResultCache (old JSON format)
+        /// Falls back to an empty PCPScanResult if nothing is found.
+        /// </summary>
+        private void LoadCachedResults()
+        {
+            // 1. In-memory manifest from same session.
+            var manifest = PCPContext.LastScanManifest;
+
+            // 2. Disk-based manifest.
+            if (manifest == null)
+                manifest = PCPContext.ResultCacheManager.LoadManifest();
+
+            if (manifest != null)
+            {
+                // Load per-module results from disk into the orchestrator's modules.
+                PCPContext.ResultCacheManager.LoadAll(PCPContext.Orchestrator.AllModules);
+                PCPContext.LastScanManifest = manifest;
+
+                // Build the legacy PCPScanResult from module data.
+                m_LastScanResult = new PCPScanResult();
+                PopulateScanResult(manifest);
+                return;
+            }
+
+            // 3. Legacy: in-memory PCPScanResult.
+            if (PCPContext.LastScanResult != null)
+            {
+                m_LastScanResult = PCPContext.LastScanResult;
+                return;
+            }
+
+            // 4. Legacy: disk-based JSON cache.
+            var cached = PCPResultCache.Load();
+            m_LastScanResult = cached ?? new PCPScanResult();
+            PCPContext.LastScanResult = m_LastScanResult;
+        }
+
+        /// <summary>
+        /// Populates <see cref="m_LastScanResult"/> from the orchestrator's
+        /// module instances so that existing views continue to work.
+        /// </summary>
+        private void PopulateScanResult(PCPScanManifest manifest)
+        {
+            if (m_LastScanResult == null)
+                m_LastScanResult = new PCPScanResult();
+
+            m_LastScanResult.Clear();
+
+            // Copy metadata from the manifest.
+            m_LastScanResult.scanTimestampUtc = manifest.scanTimestampUtc;
+            m_LastScanResult.scanDurationSeconds = manifest.scanDurationSeconds;
+            m_LastScanResult.projectName = manifest.projectName;
+            m_LastScanResult.unityVersion = manifest.unityVersion;
+            m_LastScanResult.totalAssetsScanned = manifest.totalAssetsScanned;
+
+            // Collect results from each module into the legacy result object.
+            var allModules = PCPContext.Orchestrator.AllModules;
+            for (int i = 0; i < allModules.Count; i++)
+            {
+                if (allModules[i] != null)
+                    CollectModuleResults(allModules[i], m_LastScanResult);
+            }
+
+            m_LastScanTime = DateTime.UtcNow;
+            PCPContext.LastScanResult = m_LastScanResult;
         }
 
         private void ShowProgressOverlay(bool show)
@@ -605,25 +669,46 @@ namespace ProjectCleanPro.Editor
 
         private static void CollectModuleResults(IPCPModule module, PCPScanResult result)
         {
-            switch (module.ModuleId)
+            switch (module.Id)
             {
-                case "unused" when module is PCPUnusedScanner u:
+                case PCPModuleId.Unused when module is PCPUnusedScanner u:
                     result.unusedAssets.AddRange(u.Results);
                     break;
-                case "missing" when module is PCPMissingRefScanner m:
+                case PCPModuleId.Missing when module is PCPMissingRefScanner m:
                     result.missingReferences.AddRange(m.Results);
                     break;
-                case "duplicates" when module is PCPDuplicateDetector d:
+                case PCPModuleId.Duplicates when module is PCPDuplicateDetector d:
                     result.duplicateGroups.AddRange(d.Results);
                     break;
-                case "packages" when module is PCPPackageAuditor p:
+                case PCPModuleId.Dependencies when module is PCPDependencyModule dep:
+                    result.circularDependencies.AddRange(dep.CircularDependencies);
+                    result.orphanAssets.AddRange(dep.OrphanAssets);
+                    break;
+                case PCPModuleId.Packages when module is PCPPackageAuditor p:
                     result.packageAuditEntries.AddRange(p.Results);
                     break;
-                case "shaders" when module is PCPShaderAnalyzer s:
+                case PCPModuleId.Shaders when module is PCPShaderAnalyzer s:
                     result.shaderEntries.AddRange(s.Results);
                     break;
-                case "size" when module is PCPSizeProfiler z:
+                case PCPModuleId.Size when module is PCPSizeProfiler z:
                     result.sizeEntries.AddRange(z.Results);
+                    break;
+            }
+        }
+
+        private static void ClearModuleResults(PCPModuleId moduleId, PCPScanResult result)
+        {
+            switch (moduleId)
+            {
+                case PCPModuleId.Unused:       result.unusedAssets?.Clear();        break;
+                case PCPModuleId.Missing:      result.missingReferences?.Clear();   break;
+                case PCPModuleId.Duplicates:   result.duplicateGroups?.Clear();     break;
+                case PCPModuleId.Packages:     result.packageAuditEntries?.Clear(); break;
+                case PCPModuleId.Shaders:      result.shaderEntries?.Clear();       break;
+                case PCPModuleId.Size:         result.sizeEntries?.Clear();         break;
+                case PCPModuleId.Dependencies:
+                    result.circularDependencies?.Clear();
+                    result.orphanAssets?.Clear();
                     break;
             }
         }
@@ -639,7 +724,7 @@ namespace ProjectCleanPro.Editor
         public void RegisterModule(IPCPModule module)
         {
             if (module == null) return;
-            if (!m_Modules.Exists(m => m.ModuleId == module.ModuleId))
+            if (!m_Modules.Exists(m => m.Id == module.Id))
                 m_Modules.Add(module);
         }
     }

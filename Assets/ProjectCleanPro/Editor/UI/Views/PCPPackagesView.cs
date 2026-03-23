@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -71,6 +72,7 @@ namespace ProjectCleanPro.Editor
             var filterBar = new VisualElement();
             filterBar.style.flexDirection = FlexDirection.Row;
             filterBar.style.alignItems = Align.Center;
+            filterBar.style.minHeight = 32;
             filterBar.style.paddingLeft = 8;
             filterBar.style.paddingRight = 8;
             filterBar.style.paddingTop = 4;
@@ -143,6 +145,7 @@ namespace ProjectCleanPro.Editor
             {
                 text = filter.ToString()
             };
+            btn.style.height = 22;
             btn.style.paddingLeft = 6;
             btn.style.paddingRight = 6;
             btn.style.paddingTop = 2;
@@ -458,35 +461,34 @@ namespace ProjectCleanPro.Editor
         // Actions
         // --------------------------------------------------------------------
 
-        private void OnScanClicked()
+        private async void OnScanClicked()
         {
             m_Header.IsScanning = true;
 
-            EditorApplication.delayCall += () =>
-            {
-                try
-                {
-                    var context = m_CreateContext?.Invoke();
-                    if (context != null)
-                    {
-                        var scanner = new PCPPackageAuditor();
-                        scanner.Scan(context);
+            await PCPEditorAsync.YieldToEditor();
 
-                        m_ScanResult.packageAuditEntries.Clear();
-                        foreach (var result in scanner.Results)
-                            m_ScanResult.packageAuditEntries.Add(result);
-                    }
-                }
-                catch (Exception ex)
+            try
+            {
+                var context = m_CreateContext?.Invoke();
+                if (context != null)
                 {
-                    Debug.LogError($"[ProjectCleanPro] Package audit scan failed: {ex}");
+                    var cts = new CancellationTokenSource();
+                    await PCPContext.Orchestrator.ScanModuleAsync(
+                        PCPModuleId.Packages, context, null, cts.Token);
+
+                    // Sync orchestrator results into the legacy scan result.
+                    PCPModuleView.SyncModuleToScanResult(PCPModuleId.Packages, m_ScanResult);
                 }
-                finally
-                {
-                    m_Header.IsScanning = false;
-                    RefreshCards();
-                }
-            };
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ProjectCleanPro] Package audit scan failed: {ex}");
+            }
+            finally
+            {
+                m_Header.IsScanning = false;
+                RefreshCards();
+            }
         }
 
         private void OnExport()

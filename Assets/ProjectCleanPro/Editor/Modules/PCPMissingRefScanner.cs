@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -18,10 +21,12 @@ namespace ProjectCleanPro.Editor
         // Identity
         // ----------------------------------------------------------------
 
-        public override string ModuleId => "missing";
+        public override PCPModuleId Id => PCPModuleId.Missing;
         public override string DisplayName => "Missing References";
         public override string Icon => "\u26A0"; // ⚠
         public override Color AccentColor => new Color(0.902f, 0.494f, 0.133f, 1f); // #E67E22
+        public override IReadOnlyCollection<string> RelevantExtensions => s_ScannableExtensions;
+        public override bool RequiresDependencyGraph => false;
 
         // ----------------------------------------------------------------
         // Results
@@ -50,7 +55,7 @@ namespace ProjectCleanPro.Editor
         // Scan implementation
         // ----------------------------------------------------------------
 
-        protected override void DoScan(PCPScanContext context)
+        protected override async Task DoScanAsync(PCPScanContext context, CancellationToken ct)
         {
             _results.Clear();
 
@@ -60,7 +65,7 @@ namespace ProjectCleanPro.Editor
             ReportProgress(0f, "Finding prefabs, scenes, and assets...");
 
             var assetPaths = new List<string>();
-            string[] allPaths = PCPAssetUtils.GetAllProjectAssets();
+            string[] allPaths = context.AllProjectAssets;
 
             for (int i = 0; i < allPaths.Length; i++)
             {
@@ -80,7 +85,7 @@ namespace ProjectCleanPro.Editor
                 assetPaths.Add(path);
             }
 
-            if (ShouldCancel()) return;
+            ct.ThrowIfCancellationRequested();
 
             int total = assetPaths.Count;
             if (total == 0)
@@ -94,16 +99,7 @@ namespace ProjectCleanPro.Editor
             // ----------------------------------------------------------
             for (int i = 0; i < total; i++)
             {
-                if (ShouldCancel()) return;
-
                 string assetPath = assetPaths[i];
-
-                // Report progress every 32 assets.
-                if ((i & 31) == 0)
-                {
-                    float pct = (float)i / total;
-                    ReportProgress(pct, $"Scanning asset {i}/{total}...");
-                }
 
                 // If the asset hasn't changed and was previously scanned with
                 // zero missing references, we can safely skip it.
@@ -113,6 +109,8 @@ namespace ProjectCleanPro.Editor
                     if (cachedCount != null && cachedCount == "0")
                         continue;
                 }
+
+                await YieldIfNeeded(i, total, $"Scanning asset {i}/{total}...", ct, interval: 32);
 
                 int countBefore = _results.Count;
                 ScanAsset(assetPath);
@@ -356,6 +354,45 @@ namespace ProjectCleanPro.Editor
         {
             base.Clear();
             _results.Clear();
+        }
+
+        // ----------------------------------------------------------------
+        // Binary persistence
+        // ----------------------------------------------------------------
+
+        public override void WriteResults(BinaryWriter writer)
+        {
+            writer.Write(_results.Count);
+            for (int i = 0; i < _results.Count; i++)
+            {
+                var r = _results[i];
+                writer.Write(r.sourceAssetPath ?? string.Empty);
+                writer.Write(r.sourceAssetName ?? string.Empty);
+                writer.Write(r.componentType ?? string.Empty);
+                writer.Write(r.propertyPath ?? string.Empty);
+                writer.Write(r.missingGuid ?? string.Empty);
+                writer.Write((byte)r.severity);
+                writer.Write(r.gameObjectPath ?? string.Empty);
+            }
+        }
+
+        public override void ReadResults(BinaryReader reader)
+        {
+            _results.Clear();
+            int count = reader.ReadInt32();
+            for (int i = 0; i < count; i++)
+            {
+                _results.Add(new PCPMissingReference
+                {
+                    sourceAssetPath = reader.ReadString(),
+                    sourceAssetName = reader.ReadString(),
+                    componentType = reader.ReadString(),
+                    propertyPath = reader.ReadString(),
+                    missingGuid = reader.ReadString(),
+                    severity = (PCPSeverity)reader.ReadByte(),
+                    gameObjectPath = reader.ReadString()
+                });
+            }
         }
 
         // ----------------------------------------------------------------

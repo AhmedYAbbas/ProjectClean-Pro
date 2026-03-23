@@ -52,6 +52,28 @@ namespace ProjectCleanPro.Editor
         /// </summary>
         public IReadOnlyList<string> AlwaysUsedRoots { get; }
 
+        // ----------------------------------------------------------------
+        // Cached asset paths (computed once per scan session)
+        // ----------------------------------------------------------------
+
+        private string[] m_AllProjectAssets;
+        private bool m_StalenessComputed;
+
+        /// <summary>
+        /// All project asset paths under Assets/, cached for the duration of this
+        /// scan session. Modules should use this instead of calling
+        /// <see cref="PCPAssetUtils.GetAllProjectAssets"/> directly.
+        /// </summary>
+        public string[] AllProjectAssets
+        {
+            get
+            {
+                if (m_AllProjectAssets == null)
+                    m_AllProjectAssets = PCPAssetUtils.GetAllProjectAssets();
+                return m_AllProjectAssets;
+            }
+        }
+
         /// <summary>
         /// Callback invoked by scan modules to report progress.
         /// Parameters: (progress 0-1, description string).
@@ -130,6 +152,51 @@ namespace ProjectCleanPro.Editor
         public void ThrowIfCancelled()
         {
             CancellationToken.ThrowIfCancellationRequested();
+        }
+
+        // ----------------------------------------------------------------
+        // Scan lifecycle helpers
+        // ----------------------------------------------------------------
+
+        /// <summary>
+        /// Pre-computes asset staleness at most once per context lifetime.
+        /// All code paths that need staleness information should call this
+        /// instead of <c>Cache.RefreshStaleness</c> directly.
+        /// </summary>
+        public void EnsureStaleness()
+        {
+            if (m_StalenessComputed)
+                return;
+
+            Cache.RefreshStaleness(AllProjectAssets);
+            m_StalenessComputed = true;
+        }
+
+        /// <summary>
+        /// Pre-computes staleness and module dirtiness in one pass.
+        /// Modules declare their relevant extensions via
+        /// <see cref="IPCPModule.RelevantExtensions"/>.
+        /// </summary>
+        public void EnsureStaleness(IReadOnlyList<IPCPModule> modules)
+        {
+            if (m_StalenessComputed)
+                return;
+
+            Cache.RefreshStaleness(AllProjectAssets);
+            if (modules != null)
+                Cache.ComputeModuleDirtiness(modules);
+            m_StalenessComputed = true;
+        }
+
+        /// <summary>
+        /// Stamps modified assets, persists the cache, and resets the change
+        /// tracker. Call once at the end of any scan operation.
+        /// </summary>
+        public void FinalizeScan()
+        {
+            Cache.StampStaleAssets(AllProjectAssets);
+            Cache.Save();
+            PCPAssetChangeTracker.Reset();
         }
 
         /// <summary>

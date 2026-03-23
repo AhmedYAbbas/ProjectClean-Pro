@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -149,6 +151,13 @@ namespace ProjectCleanPro.Editor
         // --------------------------------------------------------------------
 
         /// <summary>
+        /// Returns the <see cref="PCPModuleId"/> that identifies this view's
+        /// scanner module. Used by the base class to delegate scans to the
+        /// <see cref="PCPScanOrchestrator"/>.
+        /// </summary>
+        protected abstract PCPModuleId GetModuleId();
+
+        /// <summary>
         /// Called after a scan completes (or on initial display) to convert
         /// module-specific result data into the result list's data source.
         /// Subclasses should call <see cref="PCPResultListView.SetData"/>
@@ -195,42 +204,40 @@ namespace ProjectCleanPro.Editor
         // Event handlers
         // --------------------------------------------------------------------
 
-        private void OnScanClicked()
+        private async void OnScanClicked()
         {
             m_Header.IsScanning = true;
 
-            EditorApplication.delayCall += () =>
+            // Yield one frame so the UI shows the scanning state.
+            await PCPEditorAsync.YieldToEditor();
+
+            try
             {
-                try
+                var context = m_CreateContext?.Invoke();
+                if (context != null)
                 {
-                    var context = m_CreateContext?.Invoke();
-                    if (context != null)
-                    {
-                        DoModuleScan(context);
+                    var cts = new CancellationTokenSource();
+                    var manifest = await PCPContext.Orchestrator.ScanModuleAsync(
+                        GetModuleId(), context, null, cts.Token);
 
-                        // Update scan metadata so dashboard health score
-                        // and status labels reflect the latest results.
-                        m_ScanResult.totalAssetsScanned = AssetDatabase.GetAllAssetPaths().Length;
-                        m_ScanResult.scanTimestampUtc = DateTime.UtcNow.ToString("o");
-                    }
+                    // Sync the orchestrator's module results into the legacy
+                    // PCPScanResult so the view's PopulateResults() sees them.
+                    SyncModuleToScanResult(GetModuleId(), m_ScanResult);
+
+                    m_ScanResult.totalAssetsScanned = context.AllProjectAssets.Length;
+                    m_ScanResult.scanTimestampUtc = DateTime.UtcNow.ToString("o");
                 }
-                catch (Exception ex)
-                {
-                    Debug.LogError($"[ProjectCleanPro] Scan failed: {ex}");
-                }
-                finally
-                {
-                    OnScanComplete();
-                    onScanComplete?.Invoke();
-                }
-            };
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ProjectCleanPro] Scan failed: {ex}");
+            }
+            finally
+            {
+                OnScanComplete();
+                onScanComplete?.Invoke();
+            }
         }
-
-        /// <summary>
-        /// Override in subclasses to perform the actual module scan.
-        /// Default implementation does nothing.
-        /// </summary>
-        protected virtual void DoModuleScan(PCPScanContext context) { }
 
         private void OnFilterChanged(PCPFilterState filterState)
         {
@@ -281,7 +288,34 @@ namespace ProjectCleanPro.Editor
                 try
                 {
                     PCPSafeDelete.ArchiveAndDelete(preview, settings, resolver);
-                    RescanAfterChange();
+
+                    // Smart delete: if none of the deleted files had
+                    // dependents, skip the expensive module rescan and
+                    // just remove the paths from the cached results.
+                    bool anyHadDependents = preview.items.Any(item => item.referenceCount > 0);
+
+                    if (anyHadDependents)
+                    {
+                        RescanAfterChange();
+                    }
+                    else
+                    {
+                        var deletedPaths = new HashSet<string>(
+                            preview.items.Select(item => item.path),
+                            StringComparer.Ordinal);
+
+                        m_ScanResult.RemovePaths(deletedPaths);
+
+                        foreach (string path in deletedPaths)
+                            context.Cache.RemoveEntry(path);
+
+                        resolver?.RemoveAssets(deletedPaths);
+                        context.Cache.Save();
+                        PCPResultCache.Save(m_ScanResult);
+
+                        OnScanComplete();
+                        onScanComplete?.Invoke();
+                    }
                 }
                 finally
                 {
@@ -356,32 +390,86 @@ namespace ProjectCleanPro.Editor
         /// Used after deletions or ignore-list changes to ensure
         /// the displayed results reflect the current project state.
         /// </summary>
-        private void RescanAfterChange()
+        private async void RescanAfterChange()
         {
             m_Header.IsScanning = true;
 
-            EditorApplication.delayCall += () =>
+            await PCPEditorAsync.YieldToEditor();
+
+            try
             {
-                try
+                var context = m_CreateContext?.Invoke();
+                if (context != null)
                 {
-                    var context = m_CreateContext?.Invoke();
-                    if (context != null)
-                    {
-                        DoModuleScan(context);
-                        m_ScanResult.totalAssetsScanned = AssetDatabase.GetAllAssetPaths().Length;
-                        m_ScanResult.scanTimestampUtc = DateTime.UtcNow.ToString("o");
-                    }
+                    // Force the module dirty so the orchestrator re-runs it
+                    // even if no file-level changes are detected.
+                    context.Cache.MarkModuleDirty(GetModuleId());
+
+                    var cts = new CancellationTokenSource();
+                    await PCPContext.Orchestrator.ScanModuleAsync(
+                        GetModuleId(), context, null, cts.Token);
+
+                    SyncModuleToScanResult(GetModuleId(), m_ScanResult);
+                    m_ScanResult.totalAssetsScanned = context.AllProjectAssets.Length;
+                    m_ScanResult.scanTimestampUtc = DateTime.UtcNow.ToString("o");
                 }
-                catch (Exception ex)
-                {
-                    Debug.LogError($"[ProjectCleanPro] Re-scan after change failed: {ex}");
-                }
-                finally
-                {
-                    OnScanComplete();
-                    onScanComplete?.Invoke();
-                }
-            };
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ProjectCleanPro] Re-scan after change failed: {ex}");
+            }
+            finally
+            {
+                OnScanComplete();
+                onScanComplete?.Invoke();
+            }
+        }
+
+        /// <summary>
+        /// Copies the orchestrator's module results into the legacy
+        /// <see cref="PCPScanResult"/> so that <see cref="PopulateResults"/>
+        /// and the report exporter see up-to-date data.
+        /// </summary>
+        internal static void SyncModuleToScanResult(PCPModuleId moduleId, PCPScanResult result)
+        {
+            if (result == null) return;
+
+            var module = PCPContext.Orchestrator.GetModule(moduleId);
+            if (module == null) return;
+
+            switch (moduleId)
+            {
+                case PCPModuleId.Unused when module is PCPUnusedScanner u:
+                    result.unusedAssets.Clear();
+                    result.unusedAssets.AddRange(u.Results);
+                    break;
+                case PCPModuleId.Missing when module is PCPMissingRefScanner m:
+                    result.missingReferences.Clear();
+                    result.missingReferences.AddRange(m.Results);
+                    break;
+                case PCPModuleId.Duplicates when module is PCPDuplicateDetector d:
+                    result.duplicateGroups.Clear();
+                    result.duplicateGroups.AddRange(d.Results);
+                    break;
+                case PCPModuleId.Packages when module is PCPPackageAuditor p:
+                    result.packageAuditEntries.Clear();
+                    result.packageAuditEntries.AddRange(p.Results);
+                    break;
+                case PCPModuleId.Shaders when module is PCPShaderAnalyzer s:
+                    result.shaderEntries.Clear();
+                    result.shaderEntries.AddRange(s.Results);
+                    break;
+                case PCPModuleId.Size when module is PCPSizeProfiler z:
+                    result.sizeEntries.Clear();
+                    result.sizeEntries.AddRange(z.Results);
+                    break;
+                case PCPModuleId.Dependencies when module is PCPDependencyModule dep:
+                    result.circularDependencies.Clear();
+                    result.circularDependencies.AddRange(dep.CircularDependencies);
+                    result.orphanAssets.Clear();
+                    result.orphanAssets.AddRange(dep.OrphanAssets);
+                    break;
+            }
         }
     }
 }

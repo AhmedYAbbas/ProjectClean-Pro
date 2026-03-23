@@ -34,6 +34,8 @@ namespace ProjectCleanPro.Editor
         // Constructor
         // --------------------------------------------------------------------
 
+        protected override PCPModuleId GetModuleId() => PCPModuleId.Shaders;
+
         protected override string ModuleExportKey => "shaders";
 
         public PCPShadersView(PCPScanResult scanResult, Func<PCPScanContext> createContext)
@@ -246,16 +248,6 @@ namespace ProjectCleanPro.Editor
         // --------------------------------------------------------------------
         // Helpers
         // --------------------------------------------------------------------
-
-        protected override void DoModuleScan(PCPScanContext context)
-        {
-            var scanner = new PCPShaderAnalyzer();
-            scanner.Scan(context);
-
-            m_ScanResult.shaderEntries.Clear();
-            foreach (var result in scanner.Results)
-                m_ScanResult.shaderEntries.Add(result);
-        }
 
         private void UpdateHeader(int count)
         {

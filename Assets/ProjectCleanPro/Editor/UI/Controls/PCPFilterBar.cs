@@ -132,10 +132,12 @@ namespace ProjectCleanPro.Editor
             style.flexDirection = FlexDirection.Row;
             style.flexWrap = Wrap.Wrap;
             style.alignItems = Align.Center;
+            style.minHeight = 32;
             style.paddingLeft = 4;
             style.paddingRight = 4;
             style.paddingTop = 4;
             style.paddingBottom = 4;
+            style.overflow = Overflow.Visible;
 
             // ----- Search field -----
             _searchField = new TextField
@@ -146,8 +148,9 @@ namespace ProjectCleanPro.Editor
             _searchField.AddToClassList(SearchFieldUssClassName);
             _searchField.style.minWidth = 150;
             _searchField.style.maxWidth = 300;
+            _searchField.style.height = 24;
             _searchField.style.marginRight = 8;
-#if UNITY_2022_1_OR_NEWER
+#if UNITY_2023_1_OR_NEWER
             _searchField.textEdition.placeholder = "Search by name or path...";
 #else
             _searchField.tooltip = "Search by name or path...";
@@ -217,6 +220,7 @@ namespace ProjectCleanPro.Editor
                 text = chipType
             };
             chip.AddToClassList(ChipUssClassName);
+            chip.style.height = 22;
             chip.style.paddingLeft = 6;
             chip.style.paddingRight = 6;
             chip.style.paddingTop = 2;
@@ -257,6 +261,7 @@ namespace ProjectCleanPro.Editor
             };
             _statusDropdown.AddToClassList(SeverityDropdownUssClassName);
             _statusDropdown.style.minWidth = 120;
+            _statusDropdown.style.height = 24;
             _statusDropdown.RegisterValueChangedCallback(OnStatusChanged);
             _statusDropdownContainer.Add(_statusDropdown);
         }

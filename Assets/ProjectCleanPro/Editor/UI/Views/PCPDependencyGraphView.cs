@@ -148,6 +148,7 @@ namespace ProjectCleanPro.Editor
             var toolbar = new VisualElement();
             toolbar.style.flexDirection = FlexDirection.Row;
             toolbar.style.alignItems = Align.Center;
+            toolbar.style.minHeight = 32;
             toolbar.style.paddingLeft = 8;
             toolbar.style.paddingRight = 8;
             toolbar.style.paddingTop = 4;
@@ -156,6 +157,7 @@ namespace ProjectCleanPro.Editor
             toolbar.style.borderBottomWidth = 1;
             toolbar.style.borderBottomColor = new Color(0.235f, 0.235f, 0.235f, 1f);
             toolbar.style.flexShrink = 0;
+            toolbar.style.overflow = Overflow.Visible;
 
             // Asset selector
             var assetLabel = new Label("Center Asset:");
@@ -167,6 +169,7 @@ namespace ProjectCleanPro.Editor
             m_AssetField.objectType = typeof(UnityEngine.Object);
             m_AssetField.style.flexGrow = 1;
             m_AssetField.style.minWidth = 200;
+            m_AssetField.style.height = 24;
             m_AssetField.style.marginRight = 12;
             m_AssetField.RegisterValueChangedCallback(OnAssetChanged);
             toolbar.Add(m_AssetField);
@@ -180,6 +183,7 @@ namespace ProjectCleanPro.Editor
             m_DepthField = new IntegerField();
             m_DepthField.value = m_MaxDepth;
             m_DepthField.style.width = 50;
+            m_DepthField.style.height = 24;
             m_DepthField.style.marginRight = 8;
             m_DepthField.RegisterValueChangedCallback(evt =>
             {

@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 
@@ -17,10 +20,12 @@ namespace ProjectCleanPro.Editor
         // Identity
         // ----------------------------------------------------------------
 
-        public override string ModuleId => "unused";
+        public override PCPModuleId Id => PCPModuleId.Unused;
         public override string DisplayName => "Unused Assets";
         public override string Icon => "\u2718"; // ✘
         public override Color AccentColor => new Color(0.753f, 0.224f, 0.169f, 1f); // #C0392B
+        public override IReadOnlyCollection<string> RelevantExtensions => null;
+        public override bool RequiresDependencyGraph => true;
 
         // ----------------------------------------------------------------
         // Results
@@ -59,7 +64,7 @@ namespace ProjectCleanPro.Editor
         // Scan implementation
         // ----------------------------------------------------------------
 
-        protected override void DoScan(PCPScanContext context)
+        protected override async Task DoScanAsync(PCPScanContext context, CancellationToken ct)
         {
             _results.Clear();
 
@@ -72,7 +77,7 @@ namespace ProjectCleanPro.Editor
             // 1a. Scenes — either all project scenes or just enabled build scenes.
             if (context.Settings.includeAllScenes)
             {
-                string[] allScenes = PCPAssetUtils.GetAllScenePaths();
+                string[] allScenes = PCPAssetUtils.GetAllScenePaths(context.AllProjectAssets);
                 for (int i = 0; i < allScenes.Length; i++)
                     roots.Add(allScenes[i]);
             }
@@ -84,7 +89,7 @@ namespace ProjectCleanPro.Editor
             }
 
             // 1b. All assets under any Resources/ folder.
-            string[] resourcesPaths = PCPAssetUtils.GetResourcesPaths();
+            string[] resourcesPaths = PCPAssetUtils.GetResourcesPaths(context.AllProjectAssets);
             for (int i = 0; i < resourcesPaths.Length; i++)
                 roots.Add(resourcesPaths[i]);
 
@@ -153,7 +158,7 @@ namespace ProjectCleanPro.Editor
                 }
             }
 
-            if (ShouldCancel()) return;
+            ct.ThrowIfCancellationRequested();
 
             // ----------------------------------------------------------
             // Phase 2: Build / use the dependency graph to find reachable set
@@ -161,13 +166,13 @@ namespace ProjectCleanPro.Editor
             ReportProgress(0.1f, "Building dependency graph...");
             var resolver = context.DependencyResolver;
 
-            // Always rebuild — roots may have changed since the last scan.
-            resolver.Build(roots, (p, label) =>
+            // Build or incrementally update the dependency graph.
+            await resolver.BuildAsync(roots, (p, label) =>
             {
                 ReportProgress(0.1f + p * 0.5f, label);
-            }, context.Cache);
+            }, context.Cache, context.AllProjectAssets, ct: ct);
 
-            if (ShouldCancel()) return;
+            ct.ThrowIfCancellationRequested();
 
             var reachable = new HashSet<string>(resolver.GetAllReachable(), StringComparer.Ordinal);
             // Also mark the roots themselves as reachable.
@@ -179,23 +184,16 @@ namespace ProjectCleanPro.Editor
             // ----------------------------------------------------------
             ReportProgress(0.65f, "Identifying unused assets...");
 
-            // Re-fetch in case the DB changed.
-            string[] projectAssets = PCPAssetUtils.GetAllProjectAssets();
+            // Use cached asset list from the scan context.
+            string[] projectAssets = context.AllProjectAssets;
 
             int total = projectAssets.Length;
 
             for (int i = 0; i < total; i++)
             {
-                if (ShouldCancel()) return;
+                await YieldIfNeeded(i, total, $"Checking asset {i}/{total}...", ct, interval: 128);
 
                 string path = projectAssets[i];
-
-                // Report every 128 assets.
-                if ((i & 127) == 0)
-                {
-                    float pct = 0.65f + 0.3f * ((float)i / total);
-                    ReportProgress(pct, $"Checking asset {i}/{total}...");
-                }
 
                 // Skip scripts, assembly definitions, DLLs.
                 string ext = System.IO.Path.GetExtension(path);
@@ -232,6 +230,53 @@ namespace ProjectCleanPro.Editor
         {
             base.Clear();
             _results.Clear();
+        }
+
+        // ----------------------------------------------------------------
+        // Binary persistence
+        // ----------------------------------------------------------------
+
+        public override void WriteResults(BinaryWriter writer)
+        {
+            writer.Write(_results.Count);
+            for (int i = 0; i < _results.Count; i++)
+            {
+                var r = _results[i];
+                writer.Write(r.assetInfo?.path ?? string.Empty);
+                writer.Write(r.assetInfo?.guid ?? string.Empty);
+                writer.Write(r.assetInfo?.name ?? string.Empty);
+                writer.Write(r.assetInfo?.extension ?? string.Empty);
+                writer.Write(r.assetInfo?.assetTypeName ?? string.Empty);
+                writer.Write(r.assetInfo?.sizeBytes ?? 0L);
+                writer.Write(r.isInResources);
+                writer.Write(r.isInPackage);
+                writer.Write(r.suggestedAction ?? string.Empty);
+            }
+        }
+
+        public override void ReadResults(BinaryReader reader)
+        {
+            _results.Clear();
+            int count = reader.ReadInt32();
+            for (int i = 0; i < count; i++)
+            {
+                var info = new PCPAssetInfo
+                {
+                    path = reader.ReadString(),
+                    guid = reader.ReadString(),
+                    name = reader.ReadString(),
+                    extension = reader.ReadString(),
+                    assetTypeName = reader.ReadString(),
+                    sizeBytes = reader.ReadInt64()
+                };
+                _results.Add(new PCPUnusedAsset
+                {
+                    assetInfo = info,
+                    isInResources = reader.ReadBoolean(),
+                    isInPackage = reader.ReadBoolean(),
+                    suggestedAction = reader.ReadString()
+                });
+            }
         }
 
     }

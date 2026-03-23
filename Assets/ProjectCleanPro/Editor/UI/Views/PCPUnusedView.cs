@@ -21,6 +21,8 @@ namespace ProjectCleanPro.Editor
         // Constructor
         // --------------------------------------------------------------------
 
+        protected override PCPModuleId GetModuleId() => PCPModuleId.Unused;
+
         protected override string ModuleExportKey => "unused";
 
         public PCPUnusedView(PCPScanResult scanResult, Func<PCPScanContext> createContext)
@@ -52,16 +54,6 @@ namespace ProjectCleanPro.Editor
             var items = m_ScanResult.unusedAssets;
             m_ResultList.SetData(items, ConvertRow);
             UpdateHeader(items.Count, CalculateTotalSize(items));
-        }
-
-        protected override void DoModuleScan(PCPScanContext context)
-        {
-            var scanner = new PCPUnusedScanner();
-            scanner.Scan(context);
-
-            m_ScanResult.unusedAssets.Clear();
-            foreach (var result in scanner.Results)
-                m_ScanResult.unusedAssets.Add(result);
         }
 
         // --------------------------------------------------------------------

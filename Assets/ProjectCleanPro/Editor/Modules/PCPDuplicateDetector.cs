@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 
@@ -17,10 +19,13 @@ namespace ProjectCleanPro.Editor
         // Identity
         // ----------------------------------------------------------------
 
-        public override string ModuleId => "duplicates";
+        public override PCPModuleId Id => PCPModuleId.Duplicates;
         public override string DisplayName => "Duplicates";
         public override string Icon => "\u2687"; // ⚇
         public override Color AccentColor => new Color(0.557f, 0.267f, 0.678f, 1f); // #8E44AD
+
+        public override IReadOnlyCollection<string> RelevantExtensions => null;
+        public override bool RequiresDependencyGraph => true;
 
         // ----------------------------------------------------------------
         // Results
@@ -59,7 +64,7 @@ namespace ProjectCleanPro.Editor
         // Scan implementation
         // ----------------------------------------------------------------
 
-        protected override void DoScan(PCPScanContext context)
+        protected override async Task DoScanAsync(PCPScanContext context, CancellationToken ct)
         {
             _results.Clear();
 
@@ -68,7 +73,7 @@ namespace ProjectCleanPro.Editor
             // ----------------------------------------------------------
             ReportProgress(0f, "Collecting asset paths...");
 
-            string[] allPaths = PCPAssetUtils.GetAllProjectAssets();
+            string[] allPaths = context.AllProjectAssets;
             var pathsWithSizes = new List<PathSizePair>();
 
             for (int i = 0; i < allPaths.Length; i++)
@@ -116,7 +121,7 @@ namespace ProjectCleanPro.Editor
                 });
             }
 
-            if (ShouldCancel()) return;
+            ct.ThrowIfCancellationRequested();
 
             // ----------------------------------------------------------
             // Phase 2: Group by file size (pre-filter)
@@ -148,7 +153,7 @@ namespace ProjectCleanPro.Editor
                 group.Add(entry);
             }
 
-            if (ShouldCancel()) return;
+            ct.ThrowIfCancellationRequested();
 
             // ----------------------------------------------------------
             // Phase 3: Hash files within same-size groups + all YAML assets
@@ -175,10 +180,13 @@ namespace ProjectCleanPro.Editor
                     ReportProgress(pct, $"Hashing file {hashed}/{filesToHash}...");
                 }
 
-                // Check the cache first (only for non-normalised; normalised
-                // hashes depend on content transforms so we always recompute).
+                // Check the cache first.
                 string hash = null;
-                if (!useNormalized && !context.Cache.IsStale(entry.path))
+                if (useNormalized && !context.Cache.IsStale(entry.path))
+                {
+                    hash = context.Cache.GetMetadata(entry.path, "dup.normalizedHash");
+                }
+                else if (!useNormalized && !context.Cache.IsStale(entry.path))
                 {
                     hash = context.Cache.GetHash(entry.path);
                 }
@@ -196,10 +204,13 @@ namespace ProjectCleanPro.Editor
                         return;
                     }
 
-                    // Store in cache (non-normalised only).
-                    if (!useNormalized && !string.IsNullOrEmpty(hash))
+                    // Store in cache.
+                    if (!string.IsNullOrEmpty(hash))
                     {
-                        context.Cache.SetHash(entry.path, hash);
+                        if (useNormalized)
+                            context.Cache.SetMetadata(entry.path, "dup.normalizedHash", hash);
+                        else
+                            context.Cache.SetHash(entry.path, hash);
                     }
                 }
 
@@ -219,14 +230,14 @@ namespace ProjectCleanPro.Editor
             // 3a: Hash all Unity YAML assets (no size pre-filter).
             for (int i = 0; i < yamlAssets.Count; i++)
             {
-                if (ShouldCancel()) return;
+                ct.ThrowIfCancellationRequested();
                 HashEntry(yamlAssets[i], useNormalized: true);
             }
 
             // 3b: Hash non-YAML assets within same-size groups.
             foreach (var kvp in sizeGroups)
             {
-                if (ShouldCancel()) return;
+                ct.ThrowIfCancellationRequested();
 
                 List<PathSizePair> group = kvp.Value;
                 if (group.Count < 2)
@@ -234,12 +245,12 @@ namespace ProjectCleanPro.Editor
 
                 for (int i = 0; i < group.Count; i++)
                 {
-                    if (ShouldCancel()) return;
+                    ct.ThrowIfCancellationRequested();
                     HashEntry(group[i], useNormalized: false);
                 }
             }
 
-            if (ShouldCancel()) return;
+            ct.ThrowIfCancellationRequested();
 
             // ----------------------------------------------------------
             // Phase 4: Build duplicate groups from hash matches
@@ -313,6 +324,53 @@ namespace ProjectCleanPro.Editor
         {
             base.Clear();
             _results.Clear();
+        }
+
+        // ----------------------------------------------------------------
+        // Binary serialization
+        // ----------------------------------------------------------------
+
+        public override void WriteResults(BinaryWriter writer)
+        {
+            writer.Write(_results.Count);
+            for (int i = 0; i < _results.Count; i++)
+            {
+                var g = _results[i];
+                writer.Write(g.hash ?? string.Empty);
+                writer.Write(g.entries.Count);
+                for (int j = 0; j < g.entries.Count; j++)
+                {
+                    var e = g.entries[j];
+                    writer.Write(e.path ?? string.Empty);
+                    writer.Write(e.guid ?? string.Empty);
+                    writer.Write(e.sizeBytes);
+                    writer.Write(e.referenceCount);
+                    writer.Write(e.isCanonical);
+                }
+            }
+        }
+
+        public override void ReadResults(BinaryReader reader)
+        {
+            _results.Clear();
+            int groupCount = reader.ReadInt32();
+            for (int i = 0; i < groupCount; i++)
+            {
+                var g = new PCPDuplicateGroup { hash = reader.ReadString() };
+                int entryCount = reader.ReadInt32();
+                for (int j = 0; j < entryCount; j++)
+                {
+                    g.entries.Add(new PCPDuplicateEntry
+                    {
+                        path = reader.ReadString(),
+                        guid = reader.ReadString(),
+                        sizeBytes = reader.ReadInt64(),
+                        referenceCount = reader.ReadInt32(),
+                        isCanonical = reader.ReadBoolean()
+                    });
+                }
+                _results.Add(g);
+            }
         }
 
         // ----------------------------------------------------------------

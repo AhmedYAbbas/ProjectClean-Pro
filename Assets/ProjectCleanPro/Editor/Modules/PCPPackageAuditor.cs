@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEditor.Compilation;
 using UnityEditor.PackageManager;
@@ -22,10 +24,14 @@ namespace ProjectCleanPro.Editor
         // Identity
         // ----------------------------------------------------------------
 
-        public override string ModuleId => "packages";
+        public override PCPModuleId Id => PCPModuleId.Packages;
         public override string DisplayName => "Packages";
         public override string Icon => "\u2750"; // ❐
         public override Color AccentColor => new Color(0.086f, 0.627f, 0.522f, 1f); // #16A085
+
+        private static readonly HashSet<string> s_EmptyExtensions = new HashSet<string>();
+        public override IReadOnlyCollection<string> RelevantExtensions => s_EmptyExtensions;
+        public override bool RequiresDependencyGraph => false;
 
         // ----------------------------------------------------------------
         // Results
@@ -64,7 +70,7 @@ namespace ProjectCleanPro.Editor
         // Scan implementation
         // ----------------------------------------------------------------
 
-        protected override void DoScan(PCPScanContext context)
+        protected override async Task DoScanAsync(PCPScanContext context, CancellationToken ct)
         {
             _results.Clear();
 
@@ -106,7 +112,7 @@ namespace ProjectCleanPro.Editor
                 return;
             }
 
-            if (ShouldCancel()) return;
+            ct.ThrowIfCancellationRequested();
 
             // ----------------------------------------------------------
             // Phase 2: Build a map of package assembly names and namespaces
@@ -171,7 +177,7 @@ namespace ProjectCleanPro.Editor
                 }
             }
 
-            if (ShouldCancel()) return;
+            ct.ThrowIfCancellationRequested();
 
             // ----------------------------------------------------------
             // Phase 3: Gather project assembly references
@@ -208,7 +214,7 @@ namespace ProjectCleanPro.Editor
                 Debug.LogWarning($"[ProjectCleanPro] Failed to get compilation assemblies: {ex.Message}");
             }
 
-            if (ShouldCancel()) return;
+            ct.ThrowIfCancellationRequested();
 
             // ----------------------------------------------------------
             // Phase 4: Scan project .asmdef files for assembly references
@@ -220,7 +226,7 @@ namespace ProjectCleanPro.Editor
 
             for (int i = 0; i < projectAsmdefGuids.Length; i++)
             {
-                if (ShouldCancel()) return;
+                ct.ThrowIfCancellationRequested();
 
                 string asmdefPath = AssetDatabase.GUIDToAssetPath(projectAsmdefGuids[i]);
                 string fullPath = Path.GetFullPath(asmdefPath);
@@ -247,7 +253,7 @@ namespace ProjectCleanPro.Editor
                 }
             }
 
-            if (ShouldCancel()) return;
+            ct.ThrowIfCancellationRequested();
 
             // ----------------------------------------------------------
             // Phase 5: Scan project .cs files for using directives
@@ -260,7 +266,7 @@ namespace ProjectCleanPro.Editor
             int totalCsFiles = csFileGuids.Length;
             for (int i = 0; i < totalCsFiles; i++)
             {
-                if (ShouldCancel()) return;
+                ct.ThrowIfCancellationRequested();
 
                 if ((i & 63) == 0)
                 {
@@ -332,7 +338,7 @@ namespace ProjectCleanPro.Editor
                 }
             }
 
-            if (ShouldCancel()) return;
+            ct.ThrowIfCancellationRequested();
 
             // ----------------------------------------------------------
             // Phase 6: Build package dependency graph
@@ -361,7 +367,7 @@ namespace ProjectCleanPro.Editor
                 }
             }
 
-            if (ShouldCancel()) return;
+            ct.ThrowIfCancellationRequested();
 
             // ----------------------------------------------------------
             // Phase 7: Classify each package
@@ -445,6 +451,55 @@ namespace ProjectCleanPro.Editor
         {
             base.Clear();
             _results.Clear();
+        }
+
+        // ----------------------------------------------------------------
+        // Serialization
+        // ----------------------------------------------------------------
+
+        public override void WriteResults(BinaryWriter writer)
+        {
+            writer.Write(_results.Count);
+            for (int i = 0; i < _results.Count; i++)
+            {
+                var p = _results[i];
+                writer.Write(p.packageName ?? string.Empty);
+                writer.Write(p.displayName ?? string.Empty);
+                writer.Write(p.version ?? string.Empty);
+                writer.Write(p.description ?? string.Empty);
+                writer.Write((byte)p.status);
+                writer.Write(p.directReferenceCount);
+                writer.Write(p.codeReferenceCount);
+                // dependedOnBy
+                int depCount = p.dependedOnBy?.Count ?? 0;
+                writer.Write(depCount);
+                for (int j = 0; j < depCount; j++)
+                    writer.Write(p.dependedOnBy[j] ?? string.Empty);
+            }
+        }
+
+        public override void ReadResults(BinaryReader reader)
+        {
+            _results.Clear();
+            int count = reader.ReadInt32();
+            for (int i = 0; i < count; i++)
+            {
+                var p = new PCPPackageAuditEntry
+                {
+                    packageName = reader.ReadString(),
+                    displayName = reader.ReadString(),
+                    version = reader.ReadString(),
+                    description = reader.ReadString(),
+                    status = (PCPPackageStatus)reader.ReadByte(),
+                    directReferenceCount = reader.ReadInt32(),
+                    codeReferenceCount = reader.ReadInt32()
+                };
+                int depCount = reader.ReadInt32();
+                p.dependedOnBy = new List<string>(depCount);
+                for (int j = 0; j < depCount; j++)
+                    p.dependedOnBy.Add(reader.ReadString());
+                _results.Add(p);
+            }
         }
 
         // ----------------------------------------------------------------

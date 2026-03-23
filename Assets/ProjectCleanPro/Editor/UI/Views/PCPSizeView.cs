@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -535,35 +536,34 @@ namespace ProjectCleanPro.Editor
             PCPReportExporter.ShowExportMenu(moduleResult);
         }
 
-        private void OnScanClicked()
+        private async void OnScanClicked()
         {
             m_Header.IsScanning = true;
 
-            EditorApplication.delayCall += () =>
-            {
-                try
-                {
-                    var context = m_CreateContext?.Invoke();
-                    if (context != null)
-                    {
-                        var scanner = new PCPSizeProfiler();
-                        scanner.Scan(context);
+            await PCPEditorAsync.YieldToEditor();
 
-                        m_ScanResult.sizeEntries.Clear();
-                        foreach (var result in scanner.Results)
-                            m_ScanResult.sizeEntries.Add(result);
-                    }
-                }
-                catch (Exception ex)
+            try
+            {
+                var context = m_CreateContext?.Invoke();
+                if (context != null)
                 {
-                    Debug.LogError($"[ProjectCleanPro] Size profiler scan failed: {ex}");
+                    var cts = new CancellationTokenSource();
+                    await PCPContext.Orchestrator.ScanModuleAsync(
+                        PCPModuleId.Size, context, null, cts.Token);
+
+                    // Sync orchestrator results into the legacy scan result.
+                    PCPModuleView.SyncModuleToScanResult(PCPModuleId.Size, m_ScanResult);
                 }
-                finally
-                {
-                    m_Header.IsScanning = false;
-                    RefreshData();
-                }
-            };
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ProjectCleanPro] Size profiler scan failed: {ex}");
+            }
+            finally
+            {
+                m_Header.IsScanning = false;
+                RefreshData();
+            }
         }
 
         // --------------------------------------------------------------------

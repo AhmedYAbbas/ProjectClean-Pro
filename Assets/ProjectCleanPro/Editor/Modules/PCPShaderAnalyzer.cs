@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 
@@ -18,10 +20,18 @@ namespace ProjectCleanPro.Editor
         // Identity
         // ----------------------------------------------------------------
 
-        public override string ModuleId => "shaders";
+        public override PCPModuleId Id => PCPModuleId.Shaders;
         public override string DisplayName => "Shaders";
         public override string Icon => "\u2726"; // ✦
         public override Color AccentColor => new Color(0.910f, 0.263f, 0.576f, 1f); // #E84393
+
+        private static readonly HashSet<string> s_RelevantExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ".shader", ".mat", ".shadergraph", ".shadersubgraph", ".compute"
+        };
+
+        public override IReadOnlyCollection<string> RelevantExtensions => s_RelevantExtensions;
+        public override bool RequiresDependencyGraph => false;
 
         // ----------------------------------------------------------------
         // Results
@@ -63,7 +73,7 @@ namespace ProjectCleanPro.Editor
         // Scan implementation
         // ----------------------------------------------------------------
 
-        protected override void DoScan(PCPScanContext context)
+        protected override async Task DoScanAsync(PCPScanContext context, CancellationToken ct)
         {
             _results.Clear();
             _totalSizeBytes = 0;
@@ -84,7 +94,7 @@ namespace ProjectCleanPro.Editor
                     shaderPaths.Add(path);
             }
 
-            if (ShouldCancel()) return;
+            ct.ThrowIfCancellationRequested();
 
             // ----------------------------------------------------------
             // Phase 2: Build material-to-shader mapping
@@ -98,10 +108,11 @@ namespace ProjectCleanPro.Editor
 
             string[] matGuids = AssetDatabase.FindAssets("t:Material");
             int totalMats = matGuids.Length;
+            int loadedCount = 0;
 
             for (int i = 0; i < totalMats; i++)
             {
-                if (ShouldCancel()) return;
+                ct.ThrowIfCancellationRequested();
 
                 if ((i & 63) == 0)
                 {
@@ -110,11 +121,27 @@ namespace ProjectCleanPro.Editor
                 }
 
                 string matPath = AssetDatabase.GUIDToAssetPath(matGuids[i]);
-                Material mat = AssetDatabase.LoadAssetAtPath<Material>(matPath);
-                if (mat == null || mat.shader == null)
+                if (string.IsNullOrEmpty(matPath))
                     continue;
 
-                string shaderName = mat.shader.name;
+                // Try cached shader name for non-stale materials.
+                string shaderName = null;
+                if (!context.Cache.IsStale(matPath))
+                {
+                    shaderName = context.Cache.GetMetadata(matPath, "mat.shader");
+                }
+
+                if (shaderName == null)
+                {
+                    // Must load the material to get its shader name.
+                    Material mat = AssetDatabase.LoadAssetAtPath<Material>(matPath);
+                    if (mat == null || mat.shader == null)
+                        continue;
+
+                    shaderName = mat.shader.name;
+                    context.Cache.SetMetadata(matPath, "mat.shader", shaderName);
+                    loadedCount++;
+                }
 
                 if (!materialCountByShader.ContainsKey(shaderName))
                 {
@@ -125,7 +152,7 @@ namespace ProjectCleanPro.Editor
                 materialsByShader[shaderName].Add(matPath);
             }
 
-            if (ShouldCancel()) return;
+            ct.ThrowIfCancellationRequested();
 
             // ----------------------------------------------------------
             // Phase 3: Determine the project's active render pipeline
@@ -144,7 +171,7 @@ namespace ProjectCleanPro.Editor
 
             foreach (string shaderPath in shaderPaths)
             {
-                if (ShouldCancel()) return;
+                ct.ThrowIfCancellationRequested();
 
                 shaderIndex++;
                 float pct = 0.3f + 0.65f * ((float)shaderIndex / Math.Max(totalShaders, 1));
@@ -453,6 +480,60 @@ namespace ProjectCleanPro.Editor
             base.Clear();
             _results.Clear();
             _totalSizeBytes = 0;
+        }
+
+        // ----------------------------------------------------------------
+        // Binary serialization
+        // ----------------------------------------------------------------
+
+        public override void WriteResults(BinaryWriter writer)
+        {
+            writer.Write(_results.Count);
+            for (int i = 0; i < _results.Count; i++)
+            {
+                var s = _results[i];
+                writer.Write(s.shaderName ?? string.Empty);
+                writer.Write(s.assetPath ?? string.Empty);
+                writer.Write(s.estimatedVariants);
+                writer.Write(s.passCount);
+                writer.Write(s.keywordCount);
+                writer.Write(s.materialCount);
+                writer.Write(s.sizeBytes);
+                writer.Write((byte)s.targetPipeline);
+                writer.Write(s.pipelineMismatch);
+                writer.Write(s.isUnused);
+                writer.Write(s.keywords?.Count ?? 0);
+                if (s.keywords != null)
+                    for (int j = 0; j < s.keywords.Count; j++)
+                        writer.Write(s.keywords[j] ?? string.Empty);
+            }
+        }
+
+        public override void ReadResults(BinaryReader reader)
+        {
+            _results.Clear();
+            int count = reader.ReadInt32();
+            for (int i = 0; i < count; i++)
+            {
+                var s = new PCPShaderEntry
+                {
+                    shaderName = reader.ReadString(),
+                    assetPath = reader.ReadString(),
+                    estimatedVariants = reader.ReadInt32(),
+                    passCount = reader.ReadInt32(),
+                    keywordCount = reader.ReadInt32(),
+                    materialCount = reader.ReadInt32(),
+                    sizeBytes = reader.ReadInt64(),
+                    targetPipeline = (PCPRenderPipeline)reader.ReadByte(),
+                    pipelineMismatch = reader.ReadBoolean(),
+                    isUnused = reader.ReadBoolean()
+                };
+                int kwCount = reader.ReadInt32();
+                s.keywords = new System.Collections.Generic.List<string>(kwCount);
+                for (int j = 0; j < kwCount; j++)
+                    s.keywords.Add(reader.ReadString());
+                _results.Add(s);
+            }
         }
 
         // ----------------------------------------------------------------

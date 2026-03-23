@@ -22,7 +22,16 @@
       "Bash(UNITY=\"C:/Program Files/Unity/Hub/Editor/6000.3.7f1/Editor/Unity.exe\")",
       "Bash(\"$UNITY\" -runTests -batchmode -nographics -projectPath \"C:\\\\Ahmed\\\\Dev\\\\Unity\\\\ProjectCleanPro\" -testResults \"C:\\\\Ahmed\\\\Dev\\\\Unity\\\\ProjectCleanPro\\\\TestResults.xml\" -testPlatform EditMode -testFilter \"ProjectCleanPro.Tests.Editor.PCPScanCacheTests\" -logFile \"C:\\\\Ahmed\\\\Dev\\\\Unity\\\\ProjectCleanPro\\\\TestLog.txt\")",
       "Bash(echo \"EXIT CODE: $?\")",
-      "Bash(find C:AhmedDevUnityProjectCleanProAssetsProjectCleanProTests -type f -name *.cs)"
+      "Bash(find C:AhmedDevUnityProjectCleanProAssetsProjectCleanProTests -type f -name *.cs)",
+      "WebSearch",
+      "Bash(dotnet --version)",
+      "Bash(find /c/Ahmed/Dev/Unity/ProjectCleanPro -maxdepth 2 -name build* -o -name Build* -o -name Makefile -o -name *.ps1)",
+      "Bash(tar --version)",
+      "Bash(mkdir -p \"C:/Ahmed/Dev/Unity/ProjectCleanPro/BuildTools/PCPObfuscator\")",
+      "Bash(mkdir -p \"C:/Ahmed/Dev/Unity/ProjectCleanPro/Builds\")",
+      "Bash(dotnet restore:*)",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet run:*)"
     ]
   }
 }

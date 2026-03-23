@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace ProjectCleanPro.Editor
 {
@@ -266,6 +267,29 @@ namespace ProjectCleanPro.Editor
 
         /// <summary>Number of orphan assets found.</summary>
         public int OrphanAssetCount => orphanAssets?.Count ?? 0;
+
+        /// <summary>
+        /// Removes all findings that reference any of the given asset paths.
+        /// Used by the smart-delete path to update results without rescanning.
+        /// </summary>
+        public void RemovePaths(HashSet<string> deletedPaths)
+        {
+            if (deletedPaths == null || deletedPaths.Count == 0)
+                return;
+
+            unusedAssets?.RemoveAll(a => deletedPaths.Contains(a.Path));
+            sizeEntries?.RemoveAll(e => deletedPaths.Contains(e.path));
+            missingReferences?.RemoveAll(m => deletedPaths.Contains(m.sourceAssetPath));
+            shaderEntries?.RemoveAll(s => deletedPaths.Contains(s.assetPath));
+            orphanAssets?.RemoveAll(o => deletedPaths.Contains(o));
+
+            if (duplicateGroups != null)
+            {
+                foreach (var group in duplicateGroups)
+                    group.entries?.RemoveAll(e => deletedPaths.Contains(e.path));
+                duplicateGroups.RemoveAll(g => g.entries == null || g.entries.Count < 2);
+            }
+        }
 
         /// <summary>
         /// Clears all result lists, resetting the scan result to an empty state.

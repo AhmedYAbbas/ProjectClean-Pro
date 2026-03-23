@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 
 namespace ProjectCleanPro.Editor
 {
     /// <summary>
     /// Central service registry for ProjectCleanPro.
-    /// Provides lazy-initialized access to all core services.
+    /// Provides lazy-initialized access to all core services including the
+    /// scan orchestrator and result cache manager.
     /// </summary>
     public static class PCPContext
     {
@@ -13,12 +15,16 @@ namespace ProjectCleanPro.Editor
         private static PCPScanCache s_ScanCache;
         private static PCPIgnoreRules s_IgnoreRules;
         private static PCPRenderPipelineDetector s_RenderPipelineDetector;
+        private static PCPScanOrchestrator s_Orchestrator;
+        private static PCPResultCacheManager s_ResultCacheManager;
 
         private static bool s_Initialized;
+        private static bool s_SettingsHooked;
 
-        /// <summary>
-        /// The project-wide settings instance (ScriptableSingleton).
-        /// </summary>
+        // ----------------------------------------------------------------
+        // Core services
+        // ----------------------------------------------------------------
+
         public static PCPSettings Settings
         {
             get
@@ -29,22 +35,19 @@ namespace ProjectCleanPro.Editor
             }
         }
 
-        /// <summary>
-        /// Builds and queries the full asset dependency graph.
-        /// </summary>
         public static PCPDependencyResolver DependencyResolver
         {
             get
             {
                 if (s_DependencyResolver == null)
+                {
                     s_DependencyResolver = new PCPDependencyResolver();
+                    s_DependencyResolver.LoadFromDisk();
+                }
                 return s_DependencyResolver;
             }
         }
 
-        /// <summary>
-        /// Incremental scan cache stored in Library/ProjectCleanPro/.
-        /// </summary>
         public static PCPScanCache ScanCache
         {
             get
@@ -58,9 +61,6 @@ namespace ProjectCleanPro.Editor
             }
         }
 
-        /// <summary>
-        /// Ignore rule evaluation engine.
-        /// </summary>
         public static PCPIgnoreRules IgnoreRules
         {
             get
@@ -71,9 +71,6 @@ namespace ProjectCleanPro.Editor
             }
         }
 
-        /// <summary>
-        /// Render pipeline detection utility.
-        /// </summary>
         public static PCPRenderPipelineDetector RenderPipelineDetector
         {
             get
@@ -84,34 +81,88 @@ namespace ProjectCleanPro.Editor
             }
         }
 
+        // ----------------------------------------------------------------
+        // New services (orchestrator, result cache)
+        // ----------------------------------------------------------------
+
+        public static PCPResultCacheManager ResultCacheManager
+        {
+            get
+            {
+                if (s_ResultCacheManager == null)
+                    s_ResultCacheManager = new PCPResultCacheManager();
+                return s_ResultCacheManager;
+            }
+        }
+
         /// <summary>
-        /// Whether the context has been explicitly initialized.
+        /// Central scan orchestrator. Creates all module instances and wires
+        /// them to the result cache manager on first access.
         /// </summary>
+        public static PCPScanOrchestrator Orchestrator
+        {
+            get
+            {
+                if (s_Orchestrator == null)
+                {
+                    var modules = CreateModules();
+                    s_Orchestrator = new PCPScanOrchestrator(modules, ResultCacheManager);
+                }
+                return s_Orchestrator;
+            }
+        }
+
+        // ----------------------------------------------------------------
+        // Scan result (backward compat + in-memory cache)
+        // ----------------------------------------------------------------
+
         public static bool IsInitialized => s_Initialized;
 
         /// <summary>
-        /// Explicitly initializes all services. Safe to call multiple times;
-        /// subsequent calls are no-ops unless <see cref="Dispose"/> was called first.
+        /// Last scan result for backward compatibility with report exporter
+        /// and API consumers.
         /// </summary>
+        public static PCPScanResult LastScanResult { get; set; }
+
+        /// <summary>
+        /// Last scan manifest for the dashboard. Survives window close/reopen
+        /// within the same editor session.
+        /// </summary>
+        public static PCPScanManifest LastScanManifest { get; set; }
+
+        // ----------------------------------------------------------------
+        // Lifecycle
+        // ----------------------------------------------------------------
+
         public static void Initialize()
         {
             if (s_Initialized)
                 return;
 
-            // Touch each property to force lazy initialization.
             _ = Settings;
             _ = DependencyResolver;
             _ = ScanCache;
             _ = IgnoreRules;
             _ = RenderPipelineDetector;
+            _ = ResultCacheManager;
+            _ = Orchestrator;
+
+            // Hook settings change tracking.
+            if (!s_SettingsHooked)
+            {
+                PCPSettings.OnSettingsSaved += () => PCPSettingsTracker.OnSettingsChanged(Settings);
+                PCPSettingsTracker.TakeSnapshot(Settings);
+                s_SettingsHooked = true;
+            }
 
             s_Initialized = true;
         }
 
-        /// <summary>
-        /// Releases all service instances. Call this when the tool window is closed
-        /// or when a full re-scan is requested.
-        /// </summary>
+        public static void SaveCache()
+        {
+            s_ScanCache?.Save();
+        }
+
         public static void Dispose()
         {
             if (s_ScanCache != null)
@@ -120,13 +171,35 @@ namespace ProjectCleanPro.Editor
                 s_ScanCache = null;
             }
 
+            s_DependencyResolver?.SaveToDisk();
             s_DependencyResolver = null;
             s_IgnoreRules = null;
             s_RenderPipelineDetector = null;
-            // Settings is a ScriptableSingleton; we don't destroy it, just release our reference.
             s_Settings = null;
+            s_Orchestrator = null;
+            s_ResultCacheManager = null;
+            LastScanResult = null;
+            LastScanManifest = null;
 
             s_Initialized = false;
+        }
+
+        // ----------------------------------------------------------------
+        // Module factory
+        // ----------------------------------------------------------------
+
+        private static IReadOnlyList<IPCPModule> CreateModules()
+        {
+            return new IPCPModule[]
+            {
+                new PCPUnusedScanner(),
+                new PCPMissingRefScanner(),
+                new PCPDuplicateDetector(),
+                new PCPDependencyModule(),
+                new PCPPackageAuditor(),
+                new PCPShaderAnalyzer(),
+                new PCPSizeProfiler(),
+            };
         }
     }
 }

@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 
@@ -8,7 +11,12 @@ namespace ProjectCleanPro.Editor
 {
     /// <summary>
     /// Builds a full asset dependency graph (forward and reverse) and computes
-    /// reachability from a set of root assets via BFS.
+    /// reachability from root assets via BFS.
+    /// <para>
+    /// v2 changes: persists the reachable set to disk alongside forward edges,
+    /// supports async Build with editor yielding, and skips BFS entirely when
+    /// no edges changed and reachability was loaded from disk.
+    /// </para>
     /// </summary>
     public sealed class PCPDependencyResolver
     {
@@ -20,56 +28,61 @@ namespace ProjectCleanPro.Editor
         private readonly Dictionary<string, HashSet<string>> m_Reverse =
             new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
 
-        // The set of assets reachable from the roots determined during the last Build().
+        // Reachable set from the last Build().
         private readonly HashSet<string> m_Reachable =
             new HashSet<string>(StringComparer.Ordinal);
 
-        // All asset paths that were part of the graph.
+        // All asset paths in the graph.
         private readonly HashSet<string> m_AllAssets =
             new HashSet<string>(StringComparer.Ordinal);
 
-        /// <summary>
-        /// Whether the graph has been built at least once.
-        /// </summary>
+        // Whether the reachable set loaded from disk is still valid.
+        private bool m_ReachabilityValid;
+
+        private static readonly string s_GraphPath =
+            Path.Combine(PCPScanCache.CacheDirectory, "DepGraph.bin");
+
+        private const int GraphFormatVersion = 2;
+
         public bool IsBuilt { get; private set; }
-
-        /// <summary>
-        /// Total number of assets in the graph.
-        /// </summary>
         public int AssetCount => m_AllAssets.Count;
-
-        /// <summary>
-        /// Total number of reachable assets after the last Build().
-        /// </summary>
         public int ReachableCount => m_Reachable.Count;
 
         // ----------------------------------------------------------------
-        // Building
+        // Async build
         // ----------------------------------------------------------------
 
         /// <summary>
-        /// Builds the dependency graph for every asset under Assets/ and then
-        /// runs BFS from <paramref name="roots"/> to compute the reachable set.
+        /// Builds/updates the dependency graph and computes reachability via BFS.
+        /// Yields to the editor every 64 assets so the UI stays responsive.
+        /// <para>
+        /// When the graph was previously built and a cache is available, only
+        /// stale/new assets have their dependencies re-queried (incremental).
+        /// When no edges changed and the reachable set was loaded from disk,
+        /// BFS is skipped entirely (O(1)).
+        /// </para>
         /// </summary>
-        /// <param name="roots">
-        /// Root asset paths (e.g. scenes in build settings, addressable entries).
-        /// </param>
-        /// <param name="onProgress">
-        /// Optional progress callback: (progress 0-1, description).
-        /// </param>
-        /// <param name="cache">
-        /// Optional scan cache. When provided, unchanged assets reuse cached
-        /// dependency lists instead of querying <c>AssetDatabase.GetDependencies</c>.
-        /// </param>
-        public void Build(IEnumerable<string> roots, Action<float, string> onProgress = null,
-            PCPScanCache cache = null)
+        public async Task BuildAsync(IEnumerable<string> roots,
+            Action<float, string> onProgress = null,
+            PCPScanCache cache = null,
+            string[] allAssetPaths = null,
+            CancellationToken ct = default)
         {
-            Clear();
+            bool incremental = IsBuilt && cache != null;
 
-            // -- Phase 1: Gather all asset paths under Assets/ --
+            if (!incremental)
+            {
+                ClearGraph();
+            }
+            else
+            {
+                m_Reachable.Clear();
+            }
+
+            // -- Phase 1: Gather assets --
             onProgress?.Invoke(0f, "Gathering asset paths...");
 
-            string[] allPaths = AssetDatabase.GetAllAssetPaths()
+            string[] allPaths = allAssetPaths ?? AssetDatabase.GetAllAssetPaths()
                 .Where(PCPAssetUtils.IsValidAssetPath)
                 .ToArray();
 
@@ -80,67 +93,163 @@ namespace ProjectCleanPro.Editor
                 return;
             }
 
-            // -- Phase 2: Build forward and reverse adjacency lists --
-            for (int i = 0; i < total; i++)
+            // -- Phase 2: Build/update adjacency lists --
+            bool edgesChanged = await UpdateEdgesAsync(
+                allPaths, incremental, cache, onProgress, ct);
+
+            // -- Phase 3: BFS reachability --
+            if (!edgesChanged && m_ReachabilityValid && m_Reachable.Count > 0)
             {
-                string path = allPaths[i];
-                m_AllAssets.Add(path);
+                // Reachable set persisted from disk is still valid. O(1) skip.
+                onProgress?.Invoke(1f, "Dependency graph complete (reachability cached).");
+                IsBuilt = true;
+                return;
+            }
 
-                // Report progress every 64 assets to avoid overhead.
-                if ((i & 63) == 0)
+            m_Reachable.Clear();
+            await ComputeReachabilityAsync(roots, onProgress, ct);
+
+            m_ReachabilityValid = true;
+            IsBuilt = true;
+            SaveToDisk();
+
+            onProgress?.Invoke(1f, "Dependency graph complete.");
+        }
+
+        /// <summary>
+        /// Synchronous build for backward compatibility and batch mode.
+        /// </summary>
+        public void Build(IEnumerable<string> roots, Action<float, string> onProgress = null,
+            PCPScanCache cache = null, string[] allAssetPaths = null)
+        {
+            PCPEditorAsync.RunSync(() => BuildAsync(roots, onProgress, cache, allAssetPaths));
+        }
+
+        // ----------------------------------------------------------------
+        // Phase 2: Edge update (returns true if any edge changed)
+        // ----------------------------------------------------------------
+
+        private async Task<bool> UpdateEdgesAsync(string[] allPaths, bool incremental,
+            PCPScanCache cache, Action<float, string> onProgress, CancellationToken ct)
+        {
+            int total = allPaths.Length;
+            bool anyEdgeChanged = false;
+
+            if (incremental)
+            {
+                // Remove edges for deleted assets.
+                var currentSet = new HashSet<string>(allPaths, StringComparer.Ordinal);
+                var toRemove = new List<string>();
+                foreach (string asset in m_AllAssets)
                 {
-                    float progress = (float)i / total * 0.8f; // 0 – 0.8
-                    onProgress?.Invoke(progress, $"Resolving dependencies ({i}/{total})...");
+                    if (!currentSet.Contains(asset) && m_Forward.ContainsKey(asset))
+                        toRemove.Add(asset);
+                }
+                for (int i = 0; i < toRemove.Count; i++)
+                {
+                    RemoveAssetEdges(toRemove[i]);
+                    anyEdgeChanged = true;
                 }
 
-                // Try the cache first: if the asset hasn't changed, reuse
-                // the previously resolved dependency list.
-                string[] deps = null;
-                if (cache != null && !cache.IsStale(path))
+                int processed = 0;
+                for (int i = 0; i < total; i++)
                 {
-                    deps = cache.GetDependencies(path);
-                }
+                    string path = allPaths[i];
+                    m_AllAssets.Add(path);
 
-                if (deps == null)
-                {
-                    // Cache miss or stale — query Unity.
-                    deps = AssetDatabase.GetDependencies(path, false);
-
-                    // Store back into the cache for next time.
-                    if (cache != null)
-                        cache.SetDependencies(path, deps);
-                }
-
-                HashSet<string> forwardSet = GetOrCreateSet(m_Forward, path);
-
-                foreach (string dep in deps)
-                {
-                    if (!PCPAssetUtils.IsValidAssetPath(dep) || string.Equals(dep, path, StringComparison.Ordinal))
+                    if (!cache.IsStale(path) && m_Forward.ContainsKey(path))
                         continue;
 
-                    forwardSet.Add(dep);
-                    m_AllAssets.Add(dep);
+                    processed++;
+                    anyEdgeChanged = true;
 
-                    // Reverse edge.
-                    GetOrCreateSet(m_Reverse, dep).Add(path);
+                    if ((processed & 63) == 0)
+                    {
+                        onProgress?.Invoke((float)i / total * 0.8f,
+                            $"Updating dependencies ({processed} changed)...");
+                        ct.ThrowIfCancellationRequested();
+                        await PCPEditorAsync.YieldToEditor();
+                    }
+
+                    RemoveAssetEdges(path);
+                    m_AllAssets.Add(path);
+
+                    string[] deps = !cache.IsStale(path) ? cache.GetDependencies(path) : null;
+                    if (deps == null)
+                    {
+                        deps = AssetDatabase.GetDependencies(path, false);
+                        cache.SetDependencies(path, deps);
+                    }
+
+                    AddEdges(path, deps);
+                }
+            }
+            else
+            {
+                anyEdgeChanged = true;
+                for (int i = 0; i < total; i++)
+                {
+                    string path = allPaths[i];
+                    m_AllAssets.Add(path);
+
+                    if ((i & 63) == 0)
+                    {
+                        onProgress?.Invoke((float)i / total * 0.8f,
+                            $"Resolving dependencies ({i}/{total})...");
+                        ct.ThrowIfCancellationRequested();
+                        await PCPEditorAsync.YieldToEditor();
+                    }
+
+                    string[] deps = null;
+                    if (cache != null && !cache.IsStale(path))
+                        deps = cache.GetDependencies(path);
+                    if (deps == null)
+                    {
+                        deps = AssetDatabase.GetDependencies(path, false);
+                        cache?.SetDependencies(path, deps);
+                    }
+
+                    AddEdges(path, deps);
                 }
             }
 
-            // -- Phase 3: BFS from roots --
-            onProgress?.Invoke(0.8f, "Computing reachable set...");
+            return anyEdgeChanged;
+        }
 
-            Queue<string> queue = new Queue<string>();
-
-            foreach (string root in roots)
+        private void AddEdges(string path, string[] deps)
+        {
+            HashSet<string> forwardSet = GetOrCreateSet(m_Forward, path);
+            foreach (string dep in deps)
             {
-                if (string.IsNullOrEmpty(root))
+                if (!PCPAssetUtils.IsValidAssetPath(dep) ||
+                    string.Equals(dep, path, StringComparison.Ordinal))
                     continue;
 
-                if (m_Reachable.Add(root))
+                forwardSet.Add(dep);
+                m_AllAssets.Add(dep);
+                GetOrCreateSet(m_Reverse, dep).Add(path);
+            }
+        }
+
+        // ----------------------------------------------------------------
+        // Phase 3: BFS reachability (async, yields every 128 visits)
+        // ----------------------------------------------------------------
+
+        private async Task ComputeReachabilityAsync(IEnumerable<string> roots,
+            Action<float, string> onProgress, CancellationToken ct)
+        {
+            onProgress?.Invoke(0.8f, "Computing reachable set...");
+
+            var queue = new Queue<string>();
+            foreach (string root in roots)
+            {
+                if (!string.IsNullOrEmpty(root) && m_Reachable.Add(root))
                     queue.Enqueue(root);
             }
 
             int visited = 0;
+            int assetCount = m_AllAssets.Count + 1;
+
             while (queue.Count > 0)
             {
                 string current = queue.Dequeue();
@@ -148,8 +257,10 @@ namespace ProjectCleanPro.Editor
 
                 if ((visited & 127) == 0)
                 {
-                    float progress = 0.8f + 0.2f * Mathf.Min((float)visited / (m_AllAssets.Count + 1), 1f);
+                    float progress = 0.8f + 0.2f * Mathf.Min((float)visited / assetCount, 1f);
                     onProgress?.Invoke(progress, $"BFS reachability ({visited} visited)...");
+                    ct.ThrowIfCancellationRequested();
+                    await PCPEditorAsync.YieldToEditor();
                 }
 
                 if (m_Forward.TryGetValue(current, out HashSet<string> deps))
@@ -161,18 +272,127 @@ namespace ProjectCleanPro.Editor
                     }
                 }
             }
+        }
 
-            onProgress?.Invoke(1f, "Dependency graph complete.");
-            IsBuilt = true;
+        // ----------------------------------------------------------------
+        // Edge removal
+        // ----------------------------------------------------------------
+
+        internal void RemoveAssets(IEnumerable<string> paths)
+        {
+            foreach (string path in paths)
+                RemoveAssetEdges(path);
+        }
+
+        internal void RemoveAssetEdges(string assetPath)
+        {
+            if (m_Forward.TryGetValue(assetPath, out HashSet<string> forwardDeps))
+            {
+                foreach (string dep in forwardDeps)
+                {
+                    if (m_Reverse.TryGetValue(dep, out HashSet<string> revSet))
+                        revSet.Remove(assetPath);
+                }
+                m_Forward.Remove(assetPath);
+            }
+
+            if (m_Reverse.TryGetValue(assetPath, out HashSet<string> reverseDeps))
+            {
+                foreach (string dep in reverseDeps)
+                {
+                    if (m_Forward.TryGetValue(dep, out HashSet<string> fwdSet))
+                        fwdSet.Remove(assetPath);
+                }
+                m_Reverse.Remove(assetPath);
+            }
+
+            m_AllAssets.Remove(assetPath);
+        }
+
+        // ----------------------------------------------------------------
+        // Disk persistence (v2: forward edges + reachable set)
+        // ----------------------------------------------------------------
+
+        public void SaveToDisk()
+        {
+            try
+            {
+                PCPCacheIO.AtomicWrite(s_GraphPath, GraphFormatVersion, writer =>
+                {
+                    // Forward adjacency list.
+                    writer.Write(m_Forward.Count);
+                    foreach (var kvp in m_Forward)
+                    {
+                        writer.Write(kvp.Key);
+                        writer.Write(kvp.Value.Count);
+                        foreach (string dep in kvp.Value)
+                            writer.Write(dep);
+                    }
+
+                    // Reachable set (new in v2).
+                    writer.Write(m_Reachable.Count);
+                    foreach (string path in m_Reachable)
+                        writer.Write(path);
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ProjectCleanPro] Failed to save dependency graph: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Loads forward edges and reachable set from disk. Reverse edges are
+        /// rebuilt from forward edges (O(E), no Unity API calls).
+        /// Returns true on success.
+        /// </summary>
+        public bool LoadFromDisk()
+        {
+            bool loaded = PCPCacheIO.SafeRead(s_GraphPath, GraphFormatVersion, reader =>
+            {
+                ClearGraph();
+
+                // Forward adjacency list.
+                int forwardCount = reader.ReadInt32();
+                for (int i = 0; i < forwardCount; i++)
+                {
+                    string path = reader.ReadString();
+                    int depCount = reader.ReadInt32();
+                    var fwdSet = GetOrCreateSet(m_Forward, path);
+                    m_AllAssets.Add(path);
+
+                    for (int j = 0; j < depCount; j++)
+                    {
+                        string dep = reader.ReadString();
+                        fwdSet.Add(dep);
+                        m_AllAssets.Add(dep);
+                        GetOrCreateSet(m_Reverse, dep).Add(path);
+                    }
+                }
+
+                // Reachable set (new in v2).
+                int reachableCount = reader.ReadInt32();
+                for (int i = 0; i < reachableCount; i++)
+                    m_Reachable.Add(reader.ReadString());
+
+                return true;
+            }, out bool success);
+
+            if (loaded && success)
+            {
+                IsBuilt = true;
+                m_ReachabilityValid = m_Reachable.Count > 0;
+                return true;
+            }
+
+            ClearGraph();
+            return false;
         }
 
         // ----------------------------------------------------------------
         // Queries
         // ----------------------------------------------------------------
 
-        /// <summary>
-        /// Returns the direct dependencies of <paramref name="assetPath"/>.
-        /// </summary>
         public IReadOnlyCollection<string> GetDependencies(string assetPath)
         {
             if (m_Forward.TryGetValue(assetPath, out HashSet<string> deps))
@@ -180,9 +400,6 @@ namespace ProjectCleanPro.Editor
             return Array.Empty<string>();
         }
 
-        /// <summary>
-        /// Returns the assets that directly depend on <paramref name="assetPath"/>.
-        /// </summary>
         public IReadOnlyCollection<string> GetDependents(string assetPath)
         {
             if (m_Reverse.TryGetValue(assetPath, out HashSet<string> dependents))
@@ -190,25 +407,10 @@ namespace ProjectCleanPro.Editor
             return Array.Empty<string>();
         }
 
-        /// <summary>
-        /// Whether <paramref name="assetPath"/> is reachable from the roots.
-        /// </summary>
-        public bool IsReachable(string assetPath)
-        {
-            return m_Reachable.Contains(assetPath);
-        }
+        public bool IsReachable(string assetPath) => m_Reachable.Contains(assetPath);
 
-        /// <summary>
-        /// Returns every asset path reachable from the roots.
-        /// </summary>
-        public IReadOnlyCollection<string> GetAllReachable()
-        {
-            return m_Reachable;
-        }
+        public IReadOnlyCollection<string> GetAllReachable() => m_Reachable;
 
-        /// <summary>
-        /// Returns every asset path that is NOT reachable from the roots.
-        /// </summary>
         public IEnumerable<string> GetAllUnreachable()
         {
             foreach (string path in m_AllAssets)
@@ -218,27 +420,24 @@ namespace ProjectCleanPro.Editor
             }
         }
 
-        /// <summary>
-        /// Returns all known asset paths in the graph.
-        /// </summary>
-        public IReadOnlyCollection<string> GetAllAssets()
+        public IReadOnlyCollection<string> GetAllAssets() => m_AllAssets;
+
+        // ----------------------------------------------------------------
+        // Clear
+        // ----------------------------------------------------------------
+
+        public void Clear()
         {
-            return m_AllAssets;
+            ClearGraph();
         }
 
-        // ----------------------------------------------------------------
-        // Internals
-        // ----------------------------------------------------------------
-
-        /// <summary>
-        /// Clears all graph data.
-        /// </summary>
-        public void Clear()
+        private void ClearGraph()
         {
             m_Forward.Clear();
             m_Reverse.Clear();
             m_Reachable.Clear();
             m_AllAssets.Clear();
+            m_ReachabilityValid = false;
             IsBuilt = false;
         }
 

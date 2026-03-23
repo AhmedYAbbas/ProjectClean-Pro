@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -60,6 +61,7 @@ namespace ProjectCleanPro.Editor
             var filterBar = new VisualElement();
             filterBar.style.flexDirection = FlexDirection.Row;
             filterBar.style.alignItems = Align.Center;
+            filterBar.style.minHeight = 32;
             filterBar.style.paddingLeft = 8;
             filterBar.style.paddingRight = 8;
             filterBar.style.paddingTop = 4;
@@ -71,6 +73,7 @@ namespace ProjectCleanPro.Editor
 
             m_SearchField = new TextField();
             m_SearchField.style.flexGrow = 1;
+            m_SearchField.style.height = 24;
             m_SearchField.style.marginRight = 8;
             m_SearchField.style.minWidth = 120;
             m_SearchField.value = string.Empty;
@@ -89,6 +92,7 @@ namespace ProjectCleanPro.Editor
             };
             m_SeverityDropdown = new PopupField<string>(severityChoices, 0);
             m_SeverityDropdown.style.minWidth = 120;
+            m_SeverityDropdown.style.height = 24;
             m_SeverityDropdown.style.marginRight = 8;
             m_SeverityDropdown.RegisterValueChangedCallback(evt =>
             {
@@ -424,35 +428,34 @@ namespace ProjectCleanPro.Editor
         // Actions
         // --------------------------------------------------------------------
 
-        private void OnScanClicked()
+        private async void OnScanClicked()
         {
             m_Header.IsScanning = true;
 
-            EditorApplication.delayCall += () =>
-            {
-                try
-                {
-                    var context = m_CreateContext?.Invoke();
-                    if (context != null)
-                    {
-                        var scanner = new PCPMissingRefScanner();
-                        scanner.Scan(context);
+            await PCPEditorAsync.YieldToEditor();
 
-                        m_ScanResult.missingReferences.Clear();
-                        foreach (var result in scanner.Results)
-                            m_ScanResult.missingReferences.Add(result);
-                    }
-                }
-                catch (Exception ex)
+            try
+            {
+                var context = m_CreateContext?.Invoke();
+                if (context != null)
                 {
-                    Debug.LogError($"[ProjectCleanPro] Missing references scan failed: {ex}");
+                    var cts = new CancellationTokenSource();
+                    await PCPContext.Orchestrator.ScanModuleAsync(
+                        PCPModuleId.Missing, context, null, cts.Token);
+
+                    // Sync orchestrator results into the legacy scan result.
+                    PCPModuleView.SyncModuleToScanResult(PCPModuleId.Missing, m_ScanResult);
                 }
-                finally
-                {
-                    m_Header.IsScanning = false;
-                    RefreshGroups();
-                }
-            };
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ProjectCleanPro] Missing references scan failed: {ex}");
+            }
+            finally
+            {
+                m_Header.IsScanning = false;
+                RefreshGroups();
+            }
         }
 
         private void OnExport()

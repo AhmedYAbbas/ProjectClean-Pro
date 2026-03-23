@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 
@@ -77,10 +80,12 @@ namespace ProjectCleanPro.Editor
         // Identity
         // ----------------------------------------------------------------
 
-        public override string ModuleId => "dependencies";
+        public override PCPModuleId Id => PCPModuleId.Dependencies;
         public override string DisplayName => "Dependencies";
         public override string Icon => "\u2B83"; // ⮃
         public override Color AccentColor => new Color(0.161f, 0.502f, 0.725f, 1f); // #2980B9
+        public override IReadOnlyCollection<string> RelevantExtensions => null;
+        public override bool RequiresDependencyGraph => true;
 
         // ----------------------------------------------------------------
         // Results
@@ -109,7 +114,7 @@ namespace ProjectCleanPro.Editor
         // Scan implementation
         // ----------------------------------------------------------------
 
-        protected override void DoScan(PCPScanContext context)
+        protected override async Task DoScanAsync(PCPScanContext context, CancellationToken ct)
         {
             _circularDeps.Clear();
             _orphanAssets.Clear();
@@ -127,7 +132,7 @@ namespace ProjectCleanPro.Editor
                 // Include scenes as roots — all project scenes or just build scenes.
                 if (context.Settings.includeAllScenes)
                 {
-                    string[] allScenes = PCPAssetUtils.GetAllScenePaths();
+                    string[] allScenes = PCPAssetUtils.GetAllScenePaths(context.AllProjectAssets);
                     for (int i = 0; i < allScenes.Length; i++)
                         roots.Add(allScenes[i]);
                 }
@@ -146,27 +151,27 @@ namespace ProjectCleanPro.Editor
                         roots.Add(addressableRoots[i]);
                 }
 
-                _resolver.Build(roots, (p, label) =>
+                await _resolver.BuildAsync(roots, (p, label) =>
                 {
                     ReportProgress(p * 0.4f, label);
-                }, context.Cache);
+                }, context.Cache, context.AllProjectAssets, ct: ct);
             }
 
-            if (ShouldCancel()) return;
+            ct.ThrowIfCancellationRequested();
 
             // ----------------------------------------------------------
             // Phase 2: Detect circular dependencies
             // ----------------------------------------------------------
             ReportProgress(0.4f, "Detecting circular dependencies...");
-            DetectCircularDependencies();
+            DetectCircularDependencies(ct);
 
-            if (ShouldCancel()) return;
+            ct.ThrowIfCancellationRequested();
 
             // ----------------------------------------------------------
             // Phase 3: Find orphan assets
             // ----------------------------------------------------------
             ReportProgress(0.7f, "Finding orphan assets...");
-            FindOrphans(context);
+            FindOrphans(context, ct);
 
             ReportProgress(1f, $"Found {_circularDeps.Count} cycles, {_orphanAssets.Count} orphans.");
         }
@@ -179,7 +184,7 @@ namespace ProjectCleanPro.Editor
         /// Detects circular dependencies in the asset graph using iterative DFS
         /// with three-color marking (white/gray/black).
         /// </summary>
-        private void DetectCircularDependencies()
+        private void DetectCircularDependencies(CancellationToken ct)
         {
             var allAssets = _resolver.GetAllAssets();
             if (allAssets == null || allAssets.Count == 0)
@@ -200,12 +205,12 @@ namespace ProjectCleanPro.Editor
 
             foreach (string asset in allAssets)
             {
-                if (ShouldCancel()) return;
+                ct.ThrowIfCancellationRequested();
                 if (_circularDeps.Count >= maxCycles) return;
 
                 if (color[asset] == 0)
                 {
-                    DFSVisit(asset, color, parent, foundCycleKeys, maxCycles);
+                    DFSVisit(asset, color, parent, foundCycleKeys, maxCycles, ct);
                 }
             }
         }
@@ -215,7 +220,8 @@ namespace ProjectCleanPro.Editor
             Dictionary<string, int> color,
             Dictionary<string, string> parent,
             HashSet<string> foundCycleKeys,
-            int maxCycles)
+            int maxCycles,
+            CancellationToken ct)
         {
             var stack = new Stack<DFSFrame>();
             stack.Push(new DFSFrame { asset = start, deps = null, index = 0 });
@@ -223,7 +229,7 @@ namespace ProjectCleanPro.Editor
 
             while (stack.Count > 0)
             {
-                if (ShouldCancel()) return;
+                ct.ThrowIfCancellationRequested();
                 if (_circularDeps.Count >= maxCycles) return;
 
                 var frame = stack.Peek();
@@ -325,7 +331,7 @@ namespace ProjectCleanPro.Editor
         /// Finds assets that have zero incoming dependency edges (nothing references them)
         /// and that are not build-scene roots or Resources assets.
         /// </summary>
-        private void FindOrphans(PCPScanContext context)
+        private void FindOrphans(PCPScanContext context, CancellationToken ct)
         {
             var allAssets = _resolver.GetAllAssets();
             if (allAssets == null)
@@ -336,7 +342,7 @@ namespace ProjectCleanPro.Editor
 
             foreach (string asset in allAssets)
             {
-                if (ShouldCancel()) return;
+                ct.ThrowIfCancellationRequested();
 
                 // Skip ignored assets.
                 if (IsIgnored(asset, context))
@@ -351,7 +357,7 @@ namespace ProjectCleanPro.Editor
                     continue;
 
                 // Skip scripts and editor-only assets.
-                string ext = System.IO.Path.GetExtension(asset);
+                string ext = Path.GetExtension(asset);
                 if (string.Equals(ext, ".cs", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(ext, ".asmdef", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(ext, ".asmref", StringComparison.OrdinalIgnoreCase))
@@ -411,7 +417,7 @@ namespace ProjectCleanPro.Editor
                 {
                     assetPath = asset,
                     assetType = assetType != null ? assetType.Name : "Unknown",
-                    displayName = System.IO.Path.GetFileNameWithoutExtension(asset),
+                    displayName = Path.GetFileNameWithoutExtension(asset),
                     depth = currentDepth
                 });
 
@@ -452,6 +458,46 @@ namespace ProjectCleanPro.Editor
             _circularDeps.Clear();
             _orphanAssets.Clear();
             _resolver = null;
+        }
+
+        // ----------------------------------------------------------------
+        // Binary serialization
+        // ----------------------------------------------------------------
+
+        public override void WriteResults(BinaryWriter writer)
+        {
+            // Circular dependencies
+            writer.Write(_circularDeps.Count);
+            for (int i = 0; i < _circularDeps.Count; i++)
+            {
+                var c = _circularDeps[i];
+                writer.Write(c.chain?.Count ?? 0);
+                if (c.chain != null)
+                    for (int j = 0; j < c.chain.Count; j++)
+                        writer.Write(c.chain[j] ?? string.Empty);
+            }
+            // Orphans
+            writer.Write(_orphanAssets.Count);
+            for (int i = 0; i < _orphanAssets.Count; i++)
+                writer.Write(_orphanAssets[i] ?? string.Empty);
+        }
+
+        public override void ReadResults(BinaryReader reader)
+        {
+            _circularDeps.Clear();
+            _orphanAssets.Clear();
+            int circCount = reader.ReadInt32();
+            for (int i = 0; i < circCount; i++)
+            {
+                int pathCount = reader.ReadInt32();
+                var paths = new List<string>(pathCount);
+                for (int j = 0; j < pathCount; j++)
+                    paths.Add(reader.ReadString());
+                _circularDeps.Add(new PCPCircularDependency { chain = paths });
+            }
+            int orphanCount = reader.ReadInt32();
+            for (int i = 0; i < orphanCount; i++)
+                _orphanAssets.Add(reader.ReadString());
         }
 
         // ----------------------------------------------------------------

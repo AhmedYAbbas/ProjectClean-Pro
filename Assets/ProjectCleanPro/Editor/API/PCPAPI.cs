@@ -88,6 +88,22 @@ namespace ProjectCleanPro.Editor
     public static class PCPAPI
     {
         // ----------------------------------------------------------------
+        // String → PCPModuleId mapping
+        // ----------------------------------------------------------------
+
+        private static readonly Dictionary<string, PCPModuleId> s_ModuleIdMap =
+            new Dictionary<string, PCPModuleId>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "unused",       PCPModuleId.Unused },
+                { "missing",      PCPModuleId.Missing },
+                { "duplicates",   PCPModuleId.Duplicates },
+                { "dependencies", PCPModuleId.Dependencies },
+                { "packages",     PCPModuleId.Packages },
+                { "shaders",      PCPModuleId.Shaders },
+                { "size",         PCPModuleId.Size },
+            };
+
+        // ----------------------------------------------------------------
         // Scan
         // ----------------------------------------------------------------
 
@@ -103,80 +119,91 @@ namespace ProjectCleanPro.Editor
         {
             options = options ?? new PCPScanOptions();
 
-            var startTime = DateTime.UtcNow;
-            var result = new PCPScanResult
-            {
-                scanTimestampUtc = startTime.ToString("o"),
-                projectName      = Application.productName,
-                unityVersion     = Application.unityVersion,
-            };
-
-            // ---- Build module list ----
-            var modules = BuildModuleList(options.Modules);
-
-            if (options.VerboseLogging)
-                Debug.Log($"[PCPAPI] Starting scan — {modules.Count} module(s): " +
-                          string.Join(", ", modules.ConvertAll(m => m.ModuleId)));
-
-            // ---- Build scan context ----
+            // ---- Initialize global context ----
             PCPContext.Initialize();
 
-            // Apply transient options on top of persisted settings.
+            // ---- Apply transient options on top of persisted settings ----
             var settings = PCPSettings.instance;
             bool prevIncludeAll = settings.includeAllScenes;
             if (options.IncludeAllScenes)
                 settings.includeAllScenes = true;
 
-            List<string> customRoots = options.AdditionalScanRoots;
-            var context = PCPScanContext.FromGlobalContext(customRoots);
-            context.OnProgress = options.VerboseLogging
-                ? (float p, string label) =>
-                    Debug.Log($"[PCPAPI]   {label} ({p * 100f:F0}%)")
-                : (Action<float, string>)null;
-
-            // ---- Run modules ----
-            int totalAssets = AssetDatabase.GetAllAssetPaths().Length;
-            result.totalAssetsScanned = totalAssets;
-
-            foreach (var module in modules)
+            try
             {
-                if (options.CancellationToken.IsCancellationRequested)
+                // ---- Build scan context ----
+                List<string> customRoots = options.AdditionalScanRoots;
+                var context = PCPScanContext.FromGlobalContext(customRoots);
+                context.OnProgress = options.VerboseLogging
+                    ? (float p, string label) =>
+                        Debug.Log($"[PCPAPI]   {label} ({p * 100f:F0}%)")
+                    : (Action<float, string>)null;
+
+                // ---- Determine modules ----
+                bool isFilteredScan = options.Modules != null && options.Modules.Length > 0;
+
+                PCPScanOrchestrator orchestrator;
+                PCPScanManifest manifest;
+
+                if (!isFilteredScan)
                 {
-                    Debug.LogWarning("[PCPAPI] Scan cancelled by caller.");
-                    break;
+                    // Full scan — delegate to the global orchestrator.
+                    orchestrator = PCPContext.Orchestrator;
+
+                    if (options.VerboseLogging)
+                        Debug.Log("[PCPAPI] Starting full scan (all modules).");
+
+                    manifest = orchestrator.ScanAllSync(context, context.OnProgress);
                 }
+                else
+                {
+                    // Filtered scan — create a temporary orchestrator with only
+                    // the requested modules so the orchestrator handles ordering,
+                    // graph building, caching, and finalization.
+                    var filteredModules = BuildFilteredModuleList(options.Modules);
+
+                    if (options.VerboseLogging)
+                        Debug.Log($"[PCPAPI] Starting filtered scan — {filteredModules.Count} module(s): " +
+                                  string.Join(", ", filteredModules.ConvertAll(m => m.Id.ToString())));
+
+                    if (filteredModules.Count == 0)
+                    {
+                        Debug.LogWarning("[PCPAPI] No valid modules matched the filter. Returning empty result.");
+                        return new PCPScanResult
+                        {
+                            scanTimestampUtc = DateTime.UtcNow.ToString("o"),
+                            projectName = Application.productName,
+                            unityVersion = Application.unityVersion,
+                        };
+                    }
+
+                    orchestrator = new PCPScanOrchestrator(filteredModules, PCPContext.ResultCacheManager);
+                    manifest = orchestrator.ScanAllSync(context, context.OnProgress);
+                }
+
+                // ---- Populate backward-compatible PCPScanResult ----
+                var result = PopulateResult(orchestrator, manifest);
+
+                // Store on context for report exporter and other consumers.
+                PCPContext.LastScanResult = result;
+                PCPContext.LastScanManifest = manifest;
 
                 if (options.VerboseLogging)
-                    Debug.Log($"[PCPAPI] Running module: {module.DisplayName}");
-
-                try
                 {
-                    module.Scan(context);
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogError($"[PCPAPI] Module '{module.ModuleId}' threw: {ex.Message}");
+                    Debug.Log(
+                        $"[PCPAPI] Scan complete in {result.scanDurationSeconds:F2}s — " +
+                        $"Unused: {result.UnusedAssetCount}, " +
+                        $"Missing: {result.MissingReferenceCount}, " +
+                        $"Duplicate groups: {result.DuplicateGroupCount}");
                 }
 
-                CollectModuleResults(module, result);
+                return result;
             }
-
-            // ---- Restore mutated settings ----
-            if (options.IncludeAllScenes)
-                settings.includeAllScenes = prevIncludeAll;
-
-            result.scanDurationSeconds = (float)(DateTime.UtcNow - startTime).TotalSeconds;
-
-            if (options.VerboseLogging)
+            finally
             {
-                Debug.Log(
-                    $"[PCPAPI] Scan complete in {result.scanDurationSeconds:F2}s — " +
-                    $"Unused: {result.UnusedAssetCount}, " +
-                    $"Missing: {result.MissingReferenceCount}, " +
-                    $"Duplicate groups: {result.DuplicateGroupCount}");
+                // ---- Restore mutated settings ----
+                if (options.IncludeAllScenes)
+                    settings.includeAllScenes = prevIncludeAll;
             }
-
-            return result;
         }
 
         // ----------------------------------------------------------------
@@ -261,9 +288,22 @@ namespace ProjectCleanPro.Editor
         // Internal helpers
         // ----------------------------------------------------------------
 
-        private static List<IPCPModule> BuildModuleList(string[] moduleFilter)
+        /// <summary>
+        /// Converts string module filter into a list of concrete module instances.
+        /// Used for filtered (partial) scans where a temporary orchestrator is created.
+        /// </summary>
+        private static List<IPCPModule> BuildFilteredModuleList(string[] moduleFilter)
         {
-            // All available modules in run order.
+            var filter = new HashSet<PCPModuleId>();
+            foreach (var name in moduleFilter)
+            {
+                if (s_ModuleIdMap.TryGetValue(name, out var id))
+                    filter.Add(id);
+                else
+                    Debug.LogWarning($"[PCPAPI] Unknown module id '{name}' — skipping.");
+            }
+
+            // Create fresh module instances for the temporary orchestrator.
             var all = new List<IPCPModule>
             {
                 new PCPUnusedScanner(),
@@ -275,46 +315,57 @@ namespace ProjectCleanPro.Editor
                 new PCPSizeProfiler(),
             };
 
-            if (moduleFilter == null || moduleFilter.Length == 0)
-                return all;
-
-            var filter = new HashSet<string>(moduleFilter, StringComparer.OrdinalIgnoreCase);
-            return all.FindAll(m => filter.Contains(m.ModuleId));
+            return all.FindAll(m => filter.Contains(m.Id));
         }
 
-        private static void CollectModuleResults(IPCPModule module, PCPScanResult result)
+        /// <summary>
+        /// Populates a <see cref="PCPScanResult"/> from the orchestrator's module
+        /// results and the scan manifest. Provides backward compatibility for callers
+        /// that consume the flat result object.
+        /// </summary>
+        private static PCPScanResult PopulateResult(PCPScanOrchestrator orchestrator, PCPScanManifest manifest)
         {
-            switch (module.ModuleId)
+            var result = new PCPScanResult
             {
-                case "unused" when module is PCPUnusedScanner u:
-                    result.unusedAssets.AddRange(u.Results);
-                    break;
+                scanTimestampUtc = manifest.scanTimestampUtc,
+                scanDurationSeconds = manifest.scanDurationSeconds,
+                projectName = manifest.projectName,
+                unityVersion = manifest.unityVersion,
+                totalAssetsScanned = manifest.totalAssetsScanned,
+            };
 
-                case "missing" when module is PCPMissingRefScanner m:
-                    result.missingReferences.AddRange(m.Results);
-                    break;
+            var unused = orchestrator.GetModule(PCPModuleId.Unused) as PCPUnusedScanner;
+            if (unused != null)
+                result.unusedAssets = new List<PCPUnusedAsset>(unused.Results);
 
-                case "duplicates" when module is PCPDuplicateDetector d:
-                    result.duplicateGroups.AddRange(d.Results);
-                    break;
+            var missing = orchestrator.GetModule(PCPModuleId.Missing) as PCPMissingRefScanner;
+            if (missing != null)
+                result.missingReferences = new List<PCPMissingReference>(missing.Results);
 
-                case "packages" when module is PCPPackageAuditor p:
-                    result.packageAudit.AddRange(p.Results);
-                    break;
+            var duplicates = orchestrator.GetModule(PCPModuleId.Duplicates) as PCPDuplicateDetector;
+            if (duplicates != null)
+                result.duplicateGroups = new List<PCPDuplicateGroup>(duplicates.Results);
 
-                case "shaders" when module is PCPShaderAnalyzer s:
-                    result.shaderEntries.AddRange(s.Results);
-                    break;
-
-                case "size" when module is PCPSizeProfiler sp:
-                    result.sizeEntries.AddRange(sp.Results);
-                    break;
-
-                case "dependencies" when module is PCPDependencyModule dep:
-                    result.circularDependencies.AddRange(dep.CircularDependencies);
-                    result.orphanAssets.AddRange(dep.OrphanAssets);
-                    break;
+            var deps = orchestrator.GetModule(PCPModuleId.Dependencies) as PCPDependencyModule;
+            if (deps != null)
+            {
+                result.circularDependencies = new List<PCPCircularDependency>(deps.CircularDependencies);
+                result.orphanAssets = new List<string>(deps.OrphanAssets);
             }
+
+            var packages = orchestrator.GetModule(PCPModuleId.Packages) as PCPPackageAuditor;
+            if (packages != null)
+                result.packageAuditEntries = new List<PCPPackageAuditEntry>(packages.Results);
+
+            var shaders = orchestrator.GetModule(PCPModuleId.Shaders) as PCPShaderAnalyzer;
+            if (shaders != null)
+                result.shaderEntries = new List<PCPShaderEntry>(shaders.Results);
+
+            var size = orchestrator.GetModule(PCPModuleId.Size) as PCPSizeProfiler;
+            if (size != null)
+                result.sizeEntries = new List<PCPSizeEntry>(size.Results);
+
+            return result;
         }
 
         private static PCPScanOptions MergeModules(PCPScanOptions options, string moduleId)

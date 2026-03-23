@@ -19,24 +19,51 @@ namespace ProjectCleanPro.Editor
 
         /// <summary>
         /// Returns all project asset paths under "Assets/" excluding folders.
-        /// Filters out directories and Packages/ paths.
+        /// Uses <c>Path.GetExtension</c> instead of <c>AssetDatabase.IsValidFolder</c>
+        /// to avoid an expensive Unity API call per path.
         /// </summary>
         public static string[] GetAllProjectAssets()
         {
-            return AssetDatabase.GetAllAssetPaths()
-                .Where(p => IsValidAssetPath(p))
-                .ToArray();
+            string[] allPaths = AssetDatabase.GetAllAssetPaths();
+            var result = new List<string>(allPaths.Length / 2);
+
+            for (int i = 0; i < allPaths.Length; i++)
+            {
+                string p = allPaths[i];
+                if (IsValidAssetPath(p))
+                    result.Add(p);
+            }
+
+            return result.ToArray();
         }
 
         /// <summary>
-        /// Returns paths to all .unity scene files in the project.
+        /// Returns paths to all .unity scene files from an existing asset list.
+        /// Falls back to scanning if <paramref name="allProjectAssets"/> is null.
         /// </summary>
-        public static string[] GetAllScenePaths()
+        public static string[] GetAllScenePaths(string[] allProjectAssets = null)
         {
-            return AssetDatabase.GetAllAssetPaths()
-                .Where(p => p.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase)
-                            && p.EndsWith(".unity", StringComparison.OrdinalIgnoreCase))
-                .ToArray();
+            if (allProjectAssets != null)
+            {
+                var scenes = new List<string>();
+                for (int i = 0; i < allProjectAssets.Length; i++)
+                {
+                    if (allProjectAssets[i].EndsWith(".unity", StringComparison.OrdinalIgnoreCase))
+                        scenes.Add(allProjectAssets[i]);
+                }
+                return scenes.ToArray();
+            }
+
+            string[] allPaths = AssetDatabase.GetAllAssetPaths();
+            var result = new List<string>();
+            for (int i = 0; i < allPaths.Length; i++)
+            {
+                string p = allPaths[i];
+                if (p.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase)
+                    && p.EndsWith(".unity", StringComparison.OrdinalIgnoreCase))
+                    result.Add(p);
+            }
+            return result.ToArray();
         }
 
         /// <summary>
@@ -44,25 +71,45 @@ namespace ProjectCleanPro.Editor
         /// </summary>
         public static string[] GetBuildScenePaths()
         {
-            return EditorBuildSettings.scenes
-                .Where(s => s.enabled && !string.IsNullOrEmpty(s.path))
-                .Select(s => s.path)
-                .ToArray();
+            var scenes = EditorBuildSettings.scenes;
+            var result = new List<string>();
+            for (int i = 0; i < scenes.Length; i++)
+            {
+                if (scenes[i].enabled && !string.IsNullOrEmpty(scenes[i].path))
+                    result.Add(scenes[i].path);
+            }
+            return result.ToArray();
         }
 
         /// <summary>
-        /// Returns all asset paths located under any <c>Resources/</c> folder in the project.
-        /// This includes both top-level <c>Assets/Resources/</c> and nested
-        /// <c>Assets/.../Resources/</c> directories.
+        /// Returns all asset paths located under any <c>Resources/</c> folder.
+        /// Derives from <paramref name="allProjectAssets"/> when provided.
         /// </summary>
-        public static string[] GetResourcesPaths()
+        public static string[] GetResourcesPaths(string[] allProjectAssets = null)
         {
-            return AssetDatabase.GetAllAssetPaths()
-                .Where(p => !string.IsNullOrEmpty(p)
-                            && p.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase)
-                            && !AssetDatabase.IsValidFolder(p)
-                            && IsResourcesPath(p))
-                .ToArray();
+            if (allProjectAssets != null)
+            {
+                var result = new List<string>();
+                for (int i = 0; i < allProjectAssets.Length; i++)
+                {
+                    if (IsResourcesPath(allProjectAssets[i]))
+                        result.Add(allProjectAssets[i]);
+                }
+                return result.ToArray();
+            }
+
+            string[] allPaths = AssetDatabase.GetAllAssetPaths();
+            var res = new List<string>();
+            for (int i = 0; i < allPaths.Length; i++)
+            {
+                string p = allPaths[i];
+                if (!string.IsNullOrEmpty(p)
+                    && p.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrEmpty(Path.GetExtension(p))
+                    && IsResourcesPath(p))
+                    res.Add(p);
+            }
+            return res.ToArray();
         }
 
         /// <summary>
@@ -91,13 +138,16 @@ namespace ProjectCleanPro.Editor
 
         /// <summary>
         /// Returns <c>true</c> if the path is a valid project asset path:
-        /// non-empty, starts with "Assets/", and is not a folder.
+        /// non-empty, starts with "Assets/", and has a file extension
+        /// (folders never have extensions in the AssetDatabase).
+        /// Uses <c>Path.GetExtension</c> instead of the expensive
+        /// <c>AssetDatabase.IsValidFolder</c> Unity API call.
         /// </summary>
         public static bool IsValidAssetPath(string path)
         {
             return !string.IsNullOrEmpty(path)
                 && path.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase)
-                && !AssetDatabase.IsValidFolder(path);
+                && !string.IsNullOrEmpty(Path.GetExtension(path));
         }
 
         /// <summary>

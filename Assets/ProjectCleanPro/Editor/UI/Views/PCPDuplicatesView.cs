@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -349,40 +350,34 @@ namespace ProjectCleanPro.Editor
         // Actions
         // --------------------------------------------------------------------
 
-        private void OnScanClicked()
+        private async void OnScanClicked()
         {
             m_Header.IsScanning = true;
 
-            EditorApplication.delayCall += () =>
+            await PCPEditorAsync.YieldToEditor();
+
+            try
             {
-                try
+                var context = m_CreateContext?.Invoke();
+                if (context != null)
                 {
-                    var context = m_CreateContext?.Invoke();
-                    if (context != null)
-                    {
-                        // Ensure the dependency graph is built so we get
-                        // accurate reference counts and deletion warnings.
-                        if (!context.DependencyResolver.IsBuilt)
-                            context.DependencyResolver.Build(System.Array.Empty<string>());
+                    var cts = new CancellationTokenSource();
+                    await PCPContext.Orchestrator.ScanModuleAsync(
+                        PCPModuleId.Duplicates, context, null, cts.Token);
 
-                        var scanner = new PCPDuplicateDetector();
-                        scanner.Scan(context);
-
-                        m_ScanResult.duplicateGroups.Clear();
-                        foreach (var result in scanner.Results)
-                            m_ScanResult.duplicateGroups.Add(result);
-                    }
+                    // Sync orchestrator results into the legacy scan result.
+                    PCPModuleView.SyncModuleToScanResult(PCPModuleId.Duplicates, m_ScanResult);
                 }
-                catch (Exception ex)
-                {
-                    Debug.LogError($"[ProjectCleanPro] Duplicate scan failed: {ex}");
-                }
-                finally
-                {
-                    m_Header.IsScanning = false;
-                    RefreshGroups();
-                }
-            };
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ProjectCleanPro] Duplicate scan failed: {ex}");
+            }
+            finally
+            {
+                m_Header.IsScanning = false;
+                RefreshGroups();
+            }
         }
 
         private void OnMergeSingleGroup(PCPDuplicateGroup group)

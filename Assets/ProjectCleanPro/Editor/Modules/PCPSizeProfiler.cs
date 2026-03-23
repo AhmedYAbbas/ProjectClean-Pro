@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 
@@ -17,10 +19,12 @@ namespace ProjectCleanPro.Editor
         // Identity
         // ----------------------------------------------------------------
 
-        public override string ModuleId => "size";
+        public override PCPModuleId Id => PCPModuleId.Size;
         public override string DisplayName => "Size Profiler";
         public override string Icon => "\u2261"; // ≡
         public override Color AccentColor => new Color(0.153f, 0.682f, 0.376f, 1f); // #27AE60
+        public override IReadOnlyCollection<string> RelevantExtensions => null;
+        public override bool RequiresDependencyGraph => false;
 
         // ----------------------------------------------------------------
         // Results
@@ -49,7 +53,7 @@ namespace ProjectCleanPro.Editor
         // Scan implementation
         // ----------------------------------------------------------------
 
-        protected override void DoScan(PCPScanContext context)
+        protected override async Task DoScanAsync(PCPScanContext context, CancellationToken ct)
         {
             _results.Clear();
             TotalProjectSize = 0L;
@@ -59,7 +63,7 @@ namespace ProjectCleanPro.Editor
             // ----------------------------------------------------------
             ReportProgress(0f, "Collecting project assets...");
 
-            string[] allPaths = PCPAssetUtils.GetAllProjectAssets();
+            string[] allPaths = context.AllProjectAssets;
 
             if (allPaths == null || allPaths.Length == 0)
             {
@@ -74,7 +78,7 @@ namespace ProjectCleanPro.Editor
             // ----------------------------------------------------------
             for (int i = 0; i < total; i++)
             {
-                if (ShouldCancel()) return;
+                ct.ThrowIfCancellationRequested();
 
                 string assetPath = allPaths[i];
 
@@ -201,7 +205,7 @@ namespace ProjectCleanPro.Editor
                 TotalProjectSize += sizeBytes;
             }
 
-            if (ShouldCancel()) return;
+            ct.ThrowIfCancellationRequested();
 
             // ----------------------------------------------------------
             // Phase 3: Calculate percentage of total for each entry
@@ -392,6 +396,49 @@ namespace ProjectCleanPro.Editor
             base.Clear();
             _results.Clear();
             TotalProjectSize = 0L;
+        }
+
+        // ----------------------------------------------------------------
+        // Binary serialization
+        // ----------------------------------------------------------------
+
+        public override void WriteResults(BinaryWriter writer)
+        {
+            writer.Write(_results.Count);
+            for (int i = 0; i < _results.Count; i++)
+            {
+                var e = _results[i];
+                writer.Write(e.path ?? string.Empty);
+                writer.Write(e.name ?? string.Empty);
+                writer.Write(e.assetTypeName ?? string.Empty);
+                writer.Write(e.folderPath ?? string.Empty);
+                writer.Write(e.sizeBytes);
+                writer.Write(e.percentOfTotal);
+                writer.Write(e.compressionInfo ?? string.Empty);
+                writer.Write(e.hasOptimizationSuggestion);
+                writer.Write(e.optimizationSuggestion ?? string.Empty);
+            }
+        }
+
+        public override void ReadResults(BinaryReader reader)
+        {
+            _results.Clear();
+            int count = reader.ReadInt32();
+            for (int i = 0; i < count; i++)
+            {
+                _results.Add(new PCPSizeEntry
+                {
+                    path = reader.ReadString(),
+                    name = reader.ReadString(),
+                    assetTypeName = reader.ReadString(),
+                    folderPath = reader.ReadString(),
+                    sizeBytes = reader.ReadInt64(),
+                    percentOfTotal = reader.ReadSingle(),
+                    compressionInfo = reader.ReadString(),
+                    hasOptimizationSuggestion = reader.ReadBoolean(),
+                    optimizationSuggestion = reader.ReadString()
+                });
+            }
         }
 
         // ----------------------------------------------------------------

@@ -1,16 +1,22 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using UnityEngine;
 
 namespace ProjectCleanPro.Editor
 {
     /// <summary>
-    /// Incremental scan cache persisted to Library/ProjectCleanPro/.
+    /// Incremental scan cache persisted to Library/ProjectCleanPro/ScanCache.bin.
     /// Tracks per-asset modification timestamps, content hashes, dependency lists,
     /// file sizes, and generic per-module metadata so that subsequent scans only
     /// re-process changed assets.
+    /// <para>
+    /// v3 changes: Dictionary metadata for O(1) lookup, atomic writes via
+    /// <see cref="PCPCacheIO"/>, module dirtiness driven by module contracts
+    /// instead of hardcoded extension mappings.
+    /// </para>
     /// </summary>
     public sealed class PCPScanCache
     {
@@ -18,24 +24,12 @@ namespace ProjectCleanPro.Editor
         // Versioning
         // ----------------------------------------------------------------
 
-        /// <summary>
-        /// Current cache format version. Bump this when the serialized layout
-        /// changes in a way that is not backward-compatible.
-        /// </summary>
-        public const int CurrentVersion = 1;
+        public const int CurrentVersion = 3;
 
         // ----------------------------------------------------------------
-        // Serializable data model (JsonUtility requires wrapper classes)
+        // Data model
         // ----------------------------------------------------------------
 
-        [Serializable]
-        private sealed class MetadataPair
-        {
-            public string key;
-            public string value;
-        }
-
-        [Serializable]
         private sealed class CacheEntry
         {
             public string assetPath;
@@ -43,14 +37,10 @@ namespace ProjectCleanPro.Editor
             public string sha256Hash;
             public string[] dependencies;
             public long fileSizeBytes;
-            public List<MetadataPair> metadata;
-        }
-
-        [Serializable]
-        private sealed class CacheData
-        {
-            public int version;
-            public List<CacheEntry> entries = new List<CacheEntry>();
+            /// <summary>
+            /// Module-specific key-value pairs. O(1) lookup (was List in v2).
+            /// </summary>
+            public Dictionary<string, string> metadata;
         }
 
         // ----------------------------------------------------------------
@@ -60,35 +50,288 @@ namespace ProjectCleanPro.Editor
         private readonly Dictionary<string, CacheEntry> m_Entries =
             new Dictionary<string, CacheEntry>(StringComparer.Ordinal);
 
+        // Pre-computed staleness — populated by RefreshStaleness(),
+        // consumed by IsStale() / IsStaleOrMetaStale() for O(1) lookups.
+        private HashSet<string> m_StaleAssets;
+        private HashSet<string> m_StaleOrMetaStaleAssets;
+        private bool m_StalenessComputed;
+
+        // Dirty flag — Save() is a no-op when false.
+        private bool m_Dirty;
+
+        // Module-level dirty tracking — computed alongside staleness so
+        // the orchestrator can skip unaffected modules.
+        private HashSet<PCPModuleId> m_DirtyModules;
+
         private static readonly string s_CacheDirectory =
             Path.Combine(Application.dataPath, "..", "Library", "ProjectCleanPro");
 
         private static readonly string s_CacheFilePath =
+            Path.Combine(s_CacheDirectory, "ScanCache.bin");
+
+        // Legacy paths — cleaned up on first save.
+        private static readonly string s_LegacyBinPath =
+            Path.Combine(s_CacheDirectory, "ScanCache.v2.bin");
+        private static readonly string s_LegacyJsonPath =
             Path.Combine(s_CacheDirectory, "ScanCache.json");
 
-        /// <summary>
-        /// The directory where cache files are stored.
-        /// </summary>
+        // ----------------------------------------------------------------
+        // Properties
+        // ----------------------------------------------------------------
+
         public static string CacheDirectory => s_CacheDirectory;
-
-        /// <summary>
-        /// Number of cached entries.
-        /// </summary>
         public int Count => m_Entries.Count;
+        public bool HasAnyChanges => m_StaleAssets != null && m_StaleAssets.Count > 0;
+        public int StaleCount => m_StaleAssets?.Count ?? 0;
+
+        /// <summary>
+        /// Returns true if the given module needs re-running based on what
+        /// file types changed since the last scan. Conservative: returns true
+        /// if staleness has not been computed.
+        /// </summary>
+        public bool IsModuleDirty(PCPModuleId id)
+        {
+            return m_DirtyModules == null || m_DirtyModules.Contains(id);
+        }
 
         // ----------------------------------------------------------------
-        // Staleness check
+        // Batch staleness computation
         // ----------------------------------------------------------------
 
         /// <summary>
-        /// Returns <c>true</c> if the asset at <paramref name="assetPath"/> has been
-        /// modified since it was last cached (based on file write time), or if there
-        /// is no cache entry for it.
+        /// Pre-computes staleness using <see cref="PCPAssetChangeTracker"/>.
+        /// <list type="bullet">
+        /// <item>No changes tracked -> instant O(1).</item>
+        /// <item>Specific changes tracked -> O(changed).</item>
+        /// <item>Domain reload / empty cache -> full O(N) timestamp check.</item>
+        /// </list>
+        /// After calling this, <see cref="IsStale"/> and <see cref="IsStaleOrMetaStale"/>
+        /// use O(1) HashSet lookups.
         /// </summary>
+        public void RefreshStaleness(string[] currentAssetPaths)
+        {
+            m_StaleAssets = new HashSet<string>(StringComparer.Ordinal);
+            m_StaleOrMetaStaleAssets = new HashSet<string>(StringComparer.Ordinal);
+
+            // Fast path: nothing changed since last scan.
+            if (!PCPAssetChangeTracker.HasChanges && m_Entries.Count > 0)
+            {
+                m_DirtyModules = new HashSet<PCPModuleId>();
+                m_StalenessComputed = true;
+                return;
+            }
+
+            // Domain reload or first scan -> full timestamp check.
+            if (PCPAssetChangeTracker.FullCheckNeeded || m_Entries.Count == 0)
+            {
+                RefreshStalenessFull(currentAssetPaths);
+                m_StalenessComputed = true;
+                return;
+            }
+
+            // Incremental: only check tracked changes.
+            var changedPaths = PCPAssetChangeTracker.ChangedAssets;
+            if (changedPaths != null && changedPaths.Count > 0)
+            {
+                var currentSet = new HashSet<string>(currentAssetPaths, StringComparer.Ordinal);
+                foreach (string path in changedPaths)
+                {
+                    if (currentSet.Contains(path))
+                    {
+                        m_StaleAssets.Add(path);
+                        m_StaleOrMetaStaleAssets.Add(path);
+                    }
+                    else if (m_Entries.Remove(path))
+                    {
+                        m_Dirty = true;
+                    }
+                }
+            }
+
+            m_StalenessComputed = true;
+        }
+
+        /// <summary>
+        /// Determines which modules need re-running based on the file extensions
+        /// of stale assets. Each module declares its own
+        /// <see cref="IPCPModule.RelevantExtensions"/>; null means "all changes".
+        /// <para>
+        /// Must be called AFTER <see cref="RefreshStaleness"/> and BEFORE modules run.
+        /// </para>
+        /// </summary>
+        public void ComputeModuleDirtiness(IReadOnlyList<IPCPModule> modules)
+        {
+            m_DirtyModules = new HashSet<PCPModuleId>();
+
+            if (m_StaleAssets == null || m_StaleAssets.Count == 0)
+                return;
+
+            for (int i = 0; i < modules.Count; i++)
+            {
+                var module = modules[i];
+                var exts = module.RelevantExtensions;
+
+                // null = affected by any file change.
+                if (exts == null)
+                {
+                    m_DirtyModules.Add(module.Id);
+                    continue;
+                }
+
+                // Empty set = never dirty from file changes (e.g. packages).
+                if (exts.Count == 0)
+                    continue;
+
+                foreach (string path in m_StaleAssets)
+                {
+                    string ext = Path.GetExtension(path);
+                    if (!string.IsNullOrEmpty(ext) && exts.Contains(ext.ToLowerInvariant()))
+                    {
+                        m_DirtyModules.Add(module.Id);
+                        break;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Directly marks a module as dirty. Used by <see cref="PCPSettingsTracker"/>
+        /// and <see cref="PCPAssetChangeTracker.PackagesChanged"/>.
+        /// </summary>
+        public void MarkModuleDirty(PCPModuleId id)
+        {
+            if (m_DirtyModules == null)
+                m_DirtyModules = new HashSet<PCPModuleId>();
+            m_DirtyModules.Add(id);
+        }
+
+        // ----------------------------------------------------------------
+        // Full staleness check
+        // ----------------------------------------------------------------
+
+        private void RefreshStalenessFull(string[] currentAssetPaths)
+        {
+            var currentSet = new HashSet<string>(currentAssetPaths, StringComparer.Ordinal);
+            var deletedEntries = new List<string>();
+
+            foreach (var kvp in m_Entries)
+            {
+                string path = kvp.Key;
+                if (!currentSet.Contains(path))
+                {
+                    deletedEntries.Add(path);
+                    continue;
+                }
+
+                string fullPath = Path.GetFullPath(path);
+                if (!File.Exists(fullPath))
+                {
+                    deletedEntries.Add(path);
+                    continue;
+                }
+
+                long currentTicks = File.GetLastWriteTimeUtc(fullPath).Ticks;
+                bool assetStale = currentTicks != kvp.Value.lastModifiedTicks;
+
+                if (assetStale)
+                {
+                    m_StaleAssets.Add(path);
+                    m_StaleOrMetaStaleAssets.Add(path);
+                }
+                else
+                {
+                    string fullMetaPath = fullPath + ".meta";
+                    if (File.Exists(fullMetaPath))
+                    {
+                        string storedMetaTicks = GetMetadataFromEntry(kvp.Value, "cache.metaTicks");
+                        if (storedMetaTicks == null)
+                        {
+                            m_StaleOrMetaStaleAssets.Add(path);
+                        }
+                        else
+                        {
+                            long currentMetaTicks = File.GetLastWriteTimeUtc(fullMetaPath).Ticks;
+                            if (!string.Equals(storedMetaTicks, currentMetaTicks.ToString(),
+                                    StringComparison.Ordinal))
+                            {
+                                m_StaleOrMetaStaleAssets.Add(path);
+                            }
+                        }
+                    }
+                }
+            }
+
+            for (int i = 0; i < deletedEntries.Count; i++)
+            {
+                m_Entries.Remove(deletedEntries[i]);
+                m_Dirty = true;
+            }
+
+            // New assets (not in cache) are stale.
+            for (int i = 0; i < currentAssetPaths.Length; i++)
+            {
+                string path = currentAssetPaths[i];
+                if (!m_Entries.ContainsKey(path))
+                {
+                    m_StaleAssets.Add(path);
+                    m_StaleOrMetaStaleAssets.Add(path);
+                }
+            }
+        }
+
+        // ----------------------------------------------------------------
+        // Stamping
+        // ----------------------------------------------------------------
+
+        /// <summary>
+        /// Stamps only assets marked stale plus genuinely new assets.
+        /// O(stale + new) instead of O(N).
+        /// </summary>
+        public void StampStaleAssets(string[] allAssetPaths)
+        {
+            if (m_StaleAssets != null)
+            {
+                foreach (string path in m_StaleAssets)
+                {
+                    CacheEntry entry = GetOrCreateEntry(path);
+                    StampLastModified(entry, path);
+                }
+            }
+
+            for (int i = 0; i < allAssetPaths.Length; i++)
+            {
+                string path = allAssetPaths[i];
+                if (!m_Entries.TryGetValue(path, out CacheEntry entry))
+                {
+                    entry = new CacheEntry { assetPath = path };
+                    m_Entries[path] = entry;
+                    StampLastModified(entry, path);
+                }
+                else if (entry.lastModifiedTicks == 0)
+                {
+                    StampLastModified(entry, path);
+                }
+            }
+        }
+
+        public void ResetStaleness()
+        {
+            m_StaleAssets = null;
+            m_StaleOrMetaStaleAssets = null;
+            m_StalenessComputed = false;
+        }
+
+        // ----------------------------------------------------------------
+        // Staleness checks
+        // ----------------------------------------------------------------
+
         public bool IsStale(string assetPath)
         {
             if (string.IsNullOrEmpty(assetPath))
                 return true;
+
+            if (m_StalenessComputed && m_StaleAssets != null)
+                return m_StaleAssets.Contains(assetPath);
 
             if (!m_Entries.TryGetValue(assetPath, out CacheEntry entry))
                 return true;
@@ -97,26 +340,24 @@ namespace ProjectCleanPro.Editor
             if (!File.Exists(fullPath))
                 return true;
 
-            long currentTicks = File.GetLastWriteTimeUtc(fullPath).Ticks;
-            return currentTicks != entry.lastModifiedTicks;
+            return File.GetLastWriteTimeUtc(fullPath).Ticks != entry.lastModifiedTicks;
         }
 
-        /// <summary>
-        /// Returns <c>true</c> if the asset or its .meta file has been modified
-        /// since the asset was last cached. Use this for modules that care about
-        /// import settings (e.g. SizeProfiler, DuplicateDetector).
-        /// </summary>
         public bool IsStaleOrMetaStale(string assetPath)
         {
+            if (string.IsNullOrEmpty(assetPath))
+                return true;
+
+            if (m_StalenessComputed && m_StaleOrMetaStaleAssets != null)
+                return m_StaleOrMetaStaleAssets.Contains(assetPath);
+
             if (IsStale(assetPath))
                 return true;
 
-            string metaPath = assetPath + ".meta";
-            string fullMetaPath = Path.GetFullPath(metaPath);
+            string fullMetaPath = Path.GetFullPath(assetPath) + ".meta";
             if (!File.Exists(fullMetaPath))
-                return false; // No meta file — not stale on that account.
+                return false;
 
-            // We store the meta timestamp in the generic metadata store.
             if (!m_Entries.TryGetValue(assetPath, out CacheEntry entry))
                 return true;
 
@@ -129,17 +370,11 @@ namespace ProjectCleanPro.Editor
                 StringComparison.Ordinal);
         }
 
-        /// <summary>
-        /// Stores the current .meta file timestamp so that <see cref="IsStaleOrMetaStale"/>
-        /// can detect import-setting changes on subsequent scans.
-        /// </summary>
         public void StampMeta(string assetPath)
         {
-            string metaPath = assetPath + ".meta";
-            string fullMetaPath = Path.GetFullPath(metaPath);
+            string fullMetaPath = Path.GetFullPath(assetPath) + ".meta";
             if (!File.Exists(fullMetaPath))
                 return;
-
             long ticks = File.GetLastWriteTimeUtc(fullMetaPath).Ticks;
             SetMetadata(assetPath, "cache.metaTicks", ticks.ToString());
         }
@@ -148,10 +383,6 @@ namespace ProjectCleanPro.Editor
         // Hash
         // ----------------------------------------------------------------
 
-        /// <summary>
-        /// Returns the cached SHA-256 hash for <paramref name="assetPath"/>,
-        /// or <c>null</c> if not cached.
-        /// </summary>
         public string GetHash(string assetPath)
         {
             if (m_Entries.TryGetValue(assetPath, out CacheEntry entry))
@@ -159,24 +390,18 @@ namespace ProjectCleanPro.Editor
             return null;
         }
 
-        /// <summary>
-        /// Stores the SHA-256 hash and current modification timestamp for an asset.
-        /// </summary>
         public void SetHash(string assetPath, string hash)
         {
             CacheEntry entry = GetOrCreateEntry(assetPath);
             entry.sha256Hash = hash;
             StampLastModified(entry, assetPath);
+            m_Dirty = true;
         }
 
         // ----------------------------------------------------------------
         // File size
         // ----------------------------------------------------------------
 
-        /// <summary>
-        /// Returns the cached file size for <paramref name="assetPath"/>,
-        /// or <c>-1</c> if not cached.
-        /// </summary>
         public long GetFileSize(string assetPath)
         {
             if (m_Entries.TryGetValue(assetPath, out CacheEntry entry) && entry.fileSizeBytes > 0)
@@ -184,24 +409,18 @@ namespace ProjectCleanPro.Editor
             return -1;
         }
 
-        /// <summary>
-        /// Stores the file size and updates the modification timestamp for an asset.
-        /// </summary>
         public void SetFileSize(string assetPath, long size)
         {
             CacheEntry entry = GetOrCreateEntry(assetPath);
             entry.fileSizeBytes = size;
             StampLastModified(entry, assetPath);
+            m_Dirty = true;
         }
 
         // ----------------------------------------------------------------
         // Dependencies
         // ----------------------------------------------------------------
 
-        /// <summary>
-        /// Returns cached dependencies for <paramref name="assetPath"/>,
-        /// or <c>null</c> if not cached.
-        /// </summary>
         public string[] GetDependencies(string assetPath)
         {
             if (m_Entries.TryGetValue(assetPath, out CacheEntry entry))
@@ -209,24 +428,18 @@ namespace ProjectCleanPro.Editor
             return null;
         }
 
-        /// <summary>
-        /// Stores the dependency list for an asset and updates its modification timestamp.
-        /// </summary>
         public void SetDependencies(string assetPath, string[] deps)
         {
             CacheEntry entry = GetOrCreateEntry(assetPath);
             entry.dependencies = deps;
             StampLastModified(entry, assetPath);
+            m_Dirty = true;
         }
 
         // ----------------------------------------------------------------
-        // Generic module metadata
+        // Generic module metadata (O(1) Dictionary lookup)
         // ----------------------------------------------------------------
 
-        /// <summary>
-        /// Returns the cached metadata value for <paramref name="assetPath"/> and
-        /// <paramref name="key"/>, or <c>null</c> if not found.
-        /// </summary>
         public string GetMetadata(string assetPath, string key)
         {
             if (!m_Entries.TryGetValue(assetPath, out CacheEntry entry))
@@ -234,127 +447,153 @@ namespace ProjectCleanPro.Editor
             return GetMetadataFromEntry(entry, key);
         }
 
-        /// <summary>
-        /// Stores a metadata key-value pair for <paramref name="assetPath"/>.
-        /// Updates existing entries or creates new ones as needed.
-        /// </summary>
         public void SetMetadata(string assetPath, string key, string value)
         {
             CacheEntry entry = GetOrCreateEntry(assetPath);
+
+            if (entry.lastModifiedTicks == 0)
+                StampLastModified(entry, assetPath);
+
             if (entry.metadata == null)
-                entry.metadata = new List<MetadataPair>();
+                entry.metadata = new Dictionary<string, string>(StringComparer.Ordinal);
 
-            for (int i = 0; i < entry.metadata.Count; i++)
-            {
-                if (string.Equals(entry.metadata[i].key, key, StringComparison.Ordinal))
-                {
-                    entry.metadata[i].value = value;
-                    return;
-                }
-            }
-
-            entry.metadata.Add(new MetadataPair { key = key, value = value });
+            entry.metadata[key] = value;
+            m_Dirty = true;
         }
 
-        /// <summary>
-        /// Removes a metadata key for <paramref name="assetPath"/>.
-        /// </summary>
         public void RemoveMetadata(string assetPath, string key)
         {
             if (!m_Entries.TryGetValue(assetPath, out CacheEntry entry))
                 return;
-            if (entry.metadata == null)
-                return;
-
-            for (int i = entry.metadata.Count - 1; i >= 0; i--)
-            {
-                if (string.Equals(entry.metadata[i].key, key, StringComparison.Ordinal))
-                {
-                    entry.metadata.RemoveAt(i);
-                    return;
-                }
-            }
+            if (entry.metadata != null && entry.metadata.Remove(key))
+                m_Dirty = true;
         }
 
         // ----------------------------------------------------------------
         // Bulk operations
         // ----------------------------------------------------------------
 
-        /// <summary>
-        /// Removes the cache entry for <paramref name="assetPath"/>.
-        /// </summary>
         public void RemoveEntry(string assetPath)
         {
-            m_Entries.Remove(assetPath);
+            if (m_Entries.Remove(assetPath))
+                m_Dirty = true;
         }
 
-        /// <summary>
-        /// Returns all cached asset paths.
-        /// </summary>
         public IEnumerable<string> GetAllCachedPaths()
         {
             return m_Entries.Keys;
         }
 
         // ----------------------------------------------------------------
-        // Persistence
+        // Persistence (v3 binary format with atomic writes)
         // ----------------------------------------------------------------
 
         /// <summary>
         /// Loads the cache from disk. Safe to call if the file does not exist.
-        /// Clears the cache if the stored version does not match <see cref="CurrentVersion"/>.
+        /// Falls back gracefully on any error.
         /// </summary>
         public void Load()
         {
             m_Entries.Clear();
+            m_Dirty = false;
 
-            if (!File.Exists(s_CacheFilePath))
+            bool loaded = PCPCacheIO.SafeRead(s_CacheFilePath, CurrentVersion,
+                reader =>
+                {
+                    int entryCount = reader.ReadInt32();
+                    for (int i = 0; i < entryCount; i++)
+                    {
+                        var entry = new CacheEntry
+                        {
+                            assetPath = reader.ReadString(),
+                            lastModifiedTicks = reader.ReadInt64(),
+                            fileSizeBytes = reader.ReadInt64()
+                        };
+
+                        bool hasHash = reader.ReadBoolean();
+                        entry.sha256Hash = hasHash ? reader.ReadString() : null;
+
+                        int depCount = reader.ReadInt32();
+                        if (depCount > 0)
+                        {
+                            entry.dependencies = new string[depCount];
+                            for (int d = 0; d < depCount; d++)
+                                entry.dependencies[d] = reader.ReadString();
+                        }
+
+                        int metaCount = reader.ReadInt32();
+                        if (metaCount > 0)
+                        {
+                            entry.metadata = new Dictionary<string, string>(metaCount, StringComparer.Ordinal);
+                            for (int m = 0; m < metaCount; m++)
+                            {
+                                string key = reader.ReadString();
+                                string val = reader.ReadString();
+                                entry.metadata[key] = val;
+                            }
+                        }
+
+                        if (!string.IsNullOrEmpty(entry.assetPath))
+                            m_Entries[entry.assetPath] = entry;
+                    }
+
+                    return true;
+                }, out _);
+
+            if (!loaded)
+                m_Entries.Clear();
+        }
+
+        /// <summary>
+        /// Persists the cache to disk using atomic writes via <see cref="PCPCacheIO"/>.
+        /// No-op if nothing has changed.
+        /// </summary>
+        public void Save()
+        {
+            if (!m_Dirty)
                 return;
 
             try
             {
-                string json = File.ReadAllText(s_CacheFilePath);
-                CacheData data = JsonUtility.FromJson<CacheData>(json);
-                if (data?.entries == null)
-                    return;
-
-                // Version mismatch: discard stale cache.
-                if (data.version != CurrentVersion)
+                PCPCacheIO.AtomicWrite(s_CacheFilePath, CurrentVersion, writer =>
                 {
-                    Debug.Log($"[ProjectCleanPro] Cache version mismatch " +
-                              $"(stored={data.version}, current={CurrentVersion}). " +
-                              "Clearing cache.");
-                    return;
-                }
+                    writer.Write(m_Entries.Count);
 
-                foreach (CacheEntry entry in data.entries)
-                {
-                    if (!string.IsNullOrEmpty(entry.assetPath))
-                        m_Entries[entry.assetPath] = entry;
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[ProjectCleanPro] Failed to load scan cache: {ex.Message}");
-            }
-        }
+                    foreach (var kvp in m_Entries)
+                    {
+                        CacheEntry entry = kvp.Value;
+                        writer.Write(entry.assetPath ?? string.Empty);
+                        writer.Write(entry.lastModifiedTicks);
+                        writer.Write(entry.fileSizeBytes);
 
-        /// <summary>
-        /// Persists the cache to disk as JSON.
-        /// </summary>
-        public void Save()
-        {
-            try
-            {
-                if (!Directory.Exists(s_CacheDirectory))
-                    Directory.CreateDirectory(s_CacheDirectory);
+                        bool hasHash = !string.IsNullOrEmpty(entry.sha256Hash);
+                        writer.Write(hasHash);
+                        if (hasHash)
+                            writer.Write(entry.sha256Hash);
 
-                CacheData data = new CacheData();
-                data.version = CurrentVersion;
-                data.entries = new List<CacheEntry>(m_Entries.Values);
+                        int depCount = entry.dependencies?.Length ?? 0;
+                        writer.Write(depCount);
+                        for (int d = 0; d < depCount; d++)
+                            writer.Write(entry.dependencies[d] ?? string.Empty);
 
-                string json = JsonUtility.ToJson(data, prettyPrint: false);
-                File.WriteAllText(s_CacheFilePath, json);
+                        int metaCount = entry.metadata?.Count ?? 0;
+                        writer.Write(metaCount);
+                        if (entry.metadata != null)
+                        {
+                            foreach (var meta in entry.metadata)
+                            {
+                                writer.Write(meta.Key ?? string.Empty);
+                                writer.Write(meta.Value ?? string.Empty);
+                            }
+                        }
+                    }
+                });
+
+                m_Dirty = false;
+
+                // Clean up legacy files.
+                CleanupLegacy(s_LegacyBinPath);
+                CleanupLegacy(s_LegacyJsonPath);
             }
             catch (Exception ex)
             {
@@ -368,26 +607,17 @@ namespace ProjectCleanPro.Editor
         public void Clear()
         {
             m_Entries.Clear();
-
-            try
-            {
-                if (File.Exists(s_CacheFilePath))
-                    File.Delete(s_CacheFilePath);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[ProjectCleanPro] Failed to delete scan cache file: {ex.Message}");
-            }
+            m_Dirty = false;
+            ResetStaleness();
+            CleanupLegacy(s_CacheFilePath);
+            CleanupLegacy(s_LegacyBinPath);
+            CleanupLegacy(s_LegacyJsonPath);
         }
 
         // ----------------------------------------------------------------
         // Utility
         // ----------------------------------------------------------------
 
-        /// <summary>
-        /// Computes the SHA-256 hash of a file on disk.
-        /// Returns the lowercase hex string, or <c>null</c> if the file does not exist.
-        /// </summary>
         public static string ComputeFileHash(string assetPath)
         {
             string fullPath = Path.GetFullPath(assetPath);
@@ -400,8 +630,7 @@ namespace ProjectCleanPro.Editor
                 using (SHA256 sha = SHA256.Create())
                 {
                     byte[] hashBytes = sha.ComputeHash(stream);
-                    // Convert to lowercase hex string.
-                    System.Text.StringBuilder sb = new System.Text.StringBuilder(hashBytes.Length * 2);
+                    var sb = new System.Text.StringBuilder(hashBytes.Length * 2);
                     foreach (byte b in hashBytes)
                         sb.Append(b.ToString("x2"));
                     return sb.ToString();
@@ -424,6 +653,7 @@ namespace ProjectCleanPro.Editor
             {
                 entry = new CacheEntry { assetPath = assetPath };
                 m_Entries[assetPath] = entry;
+                m_Dirty = true;
             }
             return entry;
         }
@@ -439,13 +669,21 @@ namespace ProjectCleanPro.Editor
         {
             if (entry.metadata == null)
                 return null;
+            entry.metadata.TryGetValue(key, out string value);
+            return value;
+        }
 
-            for (int i = 0; i < entry.metadata.Count; i++)
+        private static void CleanupLegacy(string path)
+        {
+            try
             {
-                if (string.Equals(entry.metadata[i].key, key, StringComparison.Ordinal))
-                    return entry.metadata[i].value;
+                if (File.Exists(path))
+                    File.Delete(path);
             }
-            return null;
+            catch
+            {
+                // Best-effort cleanup.
+            }
         }
     }
 }
