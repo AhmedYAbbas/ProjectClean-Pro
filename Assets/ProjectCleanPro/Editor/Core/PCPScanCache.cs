@@ -1,8 +1,11 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 
 namespace ProjectCleanPro.Editor
@@ -16,6 +19,11 @@ namespace ProjectCleanPro.Editor
     /// v3 changes: Dictionary metadata for O(1) lookup, atomic writes via
     /// <see cref="PCPCacheIO"/>, module dirtiness driven by module contracts
     /// instead of hardcoded extension mappings.
+    /// </para>
+    /// <para>
+    /// v4 changes: ConcurrentDictionary for all internal state, async I/O via
+    /// <see cref="RefreshStalenessAsync"/>, <see cref="StampProcessedAssetsAsync"/>,
+    /// <see cref="SaveAsync"/>, and <see cref="LoadAsync"/>.
     /// </para>
     /// </summary>
     public sealed class PCPScanCache
@@ -40,20 +48,20 @@ namespace ProjectCleanPro.Editor
             /// <summary>
             /// Module-specific key-value pairs. O(1) lookup (was List in v2).
             /// </summary>
-            public Dictionary<string, string> metadata;
+            public ConcurrentDictionary<string, string> metadata;
         }
 
         // ----------------------------------------------------------------
         // State
         // ----------------------------------------------------------------
 
-        private readonly Dictionary<string, CacheEntry> m_Entries =
-            new Dictionary<string, CacheEntry>(StringComparer.Ordinal);
+        private readonly ConcurrentDictionary<string, CacheEntry> m_Entries =
+            new ConcurrentDictionary<string, CacheEntry>(StringComparer.Ordinal);
 
-        // Pre-computed staleness — populated by RefreshStaleness(),
+        // Pre-computed staleness — populated by RefreshStaleness() / RefreshStalenessAsync(),
         // consumed by IsStale() / IsStaleOrMetaStale() for O(1) lookups.
-        private HashSet<string> m_StaleAssets;
-        private HashSet<string> m_StaleOrMetaStaleAssets;
+        private readonly ConcurrentDictionary<string, byte> m_StaleAssets = new ConcurrentDictionary<string, byte>();
+        private readonly ConcurrentDictionary<string, byte> m_NewAssets = new ConcurrentDictionary<string, byte>();
         private bool m_StalenessComputed;
 
         // Dirty flag — Save() is a no-op when false.
@@ -61,7 +69,7 @@ namespace ProjectCleanPro.Editor
 
         // Module-level dirty tracking — computed alongside staleness so
         // the orchestrator can skip unaffected modules.
-        private HashSet<PCPModuleId> m_DirtyModules;
+        private ConcurrentDictionary<PCPModuleId, bool> m_DirtyModules;
 
         private static readonly string s_CacheDirectory =
             Path.Combine(Application.dataPath, "..", "Library", "ProjectCleanPro");
@@ -81,8 +89,8 @@ namespace ProjectCleanPro.Editor
 
         public static string CacheDirectory => s_CacheDirectory;
         public int Count => m_Entries.Count;
-        public bool HasAnyChanges => m_StaleAssets != null && m_StaleAssets.Count > 0;
-        public int StaleCount => m_StaleAssets?.Count ?? 0;
+        public bool HasAnyChanges => m_StaleAssets.Count > 0 || m_NewAssets.Count > 0;
+        public int StaleCount => m_StaleAssets.Count + m_NewAssets.Count;
 
         /// <summary>
         /// Returns true if the given module needs re-running based on what
@@ -91,7 +99,7 @@ namespace ProjectCleanPro.Editor
         /// </summary>
         public bool IsModuleDirty(PCPModuleId id)
         {
-            return m_DirtyModules == null || m_DirtyModules.Contains(id);
+            return m_DirtyModules == null || m_DirtyModules.ContainsKey(id);
         }
 
         // ----------------------------------------------------------------
@@ -106,17 +114,17 @@ namespace ProjectCleanPro.Editor
         /// <item>Domain reload / empty cache -> full O(N) timestamp check.</item>
         /// </list>
         /// After calling this, <see cref="IsStale"/> and <see cref="IsStaleOrMetaStale"/>
-        /// use O(1) HashSet lookups.
+        /// use O(1) ConcurrentDictionary lookups.
         /// </summary>
         public void RefreshStaleness(string[] currentAssetPaths)
         {
-            m_StaleAssets = new HashSet<string>(StringComparer.Ordinal);
-            m_StaleOrMetaStaleAssets = new HashSet<string>(StringComparer.Ordinal);
+            m_StaleAssets.Clear();
+            m_NewAssets.Clear();
 
             // Fast path: nothing changed since last scan.
             if (!PCPAssetChangeTracker.HasChanges && m_Entries.Count > 0)
             {
-                m_DirtyModules = new HashSet<PCPModuleId>();
+                m_DirtyModules = new ConcurrentDictionary<PCPModuleId, bool>();
                 m_StalenessComputed = true;
                 return;
             }
@@ -138,10 +146,9 @@ namespace ProjectCleanPro.Editor
                 {
                     if (currentSet.Contains(path))
                     {
-                        m_StaleAssets.Add(path);
-                        m_StaleOrMetaStaleAssets.Add(path);
+                        m_StaleAssets[path] = 0;
                     }
-                    else if (m_Entries.Remove(path))
+                    else if (m_Entries.TryRemove(path, out _))
                     {
                         m_Dirty = true;
                     }
@@ -149,6 +156,79 @@ namespace ProjectCleanPro.Editor
             }
 
             m_StalenessComputed = true;
+        }
+
+        /// <summary>
+        /// Async staleness computation. Runs timestamp checks on background threads.
+        /// </summary>
+        public async Task RefreshStalenessAsync(PCPScanContext context, CancellationToken ct)
+        {
+            m_StaleAssets.Clear();
+            m_NewAssets.Clear();
+
+            if (PCPAssetChangeTracker.FullCheckNeeded)
+            {
+                // Full check: compare timestamps for all assets on background threads
+                var allAssets = await CollectAllAssetPathsAsync(ct);
+
+                await Core.PCPThreading.ParallelForEachAsync(allAssets, (path, token) =>
+                {
+                    if (!m_Entries.TryGetValue(path, out var entry))
+                    {
+                        m_NewAssets[path] = 0;
+                        return Task.CompletedTask;
+                    }
+
+                    try
+                    {
+                        var currentTicks = System.IO.File.GetLastWriteTimeUtc(path).Ticks;
+                        if (currentTicks != entry.lastModifiedTicks)
+                            m_StaleAssets[path] = 0;
+                    }
+                    catch (System.IO.IOException) { m_StaleAssets[path] = 0; }
+
+                    return Task.CompletedTask;
+                }, Core.PCPThreading.DefaultConcurrency, ct);
+
+                // Prune deleted entries
+                var currentPathSet = new HashSet<string>(allAssets);
+                foreach (var key in m_Entries.Keys)
+                {
+                    if (!currentPathSet.Contains(key))
+                        m_Entries.TryRemove(key, out _);
+                }
+            }
+            else if (PCPAssetChangeTracker.HasChanges)
+            {
+                foreach (var path in PCPAssetChangeTracker.ChangedAssets)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (!m_Entries.ContainsKey(path))
+                        m_NewAssets[path] = 0;
+                    else
+                        m_StaleAssets[path] = 0;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Returns all stale + new asset paths.
+        /// </summary>
+        public IReadOnlyList<string> GetStaleAssets()
+        {
+            return m_StaleAssets.Keys.Concat(m_NewAssets.Keys).ToList();
+        }
+
+        private static Task<List<string>> CollectAllAssetPathsAsync(CancellationToken ct)
+        {
+            return Task.Run(() =>
+            {
+                return System.IO.Directory.EnumerateFiles("Assets", "*.*",
+                        System.IO.SearchOption.AllDirectories)
+                    .Where(p => !p.EndsWith(".meta"))
+                    .Select(p => p.Replace('\\', '/'))
+                    .ToList();
+            }, ct);
         }
 
         /// <summary>
@@ -161,9 +241,9 @@ namespace ProjectCleanPro.Editor
         /// </summary>
         public void ComputeModuleDirtiness(IReadOnlyList<IPCPModule> modules)
         {
-            m_DirtyModules = new HashSet<PCPModuleId>();
+            m_DirtyModules = new ConcurrentDictionary<PCPModuleId, bool>();
 
-            if (m_StaleAssets == null || m_StaleAssets.Count == 0)
+            if (m_StaleAssets.Count == 0 && m_NewAssets.Count == 0)
                 return;
 
             for (int i = 0; i < modules.Count; i++)
@@ -174,7 +254,7 @@ namespace ProjectCleanPro.Editor
                 // null = affected by any file change.
                 if (exts == null)
                 {
-                    m_DirtyModules.Add(module.Id);
+                    m_DirtyModules[module.Id] = true;
                     continue;
                 }
 
@@ -182,12 +262,12 @@ namespace ProjectCleanPro.Editor
                 if (exts.Count == 0)
                     continue;
 
-                foreach (string path in m_StaleAssets)
+                foreach (string path in m_StaleAssets.Keys)
                 {
                     string ext = Path.GetExtension(path);
                     if (!string.IsNullOrEmpty(ext) && exts.Contains(ext.ToLowerInvariant()))
                     {
-                        m_DirtyModules.Add(module.Id);
+                        m_DirtyModules[module.Id] = true;
                         break;
                     }
                 }
@@ -201,8 +281,8 @@ namespace ProjectCleanPro.Editor
         public void MarkModuleDirty(PCPModuleId id)
         {
             if (m_DirtyModules == null)
-                m_DirtyModules = new HashSet<PCPModuleId>();
-            m_DirtyModules.Add(id);
+                m_DirtyModules = new ConcurrentDictionary<PCPModuleId, bool>();
+            m_DirtyModules[id] = true;
         }
 
         // ----------------------------------------------------------------
@@ -235,8 +315,7 @@ namespace ProjectCleanPro.Editor
 
                 if (assetStale)
                 {
-                    m_StaleAssets.Add(path);
-                    m_StaleOrMetaStaleAssets.Add(path);
+                    m_StaleAssets[path] = 0;
                 }
                 else
                 {
@@ -246,7 +325,8 @@ namespace ProjectCleanPro.Editor
                         string storedMetaTicks = GetMetadataFromEntry(kvp.Value, "cache.metaTicks");
                         if (storedMetaTicks == null)
                         {
-                            m_StaleOrMetaStaleAssets.Add(path);
+                            // Meta exists but not stamped — treat as stale for meta purposes only
+                            // (handled inline in IsStaleOrMetaStale when not pre-computed)
                         }
                         else
                         {
@@ -254,7 +334,10 @@ namespace ProjectCleanPro.Editor
                             if (!string.Equals(storedMetaTicks, currentMetaTicks.ToString(),
                                     StringComparison.Ordinal))
                             {
-                                m_StaleOrMetaStaleAssets.Add(path);
+                                // Meta-only stale: tracked in m_StaleAssets for IsStaleOrMetaStale
+                                // but NOT in regular m_StaleAssets — we use a special key approach
+                                // by storing in m_StaleAssets with a meta sentinel not needed;
+                                // IsStaleOrMetaStale will do a direct check when not in m_StaleAssets.
                             }
                         }
                     }
@@ -263,18 +346,17 @@ namespace ProjectCleanPro.Editor
 
             for (int i = 0; i < deletedEntries.Count; i++)
             {
-                m_Entries.Remove(deletedEntries[i]);
+                m_Entries.TryRemove(deletedEntries[i], out _);
                 m_Dirty = true;
             }
 
-            // New assets (not in cache) are stale.
+            // New assets (not in cache) are new.
             for (int i = 0; i < currentAssetPaths.Length; i++)
             {
                 string path = currentAssetPaths[i];
                 if (!m_Entries.ContainsKey(path))
                 {
-                    m_StaleAssets.Add(path);
-                    m_StaleOrMetaStaleAssets.Add(path);
+                    m_NewAssets[path] = 0;
                 }
             }
         }
@@ -289,13 +371,10 @@ namespace ProjectCleanPro.Editor
         /// </summary>
         public void StampStaleAssets(string[] allAssetPaths)
         {
-            if (m_StaleAssets != null)
+            foreach (string path in m_StaleAssets.Keys)
             {
-                foreach (string path in m_StaleAssets)
-                {
-                    CacheEntry entry = GetOrCreateEntry(path);
-                    StampLastModified(entry, path);
-                }
+                CacheEntry entry = GetOrCreateEntry(path);
+                StampLastModified(entry, path);
             }
 
             for (int i = 0; i < allAssetPaths.Length; i++)
@@ -314,10 +393,49 @@ namespace ProjectCleanPro.Editor
             }
         }
 
+        /// <summary>
+        /// Async version of stamping: stamps all stale + new assets on background threads.
+        /// </summary>
+        public async Task StampProcessedAssetsAsync(CancellationToken ct)
+        {
+            var toStamp = m_StaleAssets.Keys.Concat(m_NewAssets.Keys).ToList();
+
+            await Core.PCPThreading.ParallelForEachAsync(toStamp, (path, token) =>
+            {
+                try
+                {
+                    if (!System.IO.File.Exists(path)) return Task.CompletedTask;
+
+                    var ticks = System.IO.File.GetLastWriteTimeUtc(path).Ticks;
+                    var size = new System.IO.FileInfo(path).Length;
+
+                    m_Entries.AddOrUpdate(path,
+                        _ => new CacheEntry
+                        {
+                            assetPath = path,
+                            lastModifiedTicks = ticks,
+                            fileSizeBytes = size
+                        },
+                        (_, existing) =>
+                        {
+                            existing.lastModifiedTicks = ticks;
+                            existing.fileSizeBytes = size;
+                            return existing;
+                        });
+                }
+                catch (System.IO.IOException) { }
+
+                return Task.CompletedTask;
+            }, Core.PCPThreading.DefaultConcurrency, ct);
+
+            m_StaleAssets.Clear();
+            m_NewAssets.Clear();
+        }
+
         public void ResetStaleness()
         {
-            m_StaleAssets = null;
-            m_StaleOrMetaStaleAssets = null;
+            m_StaleAssets.Clear();
+            m_NewAssets.Clear();
             m_StalenessComputed = false;
         }
 
@@ -330,8 +448,8 @@ namespace ProjectCleanPro.Editor
             if (string.IsNullOrEmpty(assetPath))
                 return true;
 
-            if (m_StalenessComputed && m_StaleAssets != null)
-                return m_StaleAssets.Contains(assetPath);
+            if (m_StalenessComputed)
+                return m_StaleAssets.ContainsKey(assetPath) || m_NewAssets.ContainsKey(assetPath);
 
             if (!m_Entries.TryGetValue(assetPath, out CacheEntry entry))
                 return true;
@@ -348,8 +466,28 @@ namespace ProjectCleanPro.Editor
             if (string.IsNullOrEmpty(assetPath))
                 return true;
 
-            if (m_StalenessComputed && m_StaleOrMetaStaleAssets != null)
-                return m_StaleOrMetaStaleAssets.Contains(assetPath);
+            if (m_StalenessComputed)
+            {
+                // Check if directly stale or new
+                if (m_StaleAssets.ContainsKey(assetPath) || m_NewAssets.ContainsKey(assetPath))
+                    return true;
+
+                // Asset itself is not stale — check meta timestamp inline
+                string fullMetaPathFast = Path.GetFullPath(assetPath) + ".meta";
+                if (!File.Exists(fullMetaPathFast))
+                    return false;
+
+                if (!m_Entries.TryGetValue(assetPath, out CacheEntry cachedEntry))
+                    return true;
+
+                string storedMetaTicksFast = GetMetadataFromEntry(cachedEntry, "cache.metaTicks");
+                if (storedMetaTicksFast == null)
+                    return true;
+
+                long currentMetaTicksFast = File.GetLastWriteTimeUtc(fullMetaPathFast).Ticks;
+                return !string.Equals(storedMetaTicksFast, currentMetaTicksFast.ToString(),
+                    StringComparison.Ordinal);
+            }
 
             if (IsStale(assetPath))
                 return true;
@@ -437,7 +575,7 @@ namespace ProjectCleanPro.Editor
         }
 
         // ----------------------------------------------------------------
-        // Generic module metadata (O(1) Dictionary lookup)
+        // Generic module metadata (O(1) ConcurrentDictionary lookup)
         // ----------------------------------------------------------------
 
         public string GetMetadata(string assetPath, string key)
@@ -455,7 +593,7 @@ namespace ProjectCleanPro.Editor
                 StampLastModified(entry, assetPath);
 
             if (entry.metadata == null)
-                entry.metadata = new Dictionary<string, string>(StringComparer.Ordinal);
+                entry.metadata = new ConcurrentDictionary<string, string>(StringComparer.Ordinal);
 
             entry.metadata[key] = value;
             m_Dirty = true;
@@ -465,7 +603,7 @@ namespace ProjectCleanPro.Editor
         {
             if (!m_Entries.TryGetValue(assetPath, out CacheEntry entry))
                 return;
-            if (entry.metadata != null && entry.metadata.Remove(key))
+            if (entry.metadata != null && entry.metadata.TryRemove(key, out _))
                 m_Dirty = true;
         }
 
@@ -475,7 +613,7 @@ namespace ProjectCleanPro.Editor
 
         public void RemoveEntry(string assetPath)
         {
-            if (m_Entries.Remove(assetPath))
+            if (m_Entries.TryRemove(assetPath, out _))
                 m_Dirty = true;
         }
 
@@ -524,7 +662,7 @@ namespace ProjectCleanPro.Editor
                         int metaCount = reader.ReadInt32();
                         if (metaCount > 0)
                         {
-                            entry.metadata = new Dictionary<string, string>(metaCount, StringComparer.Ordinal);
+                            entry.metadata = new ConcurrentDictionary<string, string>(StringComparer.Ordinal);
                             for (int m = 0; m < metaCount; m++)
                             {
                                 string key = reader.ReadString();
@@ -602,6 +740,22 @@ namespace ProjectCleanPro.Editor
         }
 
         /// <summary>
+        /// Async wrapper: runs <see cref="Save"/> on a background thread.
+        /// </summary>
+        public async Task SaveAsync(CancellationToken ct)
+        {
+            await Task.Run(() => Save(), ct);
+        }
+
+        /// <summary>
+        /// Async wrapper: runs <see cref="Load"/> on a background thread.
+        /// </summary>
+        public async Task LoadAsync(CancellationToken ct)
+        {
+            await Task.Run(() => Load(), ct);
+        }
+
+        /// <summary>
         /// Removes all cached entries and deletes the cache file from disk.
         /// </summary>
         public void Clear()
@@ -649,13 +803,11 @@ namespace ProjectCleanPro.Editor
 
         private CacheEntry GetOrCreateEntry(string assetPath)
         {
-            if (!m_Entries.TryGetValue(assetPath, out CacheEntry entry))
+            return m_Entries.GetOrAdd(assetPath, key =>
             {
-                entry = new CacheEntry { assetPath = assetPath };
-                m_Entries[assetPath] = entry;
                 m_Dirty = true;
-            }
-            return entry;
+                return new CacheEntry { assetPath = key };
+            });
         }
 
         private static void StampLastModified(CacheEntry entry, string assetPath)
