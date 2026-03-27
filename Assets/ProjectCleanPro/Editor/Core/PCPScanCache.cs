@@ -65,11 +65,12 @@ namespace ProjectCleanPro.Editor
         private bool m_StalenessComputed;
 
         // Dirty flag — Save() is a no-op when false.
-        private bool m_Dirty;
+        // Volatile because background threads may set it via GetOrCreateEntry/StampProcessedAssetsAsync.
+        private volatile bool m_Dirty;
 
         // Module-level dirty tracking — computed alongside staleness so
         // the orchestrator can skip unaffected modules.
-        private ConcurrentDictionary<PCPModuleId, bool> m_DirtyModules;
+        private readonly ConcurrentDictionary<PCPModuleId, bool> m_DirtyModules = new();
 
         private static readonly string s_CacheDirectory =
             Path.Combine(Application.dataPath, "..", "Library", "ProjectCleanPro");
@@ -99,7 +100,7 @@ namespace ProjectCleanPro.Editor
         /// </summary>
         public bool IsModuleDirty(PCPModuleId id)
         {
-            return m_DirtyModules == null || m_DirtyModules.ContainsKey(id);
+            return !m_StalenessComputed || m_DirtyModules.ContainsKey(id);
         }
 
         // ----------------------------------------------------------------
@@ -124,7 +125,7 @@ namespace ProjectCleanPro.Editor
             // Fast path: nothing changed since last scan.
             if (!PCPAssetChangeTracker.HasChanges && m_Entries.Count > 0)
             {
-                m_DirtyModules = new ConcurrentDictionary<PCPModuleId, bool>();
+                m_DirtyModules.Clear();
                 m_StalenessComputed = true;
                 return;
             }
@@ -166,7 +167,7 @@ namespace ProjectCleanPro.Editor
             m_StaleAssets.Clear();
             m_NewAssets.Clear();
 
-            if (PCPAssetChangeTracker.FullCheckNeeded)
+            if (PCPAssetChangeTracker.FullCheckNeeded || m_Entries.Count == 0)
             {
                 // Full check: compare timestamps for all assets on background threads
                 var allAssets = await CollectAllAssetPathsAsync(ct);
@@ -209,6 +210,8 @@ namespace ProjectCleanPro.Editor
                         m_StaleAssets[path] = 0;
                 }
             }
+
+            m_StalenessComputed = true;
         }
 
         /// <summary>
@@ -221,12 +224,21 @@ namespace ProjectCleanPro.Editor
 
         private static Task<List<string>> CollectAllAssetPathsAsync(CancellationToken ct)
         {
+            // Capture the Assets path on the calling thread (Application.dataPath is main-thread-safe)
+            var assetsDir = Path.GetFullPath("Assets");
+            var projectRoot = Path.GetDirectoryName(assetsDir);
+
             return Task.Run(() =>
             {
-                return System.IO.Directory.EnumerateFiles("Assets", "*.*",
-                        System.IO.SearchOption.AllDirectories)
+                return Directory.EnumerateFiles(assetsDir, "*.*",
+                        SearchOption.AllDirectories)
                     .Where(p => !p.EndsWith(".meta"))
-                    .Select(p => p.Replace('\\', '/'))
+                    .Select(p =>
+                    {
+                        // Convert to project-relative path (Assets/...)
+                        var relativePath = p.Substring(projectRoot.Length + 1);
+                        return relativePath.Replace('\\', '/');
+                    })
                     .ToList();
             }, ct);
         }
@@ -241,7 +253,7 @@ namespace ProjectCleanPro.Editor
         /// </summary>
         public void ComputeModuleDirtiness(IReadOnlyList<IPCPModule> modules)
         {
-            m_DirtyModules = new ConcurrentDictionary<PCPModuleId, bool>();
+            m_DirtyModules.Clear();
 
             if (m_StaleAssets.Count == 0 && m_NewAssets.Count == 0)
                 return;
@@ -262,7 +274,7 @@ namespace ProjectCleanPro.Editor
                 if (exts.Count == 0)
                     continue;
 
-                foreach (string path in m_StaleAssets.Keys)
+                foreach (string path in m_StaleAssets.Keys.Concat(m_NewAssets.Keys))
                 {
                     string ext = Path.GetExtension(path);
                     if (!string.IsNullOrEmpty(ext) && exts.Contains(ext.ToLowerInvariant()))
@@ -280,8 +292,6 @@ namespace ProjectCleanPro.Editor
         /// </summary>
         public void MarkModuleDirty(PCPModuleId id)
         {
-            if (m_DirtyModules == null)
-                m_DirtyModules = new ConcurrentDictionary<PCPModuleId, bool>();
             m_DirtyModules[id] = true;
         }
 
