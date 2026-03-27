@@ -1,6 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
+using ProjectCleanPro.Editor.Core;
 
 namespace ProjectCleanPro.Editor
 {
@@ -52,11 +56,25 @@ namespace ProjectCleanPro.Editor
         /// </summary>
         public IReadOnlyList<string> AlwaysUsedRoots { get; }
 
+        /// <summary>The scan's work coordinator. Created per-scan, null before scan starts.</summary>
+        public PCPAsyncScheduler Scheduler { get; set; }
+
+        /// <summary>
+        /// Dependency resolver — interface, implementation varies by scan mode.
+        /// Replaces the concrete PCPDependencyResolver property.
+        /// </summary>
+        public IPCPDependencyResolver NewDependencyResolver { get; set; }
+
+        /// <summary>Shared GUID index for Fast/Balanced modes. Null in Accurate mode.</summary>
+        public PCPGuidIndex GuidIndex { get; set; }
+
         // ----------------------------------------------------------------
         // Cached asset paths (computed once per scan session)
         // ----------------------------------------------------------------
 
         private string[] m_AllProjectAssets;
+        private List<string> m_AllProjectAssetsAsync;
+        private List<string> m_AllMetaFiles;
         private bool m_StalenessComputed;
 
         /// <summary>
@@ -198,6 +216,79 @@ namespace ProjectCleanPro.Editor
             Cache.Save();
             PCPAssetChangeTracker.Reset();
         }
+
+        // ----------------------------------------------------------------
+        // Async asset listing (background I/O)
+        // ----------------------------------------------------------------
+
+        /// <summary>
+        /// Get all project asset paths asynchronously via System.IO (background thread).
+        /// Cached for the scan session.
+        /// </summary>
+        public async Task<IReadOnlyList<string>> GetAllProjectAssetsAsync(CancellationToken ct)
+        {
+            if (m_AllProjectAssetsAsync != null) return m_AllProjectAssetsAsync;
+
+            var assetsDir = Path.GetFullPath("Assets");
+            var projectRoot = Path.GetDirectoryName(assetsDir);
+
+            m_AllProjectAssetsAsync = await Task.Run(() =>
+            {
+                return Directory.EnumerateFiles(assetsDir, "*.*", SearchOption.AllDirectories)
+                    .Where(p => !p.EndsWith(".meta"))
+                    .Select(p => p.Substring(projectRoot.Length + 1).Replace('\\', '/'))
+                    .ToList();
+            }, ct);
+
+            return m_AllProjectAssetsAsync;
+        }
+
+        /// <summary>
+        /// Get all .meta file paths asynchronously. Needed by PCPGuidIndex.
+        /// </summary>
+        public async Task<IReadOnlyList<string>> GetAllMetaFilesAsync(CancellationToken ct)
+        {
+            if (m_AllMetaFiles != null) return m_AllMetaFiles;
+
+            var assetsDir = Path.GetFullPath("Assets");
+            var projectRoot = Path.GetDirectoryName(assetsDir);
+
+            m_AllMetaFiles = await Task.Run(() =>
+            {
+                return Directory.EnumerateFiles(assetsDir, "*.meta", SearchOption.AllDirectories)
+                    .Select(p => p.Substring(projectRoot.Length + 1).Replace('\\', '/'))
+                    .ToList();
+            }, ct);
+
+            return m_AllMetaFiles;
+        }
+
+        /// <summary>
+        /// Async version of FinalizeScan. Stamps and saves on background threads.
+        /// </summary>
+        public async Task FinalizeScanAsync(CancellationToken ct)
+        {
+            await Cache.StampProcessedAssetsAsync(ct);
+            await Cache.SaveAsync(ct);
+            PCPAssetChangeTracker.Reset();
+        }
+
+        // ----------------------------------------------------------------
+        // Thread-safe progress reporting
+        // ----------------------------------------------------------------
+
+        private float m_ProgressFraction;
+        private string m_ProgressLabel = string.Empty;
+
+        /// <summary>Thread-safe progress reporting. Written from any thread, read by UI on main.</summary>
+        public void ReportProgressThreadSafe(float fraction, string label)
+        {
+            Interlocked.Exchange(ref m_ProgressFraction, fraction);
+            Volatile.Write(ref m_ProgressLabel, label);
+        }
+
+        public float ProgressFraction => Volatile.Read(ref m_ProgressFraction);
+        public string ProgressLabelThreadSafe => Volatile.Read(ref m_ProgressLabel);
 
         /// <summary>
         /// Convenience factory that pulls everything from <see cref="PCPContext"/>.
