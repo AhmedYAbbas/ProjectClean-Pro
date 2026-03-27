@@ -103,6 +103,18 @@ namespace ProjectCleanPro.Tests.Editor
         // ================================================================
 
         [Test]
+        public void Settings_ExcludedExtensions_IsInitialized()
+        {
+            Assert.IsNotNull(m_Settings.excludedExtensions);
+        }
+
+        [Test]
+        public void Settings_ExcludedExtensions_DefaultsContainCs()
+        {
+            CollectionAssert.Contains(m_Settings.excludedExtensions, ".cs");
+        }
+
+        [Test]
         public void Settings_IgnoreRules_IsInitialized()
         {
             Assert.IsNotNull(m_Settings.ignoreRules);

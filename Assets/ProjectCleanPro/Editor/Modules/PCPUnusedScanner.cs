@@ -53,12 +53,10 @@ namespace ProjectCleanPro.Editor
         // Extensions and paths to skip
         // ----------------------------------------------------------------
 
-        private static readonly HashSet<string> s_SkippedExtensions = new HashSet<string>(
-            StringComparer.OrdinalIgnoreCase)
+        private static HashSet<string> BuildSkippedExtensions(PCPSettings settings)
         {
-            ".cs", ".asmdef", ".asmref", ".dll", ".so", ".dylib",
-            ".a", ".rsp", ".cginc", ".hlsl", ".glslinc"
-        };
+            return new HashSet<string>(settings.excludedExtensions, StringComparer.OrdinalIgnoreCase);
+        }
 
         // ----------------------------------------------------------------
         // Scan implementation
@@ -186,6 +184,7 @@ namespace ProjectCleanPro.Editor
 
             // Use cached asset list from the scan context.
             string[] projectAssets = context.AllProjectAssets;
+            var skippedExtensions = BuildSkippedExtensions(context.Settings);
 
             int total = projectAssets.Length;
 
@@ -195,9 +194,9 @@ namespace ProjectCleanPro.Editor
 
                 string path = projectAssets[i];
 
-                // Skip scripts, assembly definitions, DLLs.
+                // Skip excluded extensions (configured in settings).
                 string ext = System.IO.Path.GetExtension(path);
-                if (s_SkippedExtensions.Contains(ext))
+                if (skippedExtensions.Contains(ext))
                     continue;
 
                 // Skip editor-only paths (unless settings opt-in).

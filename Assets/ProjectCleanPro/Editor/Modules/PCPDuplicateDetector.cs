@@ -50,15 +50,13 @@ namespace ProjectCleanPro.Editor
         }
 
         // ----------------------------------------------------------------
-        // Extensions to skip (code files, meta files, etc.)
+        // Extensions to skip (read from settings)
         // ----------------------------------------------------------------
 
-        private static readonly HashSet<string> s_SkippedExtensions = new HashSet<string>(
-            StringComparer.OrdinalIgnoreCase)
+        private static HashSet<string> BuildSkippedExtensions(PCPSettings settings)
         {
-            ".cs", ".meta", ".asmdef", ".asmref", ".dll", ".so", ".dylib",
-            ".a", ".rsp", ".cginc", ".hlsl", ".glslinc"
-        };
+            return new HashSet<string>(settings.excludedExtensions, StringComparer.OrdinalIgnoreCase);
+        }
 
         // ----------------------------------------------------------------
         // Scan implementation
@@ -74,6 +72,7 @@ namespace ProjectCleanPro.Editor
             ReportProgress(0f, "Collecting asset paths...");
 
             string[] allPaths = context.AllProjectAssets;
+            var skippedExtensions = BuildSkippedExtensions(context.Settings);
             var pathsWithSizes = new List<PathSizePair>();
 
             for (int i = 0; i < allPaths.Length; i++)
@@ -81,7 +80,7 @@ namespace ProjectCleanPro.Editor
                 string path = allPaths[i];
 
                 string ext = Path.GetExtension(path);
-                if (s_SkippedExtensions.Contains(ext))
+                if (skippedExtensions.Contains(ext))
                     continue;
 
                 if (IsIgnored(path, context))

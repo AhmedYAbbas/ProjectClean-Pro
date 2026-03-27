@@ -21,6 +21,7 @@ namespace ProjectCleanPro.Editor
         private PCPSettings m_Settings;
         private VisualElement m_IgnoreRulesList;
         private VisualElement m_ScanRootsList;
+        private VisualElement m_ExcludedExtensionsList;
 
         // --------------------------------------------------------------------
         // Constructor
@@ -49,6 +50,11 @@ namespace ProjectCleanPro.Editor
 
             // Section 1: Scan Configuration
             BuildScanConfigSection(container);
+
+            AddSeparator(container);
+
+            // Section 1b: Excluded Extensions
+            BuildExcludedExtensionsSection(container);
 
             AddSeparator(container);
 
@@ -90,6 +96,7 @@ namespace ProjectCleanPro.Editor
             m_Settings = PCPContext.Settings;
             RefreshIgnoreRules();
             RefreshScanRoots();
+            RefreshExcludedExtensions();
         }
 
         // --------------------------------------------------------------------
@@ -116,6 +123,86 @@ namespace ProjectCleanPro.Editor
             AddToggle(section, "Scan Editor/ folder assets",
                 m_Settings.scanEditorAssets,
                 val => { m_Settings.scanEditorAssets = val; SaveSettings(); });
+        }
+
+        // --------------------------------------------------------------------
+        // Section: Excluded Extensions
+        // --------------------------------------------------------------------
+
+        private void BuildExcludedExtensionsSection(VisualElement parent)
+        {
+            var section = CreateSection("Excluded Extensions");
+            parent.Add(section);
+
+            var description = new Label("File extensions excluded from Unused Asset and Duplicate scans (e.g. .cs, .dll).");
+            description.AddToClassList("pcp-label-caption");
+            description.style.marginBottom = 8;
+            section.Add(description);
+
+            m_ExcludedExtensionsList = new VisualElement();
+            m_ExcludedExtensionsList.style.marginBottom = 8;
+            section.Add(m_ExcludedExtensionsList);
+
+            RefreshExcludedExtensions();
+
+            var addBtn = new Button(AddExcludedExtension);
+            addBtn.text = "+ Add Extension";
+            addBtn.AddToClassList("pcp-button-secondary");
+            addBtn.style.alignSelf = Align.FlexStart;
+            section.Add(addBtn);
+        }
+
+        private void RefreshExcludedExtensions()
+        {
+            m_ExcludedExtensionsList.Clear();
+
+            for (int i = 0; i < m_Settings.excludedExtensions.Count; i++)
+            {
+                int index = i;
+                string ext = m_Settings.excludedExtensions[i];
+
+                var row = new VisualElement();
+                row.style.flexDirection = FlexDirection.Row;
+                row.style.alignItems = Align.Center;
+                row.style.marginBottom = 4;
+
+                var extField = new TextField();
+                extField.value = ext;
+                extField.style.flexGrow = 1;
+                extField.RegisterValueChangedCallback(evt =>
+                {
+                    if (index < m_Settings.excludedExtensions.Count)
+                    {
+                        m_Settings.excludedExtensions[index] = evt.newValue;
+                        SaveSettings();
+                    }
+                });
+                row.Add(extField);
+
+                var removeBtn = new Button(() =>
+                {
+                    if (index < m_Settings.excludedExtensions.Count)
+                    {
+                        m_Settings.excludedExtensions.RemoveAt(index);
+                        SaveSettings();
+                        RefreshExcludedExtensions();
+                    }
+                });
+                removeBtn.text = "\u2716";
+                removeBtn.style.width = 26;
+                removeBtn.style.marginLeft = 4;
+                removeBtn.style.color = new Color(0.957f, 0.278f, 0.278f);
+                row.Add(removeBtn);
+
+                m_ExcludedExtensionsList.Add(row);
+            }
+        }
+
+        private void AddExcludedExtension()
+        {
+            m_Settings.excludedExtensions.Add(".");
+            SaveSettings();
+            RefreshExcludedExtensions();
         }
 
         // --------------------------------------------------------------------
@@ -612,6 +699,7 @@ namespace ProjectCleanPro.Editor
             m_Settings.dependencyGraphMaxDepth = 2;
             m_Settings.shaderAnalyzerCheckPipeline = true;
             m_Settings.duplicateCompareImportSettings = true;
+            m_Settings.excludedExtensions = new List<string>(PCPSettings.s_DefaultExcludedExtensions);
             m_Settings.ignoreRules.Clear();
             m_Settings.alwaysUsedRoots.Clear();
 

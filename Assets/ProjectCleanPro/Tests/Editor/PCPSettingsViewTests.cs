@@ -42,6 +42,7 @@ namespace ProjectCleanPro.Tests.Editor
             m_OriginalGraphMaxDepth = m_Settings.dependencyGraphMaxDepth;
             m_OriginalShaderCheckPipeline = m_Settings.shaderAnalyzerCheckPipeline;
             m_OriginalDuplicateCompareImport = m_Settings.duplicateCompareImportSettings;
+            m_OriginalExcludedExtensions = new List<string>(m_Settings.excludedExtensions);
             m_OriginalIgnoreRules = new List<PCPIgnoreRule>(m_Settings.ignoreRules);
             m_OriginalAlwaysUsedRoots = new List<string>(m_Settings.alwaysUsedRoots);
             m_OriginalModuleColors = (Color[])m_Settings.moduleColors.Clone();
@@ -88,6 +89,7 @@ namespace ProjectCleanPro.Tests.Editor
             m_Settings.dependencyGraphMaxDepth = m_OriginalGraphMaxDepth;
             m_Settings.shaderAnalyzerCheckPipeline = m_OriginalShaderCheckPipeline;
             m_Settings.duplicateCompareImportSettings = m_OriginalDuplicateCompareImport;
+            m_Settings.excludedExtensions = m_OriginalExcludedExtensions;
             m_Settings.ignoreRules = m_OriginalIgnoreRules;
             m_Settings.alwaysUsedRoots = m_OriginalAlwaysUsedRoots;
             m_Settings.moduleColors = m_OriginalModuleColors;
@@ -106,6 +108,7 @@ namespace ProjectCleanPro.Tests.Editor
         private int m_OriginalGraphMaxDepth;
         private bool m_OriginalShaderCheckPipeline;
         private bool m_OriginalDuplicateCompareImport;
+        private List<string> m_OriginalExcludedExtensions;
         private List<PCPIgnoreRule> m_OriginalIgnoreRules;
         private List<string> m_OriginalAlwaysUsedRoots;
         private Color[] m_OriginalModuleColors;

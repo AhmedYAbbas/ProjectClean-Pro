@@ -30,6 +30,20 @@ namespace ProjectCleanPro.Editor
         public bool scanEditorAssets;
 
         // ----------------------------------------------------------------
+        // Excluded extensions
+        // ----------------------------------------------------------------
+
+        [Header("Excluded Extensions")]
+        [Tooltip("File extensions excluded from Unused Asset and Duplicate scans (e.g. .cs, .dll). Include the leading dot.")]
+        public List<string> excludedExtensions = new List<string>(s_DefaultExcludedExtensions);
+
+        internal static readonly string[] s_DefaultExcludedExtensions =
+        {
+            ".cs", ".meta", ".asmdef", ".asmref", ".dll", ".so", ".dylib",
+            ".a", ".rsp", ".cginc", ".hlsl", ".glslinc"
+        };
+
+        // ----------------------------------------------------------------
         // Ignore rules
         // ----------------------------------------------------------------
 
