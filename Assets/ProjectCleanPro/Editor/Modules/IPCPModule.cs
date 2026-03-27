@@ -55,6 +55,12 @@ namespace ProjectCleanPro.Editor
         /// <summary>True if the module has results from a previous scan.</summary>
         bool HasResults { get; }
 
+        /// <summary>Thread-safe warnings collected during the last scan.</summary>
+        IReadOnlyList<string> Warnings { get; }
+
+        /// <summary>Number of warnings from the last scan.</summary>
+        int WarningCount { get; }
+
         // ----------------------------------------------------------------
         // Lifecycle (async — yields to editor between chunks)
         // ----------------------------------------------------------------

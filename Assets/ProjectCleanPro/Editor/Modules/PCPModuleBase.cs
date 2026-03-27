@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
@@ -38,6 +39,24 @@ namespace ProjectCleanPro.Editor
         public string ProgressLabel => _progressLabel;
 
         // ----------------------------------------------------------------
+        // Warnings + atomic progress
+        // ----------------------------------------------------------------
+
+        /// <summary>Thread-safe warning collection. Modules add warnings from background threads.</summary>
+        protected readonly ConcurrentQueue<string> m_Warnings = new();
+
+        /// <summary>Atomic progress counter for thread-safe progress reporting.</summary>
+        protected int m_ProcessedCount;
+        protected int m_TotalCount;
+
+        public IReadOnlyList<string> Warnings => m_Warnings.ToArray();
+        public int WarningCount => m_Warnings.Count;
+
+        /// <summary>Thread-safe progress based on atomic counters. Returns 0-1.</summary>
+        public float AtomicProgress => m_TotalCount == 0 ? 0f :
+            (float)Interlocked.CompareExchange(ref m_ProcessedCount, 0, 0) / m_TotalCount;
+
+        // ----------------------------------------------------------------
         // Results (subclass must implement)
         // ----------------------------------------------------------------
 
@@ -71,6 +90,10 @@ namespace ProjectCleanPro.Editor
             _isScanning = true;
             _progress = 0f;
             _progressLabel = "Starting...";
+
+            while (m_Warnings.TryDequeue(out _)) { }  // Clear previous warnings
+            Interlocked.Exchange(ref m_ProcessedCount, 0);
+            Interlocked.Exchange(ref m_TotalCount, 0);
 
             try
             {
