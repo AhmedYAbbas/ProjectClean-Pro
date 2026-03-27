@@ -325,7 +325,7 @@ namespace ProjectCleanPro.Editor
             m_Views = new VisualElement[k_Tabs.Length];
 
             // 0: Dashboard
-            m_Views[0] = new PCPDashboardView(m_Modules, m_LastScanResult, SwitchToTab, ScanAll);
+            m_Views[0] = new PCPDashboardView(m_Modules, m_LastScanResult, SwitchToTab, ScanAll, ResetResults);
 
             // 1: Unused
             m_Views[1] = new PCPUnusedView(m_LastScanResult, CreateScanContext);
@@ -481,6 +481,29 @@ namespace ProjectCleanPro.Editor
         private void CancelScan()
         {
             m_ScanCts?.Cancel();
+        }
+
+        private void ResetResults()
+        {
+            // Clear in-memory results
+            m_LastScanResult.Clear();
+            m_LastScanResult.scanTimestampUtc = null;
+            m_LastScanResult.scanDurationSeconds = 0f;
+
+            // Clear module states
+            for (int i = 0; i < m_Modules.Count; i++)
+                m_Modules[i].Clear();
+
+            // Invalidate persisted result cache
+            PCPContext.ResultCacheManager.InvalidateAll();
+            PCPContext.LastScanResult = null;
+            PCPContext.LastScanManifest = null;
+
+            // Refresh UI
+            UpdateStatusBar();
+            RefreshActiveView();
+
+            Debug.Log("[ProjectCleanPro] Scan results reset.");
         }
 
         // --------------------------------------------------------------------

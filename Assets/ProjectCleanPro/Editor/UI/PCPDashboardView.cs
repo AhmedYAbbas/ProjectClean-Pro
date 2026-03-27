@@ -34,6 +34,7 @@ namespace ProjectCleanPro.Editor
         private readonly PCPScanResult m_ScanResult;
         private readonly Action<int> m_OnTabSwitch;
         private readonly Action m_OnScanAll;
+        private readonly Action m_OnResetResults;
 
         // Summary elements
         private Label m_TotalFindingsValue;
@@ -76,12 +77,14 @@ namespace ProjectCleanPro.Editor
             List<IPCPModule> modules,
             PCPScanResult scanResult,
             Action<int> onTabSwitch,
-            Action onScanAll)
+            Action onScanAll,
+            Action onResetResults = null)
         {
             m_Modules = modules;
             m_ScanResult = scanResult;
             m_OnTabSwitch = onTabSwitch;
             m_OnScanAll = onScanAll;
+            m_OnResetResults = onResetResults;
 
             style.flexGrow = 1;
             style.flexDirection = FlexDirection.Column;
@@ -125,14 +128,29 @@ namespace ProjectCleanPro.Editor
             scanAllBtn.AddToClassList("pcp-dashboard__scan-all-button");
             btnColumn.Add(scanAllBtn);
 
+            var secondaryRow = new VisualElement();
+            secondaryRow.style.flexDirection = FlexDirection.Row;
+            secondaryRow.style.justifyContent = Justify.Center;
+            secondaryRow.style.marginTop = 8;
+
             var exportBtn = new Button(OnExport) { text = "Export Report" };
             exportBtn.AddToClassList("pcp-button-secondary");
             exportBtn.style.paddingLeft = 12;
             exportBtn.style.paddingRight = 12;
             exportBtn.style.paddingTop = 6;
             exportBtn.style.paddingBottom = 6;
-            exportBtn.style.marginTop = 8;
-            btnColumn.Add(exportBtn);
+            secondaryRow.Add(exportBtn);
+
+            var resetBtn = new Button(OnResetResults) { text = "Reset Results" };
+            resetBtn.AddToClassList("pcp-button-danger");
+            resetBtn.style.paddingLeft = 12;
+            resetBtn.style.paddingRight = 12;
+            resetBtn.style.paddingTop = 6;
+            resetBtn.style.paddingBottom = 6;
+            resetBtn.style.marginLeft = 8;
+            secondaryRow.Add(resetBtn);
+
+            btnColumn.Add(secondaryRow);
 
             parent.Add(btnColumn);
         }
@@ -285,6 +303,17 @@ namespace ProjectCleanPro.Editor
                 return;
 
             PCPReportExporter.ShowExportMenu(m_ScanResult);
+        }
+
+        private void OnResetResults()
+        {
+            if (!EditorUtility.DisplayDialog(
+                "Reset Scan Results",
+                "This will clear all scan results from the dashboard and every module. Continue?",
+                "Reset", "Cancel"))
+                return;
+
+            m_OnResetResults?.Invoke();
         }
 
         /// <summary>
