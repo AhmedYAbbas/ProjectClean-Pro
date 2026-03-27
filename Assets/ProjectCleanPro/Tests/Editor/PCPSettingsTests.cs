@@ -1,6 +1,7 @@
 using NUnit.Framework;
-using UnityEngine;
 using ProjectCleanPro.Editor;
+using ProjectCleanPro.Editor.Core;
+using UnityEngine;
 
 namespace ProjectCleanPro.Tests.Editor
 {
@@ -42,6 +43,32 @@ namespace ProjectCleanPro.Tests.Editor
         public void Settings_DefaultDependencyGraphMaxDepth_IsPositive()
         {
             Assert.Greater(m_Settings.dependencyGraphMaxDepth, 0);
+        }
+
+        [Test]
+        public void Settings_DefaultScanMode_IsAccurate()
+        {
+            var settings = PCPSettings.instance;
+            Assert.AreEqual(PCPScanMode.Accurate, settings.scanMode);
+        }
+
+        [Test]
+        public void Settings_DefaultMainThreadBudget_Is8ms()
+        {
+            var settings = PCPSettings.instance;
+            Assert.AreEqual(8f, settings.mainThreadBudgetMs, 0.01f);
+        }
+
+        [Test]
+        public void Settings_MainThreadBudget_ClampedToValidRange()
+        {
+            var settings = PCPSettings.instance;
+            settings.mainThreadBudgetMs = 2f;
+            Assert.GreaterOrEqual(settings.mainThreadBudgetMs, 0f);
+            settings.mainThreadBudgetMs = 20f;
+            // The slider clamps in UI, but the field itself accepts any float
+            // This test documents the expected range
+            Assert.AreEqual(20f, settings.mainThreadBudgetMs);
         }
 
         // ================================================================

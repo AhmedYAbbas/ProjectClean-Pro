@@ -1,3 +1,4 @@
+using ProjectCleanPro.Editor.Core;
 using System;
 using System.Collections.Generic;
 using UnityEditor;
@@ -94,6 +95,16 @@ namespace ProjectCleanPro.Editor
         [Header("Duplicate Detector")]
         [Tooltip("Compare importer settings when detecting duplicates.")]
         public bool duplicateCompareImportSettings = true;
+
+        // ----------------------------------------------------------------
+        // Scan mode
+        // ----------------------------------------------------------------
+
+        public PCPScanMode scanMode = PCPScanMode.Accurate;
+        public float mainThreadBudgetMs = 8f;
+
+        // Internal: tracks which mode was used for the last scan (for cache invalidation)
+        [SerializeField] internal PCPScanMode lastScanMode = PCPScanMode.Accurate;
 
         // ----------------------------------------------------------------
         // UI / Theming
