@@ -326,7 +326,7 @@ namespace ProjectCleanPro.Editor
         /// <summary>
         /// Collects root assets for BFS reachability (scenes, Resources, etc.).
         /// </summary>
-        private static HashSet<string> CollectRoots(PCPScanContext context)
+        internal static HashSet<string> CollectRoots(PCPScanContext context)
         {
             var roots = new HashSet<string>(StringComparer.Ordinal);
 
