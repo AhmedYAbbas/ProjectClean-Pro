@@ -1,17 +1,23 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
+using ProjectCleanPro.Editor.Core;
 
 namespace ProjectCleanPro.Editor
 {
     /// <summary>
     /// Module 3 - Duplicate Detector.
     /// Identifies groups of assets that share identical file content by comparing
-    /// file sizes (pre-filter) and SHA-256 hashes.
+    /// file content hashes using a three-phase async pattern:
+    /// Phase 1 (GATHER): Hash files on background threads (parallel I/O).
+    /// Phase 2 (QUERY): Compare import settings on main thread (frame-budgeted).
+    /// Phase 3 (ANALYZE): Build result objects.
     /// </summary>
     public sealed class PCPDuplicateDetector : PCPModuleBase
     {
@@ -50,273 +56,111 @@ namespace ProjectCleanPro.Editor
         }
 
         // ----------------------------------------------------------------
-        // Extensions to skip (read from settings)
-        // ----------------------------------------------------------------
-
-        private static HashSet<string> BuildSkippedExtensions(PCPSettings settings)
-        {
-            return new HashSet<string>(settings.excludedExtensions, StringComparer.OrdinalIgnoreCase);
-        }
-
-        // ----------------------------------------------------------------
-        // Scan implementation
+        // Scan implementation — three-phase async pattern
         // ----------------------------------------------------------------
 
         protected override async Task DoScanAsync(PCPScanContext context, CancellationToken ct)
         {
             _results.Clear();
 
-            // ----------------------------------------------------------
-            // Phase 1: Collect all eligible asset paths with file sizes
-            // ----------------------------------------------------------
-            ReportProgress(0f, "Collecting asset paths...");
+            var cache = context.Cache;
+            var settings = context.Settings;
 
-            string[] allPaths = context.AllProjectAssets;
-            var skippedExtensions = BuildSkippedExtensions(context.Settings);
-            var pathsWithSizes = new List<PathSizePair>();
+            // Collect candidates (filter excluded extensions, ignored paths)
+            var allAssets = await context.GetAllProjectAssetsAsync(ct);
+            var candidates = allAssets
+                .Where(p => !IsExcludedExtension(p, settings) && !IsIgnored(p, context))
+                .ToList();
 
-            for (int i = 0; i < allPaths.Length; i++)
+            Interlocked.Exchange(ref m_TotalCount, candidates.Count);
+
+            // === PHASE 1: GATHER — Hash on background threads ===
+            var hashMap = new ConcurrentDictionary<string, string>();
+
+            await PCPThreading.ParallelForEachAsync(candidates, async (path, token) =>
             {
-                string path = allPaths[i];
-
-                string ext = Path.GetExtension(path);
-                if (skippedExtensions.Contains(ext))
-                    continue;
-
-                if (IsIgnored(path, context))
-                    continue;
-
-                // Skip editor-only paths unless settings opt-in.
-                if (!context.Settings.scanEditorAssets && PCPAssetUtils.IsEditorOnlyPath(path))
-                    continue;
-
-                // Try cached file size first; fall back to disk.
-                long size = context.Cache.GetFileSize(path);
-                string fullPath = Path.GetFullPath(path);
-
-                if (size <= 0)
+                try
                 {
-                    if (!File.Exists(fullPath))
-                        continue;
-
-                    size = new FileInfo(fullPath).Length;
-                    if (size == 0)
-                        continue;
-
-                    context.Cache.SetFileSize(path, size);
-                }
-                else if (!File.Exists(fullPath))
-                {
-                    continue;
-                }
-
-                bool isYaml = PCPFileUtils.IsUnityYamlAsset(fullPath);
-                pathsWithSizes.Add(new PathSizePair
-                {
-                    path = path,
-                    fullPath = fullPath,
-                    size = size,
-                    isUnityYaml = isYaml
-                });
-            }
-
-            ct.ThrowIfCancellationRequested();
-
-            // ----------------------------------------------------------
-            // Phase 2: Group by file size (pre-filter)
-            // ----------------------------------------------------------
-            // Unity YAML assets embed m_Name in the file, so copies of the
-            // same asset have slightly different sizes.  We skip the size
-            // pre-filter for them and hash every YAML asset with
-            // name-normalised hashing instead.
-            // ----------------------------------------------------------
-            ReportProgress(0.1f, "Grouping by file size...");
-
-            var sizeGroups = new Dictionary<long, List<PathSizePair>>();
-            var yamlAssets = new List<PathSizePair>();
-
-            for (int i = 0; i < pathsWithSizes.Count; i++)
-            {
-                var entry = pathsWithSizes[i];
-                if (entry.isUnityYaml)
-                {
-                    yamlAssets.Add(entry);
-                    continue;
-                }
-
-                if (!sizeGroups.TryGetValue(entry.size, out List<PathSizePair> group))
-                {
-                    group = new List<PathSizePair>();
-                    sizeGroups[entry.size] = group;
-                }
-                group.Add(entry);
-            }
-
-            ct.ThrowIfCancellationRequested();
-
-            // ----------------------------------------------------------
-            // Phase 3: Hash files within same-size groups + all YAML assets
-            // ----------------------------------------------------------
-            // Count how many files need hashing for progress reporting.
-            int filesToHash = yamlAssets.Count;
-            foreach (var kvp in sizeGroups)
-            {
-                if (kvp.Value.Count > 1)
-                    filesToHash += kvp.Value.Count;
-            }
-
-            int hashed = 0;
-            var hashGroups = new Dictionary<string, List<PathSizePair>>(StringComparer.Ordinal);
-
-            // Helper: hash a single entry and add it to hashGroups.
-            void HashEntry(PathSizePair entry, bool useNormalized)
-            {
-                hashed++;
-
-                if ((hashed & 31) == 0)
-                {
-                    float pct = 0.2f + 0.6f * ((float)hashed / Math.Max(filesToHash, 1));
-                    ReportProgress(pct, $"Hashing file {hashed}/{filesToHash}...");
-                }
-
-                // Check the cache first.
-                string hash = null;
-                if (useNormalized && !context.Cache.IsStale(entry.path))
-                {
-                    hash = context.Cache.GetMetadata(entry.path, "dup.normalizedHash");
-                }
-                else if (!useNormalized && !context.Cache.IsStale(entry.path))
-                {
-                    hash = context.Cache.GetHash(entry.path);
-                }
-
-                if (string.IsNullOrEmpty(hash))
-                {
-                    try
+                    // Check cache first
+                    if (!cache.IsStale(path))
                     {
-                        hash = useNormalized
-                            ? PCPFileUtils.ComputeNormalizedSHA256(entry.fullPath)
-                            : PCPFileUtils.ComputeSHA256(entry.fullPath);
+                        var cachedHash = cache.GetHash(path);
+                        if (cachedHash != null)
+                        {
+                            hashMap[path] = cachedHash;
+                            Interlocked.Increment(ref m_ProcessedCount);
+                            return;
+                        }
                     }
-                    catch (Exception)
+
+                    // Cache miss — hash on background thread
+                    if (!System.IO.File.Exists(path))
                     {
+                        Interlocked.Increment(ref m_ProcessedCount);
                         return;
                     }
 
-                    // Store in cache.
-                    if (!string.IsNullOrEmpty(hash))
+                    var bytes = await System.IO.File.ReadAllBytesAsync(path, token);
+                    string hash;
+
+                    if (PCPGuidParser.IsGuidParseable(path))
                     {
-                        if (useNormalized)
-                            context.Cache.SetMetadata(entry.path, "dup.normalizedHash", hash);
-                        else
-                            context.Cache.SetHash(entry.path, hash);
-                    }
-                }
-
-                if (string.IsNullOrEmpty(hash))
-                    return;
-
-                entry.hash = hash;
-
-                if (!hashGroups.TryGetValue(hash, out List<PathSizePair> hashGroup))
-                {
-                    hashGroup = new List<PathSizePair>();
-                    hashGroups[hash] = hashGroup;
-                }
-                hashGroup.Add(entry);
-            }
-
-            // 3a: Hash all Unity YAML assets (no size pre-filter).
-            for (int i = 0; i < yamlAssets.Count; i++)
-            {
-                ct.ThrowIfCancellationRequested();
-                HashEntry(yamlAssets[i], useNormalized: true);
-            }
-
-            // 3b: Hash non-YAML assets within same-size groups.
-            foreach (var kvp in sizeGroups)
-            {
-                ct.ThrowIfCancellationRequested();
-
-                List<PathSizePair> group = kvp.Value;
-                if (group.Count < 2)
-                    continue;
-
-                for (int i = 0; i < group.Count; i++)
-                {
-                    ct.ThrowIfCancellationRequested();
-                    HashEntry(group[i], useNormalized: false);
-                }
-            }
-
-            ct.ThrowIfCancellationRequested();
-
-            // ----------------------------------------------------------
-            // Phase 4: Build duplicate groups from hash matches
-            // ----------------------------------------------------------
-            ReportProgress(0.85f, "Building duplicate groups...");
-
-            bool compareImportSettings = context.Settings.duplicateCompareImportSettings;
-
-            foreach (var kvp in hashGroups)
-            {
-                if (kvp.Value.Count < 2)
-                    continue;
-
-                // When importer-settings comparison is enabled, further
-                // subdivide the hash group so that assets with identical
-                // content but different import settings are NOT treated
-                // as duplicates.
-                IEnumerable<List<PathSizePair>> subGroups;
-                if (compareImportSettings)
-                    subGroups = SubdivideByImporterSettings(kvp.Value);
-                else
-                    subGroups = new List<List<PathSizePair>> { kvp.Value };
-
-                foreach (var subGroup in subGroups)
-                {
-                    if (subGroup.Count < 2)
-                        continue;
-
-                    var dupGroup = new PCPDuplicateGroup
-                    {
-                        hash = kvp.Key
-                    };
-
-                    for (int i = 0; i < subGroup.Count; i++)
-                    {
-                        var item = subGroup[i];
-                        string guid = AssetDatabase.AssetPathToGUID(item.path);
-
-                        // Count references to this asset to help determine the canonical copy.
-                        var dependents = context.DependencyResolver.IsBuilt
-                            ? context.DependencyResolver.GetDependents(item.path)
-                            : null;
-
-                        int refCount = dependents != null ? dependents.Count : 0;
-
-                        dupGroup.entries.Add(new PCPDuplicateEntry
+                        // Normalize YAML: compute hash from metadata key in cache if available
+                        var normalizedHash = cache.GetMetadata(path, "dup.normalizedHash");
+                        if (normalizedHash != null && !cache.IsStale(path))
                         {
-                            path = item.path,
-                            guid = guid,
-                            sizeBytes = item.size,
-                            referenceCount = refCount,
-                            isCanonical = false
-                        });
+                            hash = normalizedHash;
+                        }
+                        else
+                        {
+                            hash = ComputeNormalizedYamlHash(bytes);
+                            cache.SetMetadata(path, "dup.normalizedHash", hash);
+                        }
+                    }
+                    else
+                    {
+                        hash = ComputeSHA256(bytes);
                     }
 
-                    dupGroup.ElectCanonical();
-                    _results.Add(dupGroup);
+                    hashMap[path] = hash;
+                    cache.SetHash(path, hash);
                 }
+                catch (OperationCanceledException) { throw; }
+                catch (System.Exception ex)
+                {
+                    m_Warnings.Enqueue($"Skipped {path}: {ex.Message}");
+                }
+                finally
+                {
+                    Interlocked.Increment(ref m_ProcessedCount);
+                }
+            }, PCPThreading.DefaultConcurrency, ct);
+
+            // Group by hash — only groups with 2+ entries are duplicates
+            var groups = hashMap
+                .GroupBy(kv => kv.Value)
+                .Where(g => g.Count() > 1)
+                .ToList();
+
+            // === PHASE 2: QUERY — Import settings comparison (main thread, budgeted) ===
+            if (settings.duplicateCompareImportSettings && context.Scheduler != null)
+            {
+                groups = await RefineByImportSettingsAsync(groups, context, ct);
             }
 
-            // ----------------------------------------------------------
-            // Phase 5: Sort by wasted bytes descending
-            // ----------------------------------------------------------
-            ReportProgress(0.95f, "Sorting results...");
-            _results.Sort((a, b) => b.WastedBytes.CompareTo(a.WastedBytes));
+            // === PHASE 3: ANALYZE — Build results (background) ===
+            var resolver = context.NewDependencyResolver ?? (object)context.DependencyResolver;
 
-            ReportProgress(1f, $"Found {_results.Count} duplicate groups.");
+            _results.Clear();
+            foreach (var group in groups)
+            {
+                ct.ThrowIfCancellationRequested();
+                var dupGroup = BuildDuplicateGroup(group, resolver);
+                if (dupGroup != null)
+                    _results.Add(dupGroup);
+            }
+
+            _results.Sort((a, b) => b.WastedBytes.CompareTo(a.WastedBytes));
         }
 
         public override void Clear()
@@ -373,60 +217,150 @@ namespace ProjectCleanPro.Editor
         }
 
         // ----------------------------------------------------------------
-        // Importer-settings comparison
+        // Phase 2: Import settings refinement
         // ----------------------------------------------------------------
 
-        /// <summary>
-        /// Splits a list of content-identical assets into sub-groups where
-        /// each sub-group also shares identical importer settings.
-        /// Assets with no importer are grouped together.
-        /// </summary>
-        private static IEnumerable<List<PathSizePair>> SubdivideByImporterSettings(
-            List<PathSizePair> group)
+        private async Task<List<IGrouping<string, KeyValuePair<string, string>>>> RefineByImportSettingsAsync(
+            List<IGrouping<string, KeyValuePair<string, string>>> groups,
+            PCPScanContext context,
+            CancellationToken ct)
         {
-            var subGroups = new Dictionary<string, List<PathSizePair>>(StringComparer.Ordinal);
+            var refined = new List<IGrouping<string, KeyValuePair<string, string>>>();
 
-            for (int i = 0; i < group.Count; i++)
+            foreach (var group in groups)
             {
-                string key = GetImporterSettingsKey(group[i].path);
+                var paths = group.Select(kv => kv.Key).ToList();
+                if (paths.Count < 2) continue;
 
-                if (!subGroups.TryGetValue(key, out List<PathSizePair> list))
+                var importSettings = await context.Scheduler.BatchOnMainThread(
+                    paths,
+                    path =>
+                    {
+                        var importer = AssetImporter.GetAtPath(path);
+                        return importer != null ? EditorJsonUtility.ToJson(importer) : "";
+                    },
+                    ct);
+
+                var subGroups = paths
+                    .Select((p, i) => new { Path = p, Hash = group.Key, Settings = importSettings[i] })
+                    .GroupBy(x => x.Hash + "|" + x.Settings)
+                    .Where(g => g.Count() > 1);
+
+                foreach (var sub in subGroups)
                 {
-                    list = new List<PathSizePair>();
-                    subGroups[key] = list;
+                    refined.Add(sub.Select(x =>
+                        new KeyValuePair<string, string>(x.Path, group.Key))
+                        .GroupBy(kv => kv.Value).First());
                 }
-                list.Add(group[i]);
             }
 
-            return subGroups.Values;
-        }
-
-        /// <summary>
-        /// Returns a string key representing the importer settings for a given
-        /// asset path. Assets with identical keys have identical import settings.
-        /// </summary>
-        private static string GetImporterSettingsKey(string assetPath)
-        {
-            AssetImporter importer = AssetImporter.GetAtPath(assetPath);
-            if (importer == null)
-                return string.Empty;
-
-            // EditorJsonUtility serializes all SerializedObject fields,
-            // giving us a complete, comparable snapshot of the importer state.
-            return EditorJsonUtility.ToJson(importer);
+            return refined;
         }
 
         // ----------------------------------------------------------------
-        // Internal data
+        // Phase 3: Build duplicate group from hash grouping
         // ----------------------------------------------------------------
 
-        private class PathSizePair
+        private PCPDuplicateGroup BuildDuplicateGroup(
+            IGrouping<string, KeyValuePair<string, string>> group,
+            object resolver)
         {
-            public string path;
-            public string fullPath;
-            public long size;
-            public string hash;
-            public bool isUnityYaml;
+            var paths = group.Select(kv => kv.Key).ToList();
+            if (paths.Count < 2)
+                return null;
+
+            var dupGroup = new PCPDuplicateGroup { hash = group.Key };
+
+            foreach (var path in paths)
+            {
+                string guid = AssetDatabase.AssetPathToGUID(path);
+
+                int refCount = 0;
+                if (resolver is IPCPDependencyResolver newResolver && newResolver.IsBuilt)
+                {
+                    refCount = newResolver.GetDependentCount(path);
+                }
+                else if (resolver is PCPDependencyResolver oldResolver && oldResolver.IsBuilt)
+                {
+                    var dependents = oldResolver.GetDependents(path);
+                    refCount = dependents != null ? dependents.Count : 0;
+                }
+
+                long sizeBytes = 0;
+                var fullPath = Path.GetFullPath(path);
+                if (File.Exists(fullPath))
+                {
+                    try { sizeBytes = new FileInfo(fullPath).Length; }
+                    catch { /* ignore — entry will have 0 size */ }
+                }
+
+                dupGroup.entries.Add(new PCPDuplicateEntry
+                {
+                    path = path,
+                    guid = guid,
+                    sizeBytes = sizeBytes,
+                    referenceCount = refCount,
+                    isCanonical = false
+                });
+            }
+
+            if (dupGroup.entries.Count < 2)
+                return null;
+
+            dupGroup.ElectCanonical();
+            return dupGroup;
+        }
+
+        // ----------------------------------------------------------------
+        // Helpers: extension filter
+        // ----------------------------------------------------------------
+
+        private static bool IsExcludedExtension(string path, PCPSettings settings)
+        {
+            if (settings?.excludedExtensions == null || settings.excludedExtensions.Count == 0)
+                return false;
+
+            var ext = Path.GetExtension(path);
+            if (string.IsNullOrEmpty(ext))
+                return false;
+
+            foreach (var excluded in settings.excludedExtensions)
+            {
+                if (string.Equals(ext, excluded, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
+        }
+
+        // ----------------------------------------------------------------
+        // Helpers: hashing
+        // ----------------------------------------------------------------
+
+        private static string ComputeSHA256(byte[] data)
+        {
+            using var sha = System.Security.Cryptography.SHA256.Create();
+            var hashBytes = sha.ComputeHash(data);
+            var sb = new System.Text.StringBuilder(hashBytes.Length * 2);
+            foreach (byte b in hashBytes) sb.Append(b.ToString("x2"));
+            return sb.ToString();
+        }
+
+        private static string ComputeNormalizedYamlHash(byte[] data)
+        {
+            // Strip GUID-based lines that differ between copies of the same asset
+            var text = System.Text.Encoding.UTF8.GetString(data);
+            var lines = text.Split('\n');
+            var sb = new System.Text.StringBuilder(text.Length);
+            foreach (var line in lines)
+            {
+                var trimmed = line.TrimStart();
+                // Skip guid references — they differ between duplicates of the same content
+                if (trimmed.StartsWith("guid:") || trimmed.StartsWith("m_Script:") ||
+                    trimmed.StartsWith("fileID:"))
+                    continue;
+                sb.AppendLine(line);
+            }
+            return ComputeSHA256(System.Text.Encoding.UTF8.GetBytes(sb.ToString()));
         }
     }
 }
