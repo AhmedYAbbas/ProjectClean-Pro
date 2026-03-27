@@ -12,7 +12,7 @@ namespace ProjectCleanPro.Editor.Core
     /// behavior: the caller's continuation always resumes on a thread-pool thread,
     /// regardless of what work() does internally.
     /// </summary>
-    public static class PCPThreading
+    internal static class PCPThreading
     {
         /// <summary>
         /// Runs work on a background thread.
