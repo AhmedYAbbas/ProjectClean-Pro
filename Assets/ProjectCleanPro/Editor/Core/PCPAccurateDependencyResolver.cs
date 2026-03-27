@@ -15,6 +15,8 @@ namespace ProjectCleanPro.Editor.Core
     {
         public override async Task BuildGraphAsync(PCPScanContext context, CancellationToken ct)
         {
+            ct.ThrowIfCancellationRequested();
+
             var scheduler = context.Scheduler;
             var cache = context.Cache;
 
@@ -24,7 +26,7 @@ namespace ProjectCleanPro.Editor.Core
 
             // Phase 1: Remove edges for deleted assets (background)
             var allPaths = await context.GetAllProjectAssetsAsync(ct);
-            await scheduler.ScheduleBackground(async ct2 =>
+            await scheduler.ScheduleBackground(ct2 =>
             {
                 var currentPathSet = new HashSet<string>(allPaths);
                 var toRemove = m_AllAssets.Keys
@@ -32,6 +34,7 @@ namespace ProjectCleanPro.Editor.Core
                     .ToList();
                 foreach (var path in toRemove)
                     RemoveAssetEdges(path);
+                return Task.CompletedTask;
             }, ct);
 
             // Phase 2: Query deps on main thread, frame-budgeted (only stale assets)
@@ -47,21 +50,24 @@ namespace ProjectCleanPro.Editor.Core
                     ct);
 
                 // Phase 3: Update graph (background)
-                await scheduler.ScheduleBackground(async ct2 =>
+                await scheduler.ScheduleBackground(ct2 =>
                 {
                     for (int i = 0; i < stalePaths.Count; i++)
                     {
                         ct2.ThrowIfCancellationRequested();
                         UpdateEdges(stalePaths[i], depsPerAsset[i]);
                     }
+                    return Task.CompletedTask;
                 }, ct);
             }
 
             // Phase 4: BFS reachability (background)
-            await scheduler.ScheduleBackground(async ct2 =>
+            ct.ThrowIfCancellationRequested();
+            await scheduler.ScheduleBackground(ct2 =>
             {
                 var roots = CollectRoots(context);
                 ComputeReachability(roots);
+                return Task.CompletedTask;
             }, ct);
 
             m_IsBuilt = true;
