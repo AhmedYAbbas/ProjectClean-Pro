@@ -17,6 +17,8 @@ namespace ProjectCleanPro.Editor.Core
     {
         private readonly PCPGuidIndex m_GuidIndex;
 
+        // Prefabs and scenes use variant inheritance and can strip/add components,
+        // producing implicit dependencies that YAML GUID parsing cannot detect.
         private static readonly HashSet<string> k_ComplexExtensions = new()
         {
             ".prefab", ".unity"
