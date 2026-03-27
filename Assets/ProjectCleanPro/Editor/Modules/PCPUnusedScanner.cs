@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
+using ProjectCleanPro.Editor.Core;
 
 namespace ProjectCleanPro.Editor
 {
@@ -13,6 +14,10 @@ namespace ProjectCleanPro.Editor
     /// Module 1 - Unused Asset Scanner.
     /// Identifies assets that are not reachable from any build scene,
     /// Resources folder, AssetBundle, or always-used root.
+    /// Uses a three-phase async pattern:
+    /// Phase 1 (GATHER): Collect all asset paths via background I/O.
+    /// Phase 2 (QUERY): No main-thread queries needed — reachability is pre-computed by the dependency resolver.
+    /// Phase 3 (ANALYZE): Cross-reference candidates against the reachable set on a background thread.
     /// </summary>
     public sealed class PCPUnusedScanner : PCPModuleBase
     {
@@ -50,177 +55,65 @@ namespace ProjectCleanPro.Editor
         }
 
         // ----------------------------------------------------------------
-        // Extensions and paths to skip
-        // ----------------------------------------------------------------
-
-        private static HashSet<string> BuildSkippedExtensions(PCPSettings settings)
-        {
-            return new HashSet<string>(settings.excludedExtensions, StringComparer.OrdinalIgnoreCase);
-        }
-
-        // ----------------------------------------------------------------
-        // Scan implementation
+        // Scan implementation — three-phase async pattern
         // ----------------------------------------------------------------
 
         protected override async Task DoScanAsync(PCPScanContext context, CancellationToken ct)
         {
             _results.Clear();
 
-            // ----------------------------------------------------------
-            // Phase 1: Collect root assets (scenes, Resources, bundles)
-            // ----------------------------------------------------------
-            ReportProgress(0f, "Collecting root assets...");
-            var roots = new HashSet<string>(StringComparer.Ordinal);
+            // Get the reachable set from the dependency resolver.
+            var resolverObj = context.NewDependencyResolver ?? (object)context.DependencyResolver;
+            IReadOnlyCollection<string> reachable;
 
-            // 1a. Scenes — either all project scenes or just enabled build scenes.
-            if (context.Settings.includeAllScenes)
-            {
-                string[] allScenes = PCPAssetUtils.GetAllScenePaths(context.AllProjectAssets);
-                for (int i = 0; i < allScenes.Length; i++)
-                    roots.Add(allScenes[i]);
-            }
+            if (resolverObj is IPCPDependencyResolver newResolver)
+                reachable = newResolver.GetReachableAssets();
             else
-            {
-                string[] buildScenePaths = PCPAssetUtils.GetBuildScenePaths();
-                for (int i = 0; i < buildScenePaths.Length; i++)
-                    roots.Add(buildScenePaths[i]);
-            }
+                reachable = ((PCPDependencyResolver)resolverObj).GetAllReachable();
 
-            // 1b. All assets under any Resources/ folder.
-            string[] resourcesPaths = PCPAssetUtils.GetResourcesPaths(context.AllProjectAssets);
-            for (int i = 0; i < resourcesPaths.Length; i++)
-                roots.Add(resourcesPaths[i]);
+            var reachableSet = new HashSet<string>(reachable, StringComparer.Ordinal);
 
-            // 1c. Assets assigned to AssetBundles.
-            if (context.Settings.includeAssetBundles)
-            {
-                string[] bundleRoots = PCPAssetUtils.GetAssetBundleRoots();
-                for (int i = 0; i < bundleRoots.Length; i++)
-                    roots.Add(bundleRoots[i]);
-            }
+            // === PHASE 1: GATHER — Collect all asset paths (background) ===
+            ReportProgress(0.05f, "Gathering asset paths...");
+            var allAssets = await context.GetAllProjectAssetsAsync(ct);
+            var candidates = allAssets
+                .Where(p => !IsExcludedExtension(p, context.Settings)
+                            && !IsEditorOnlyPath(p, context.Settings))
+                .ToList();
 
-            // 1d. Addressable entries.
-            if (context.Settings.includeAddressables && PCPAddressablesBridge.HasAddressables)
-            {
-                var addressableRoots = PCPAddressablesBridge.GetRoots();
-                for (int i = 0; i < addressableRoots.Count; i++)
-                    roots.Add(addressableRoots[i]);
-            }
+            Interlocked.Exchange(ref m_TotalCount, candidates.Count);
 
-            // 1e. Custom scan roots from context.
-            if (context.AlwaysUsedRoots != null)
+            // === PHASE 2: QUERY — No main-thread queries needed ===
+            // Reachability is already computed by the dependency resolver.
+
+            // === PHASE 3: ANALYZE — Cross-reference against reachable set (background) ===
+            ReportProgress(0.15f, "Identifying unused assets...");
+
+            var localResults = new List<PCPUnusedAsset>();
+
+            await PCPThreading.RunOnBackground(() =>
             {
-                for (int i = 0; i < context.AlwaysUsedRoots.Count; i++)
+                foreach (var path in candidates)
                 {
-                    string cr = context.AlwaysUsedRoots[i];
-                    if (string.IsNullOrEmpty(cr))
+                    ct.ThrowIfCancellationRequested();
+                    Interlocked.Increment(ref m_ProcessedCount);
+
+                    if (reachableSet.Contains(path))
                         continue;
 
-                    // If the custom root is a folder, expand to all assets under it.
-                    if (AssetDatabase.IsValidFolder(cr))
-                    {
-                        string[] guids = AssetDatabase.FindAssets("", new[] { cr });
-                        for (int j = 0; j < guids.Length; j++)
-                        {
-                            string assetPath = AssetDatabase.GUIDToAssetPath(guids[j]);
-                            if (!string.IsNullOrEmpty(assetPath) && !AssetDatabase.IsValidFolder(assetPath))
-                                roots.Add(assetPath);
-                        }
-                    }
-                    else
-                    {
-                        roots.Add(cr);
-                    }
+                    if (IsIgnored(path, context))
+                        continue;
+
+                    var asset = BuildUnusedAsset(path);
+                    if (asset != null)
+                        localResults.Add(asset);
                 }
-            }
 
-            // 1f. Always-included shaders from GraphicsSettings.
-            var graphicsSettings = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(
-                "ProjectSettings/GraphicsSettings.asset");
-            if (graphicsSettings != null)
-            {
-                var so = new SerializedObject(graphicsSettings);
-                var alwaysIncluded = so.FindProperty("m_AlwaysIncludedShaders");
-                if (alwaysIncluded != null && alwaysIncluded.isArray)
-                {
-                    for (int i = 0; i < alwaysIncluded.arraySize; i++)
-                    {
-                        var elem = alwaysIncluded.GetArrayElementAtIndex(i);
-                        if (elem.objectReferenceValue != null)
-                        {
-                            string shaderPath = AssetDatabase.GetAssetPath(elem.objectReferenceValue);
-                            if (!string.IsNullOrEmpty(shaderPath))
-                                roots.Add(shaderPath);
-                        }
-                    }
-                }
-            }
+                localResults.Sort((a, b) => b.SizeBytes.CompareTo(a.SizeBytes));
+                return Task.CompletedTask;
+            }, ct);
 
-            ct.ThrowIfCancellationRequested();
-
-            // ----------------------------------------------------------
-            // Phase 2: Build / use the dependency graph to find reachable set
-            // ----------------------------------------------------------
-            ReportProgress(0.1f, "Building dependency graph...");
-            var resolver = context.DependencyResolver;
-
-            // Build or incrementally update the dependency graph.
-            await resolver.BuildAsync(roots, (p, label) =>
-            {
-                ReportProgress(0.1f + p * 0.5f, label);
-            }, context.Cache, context.AllProjectAssets, ct: ct);
-
-            ct.ThrowIfCancellationRequested();
-
-            var reachable = new HashSet<string>(resolver.GetAllReachable(), StringComparer.Ordinal);
-            // Also mark the roots themselves as reachable.
-            foreach (string root in roots)
-                reachable.Add(root);
-
-            // ----------------------------------------------------------
-            // Phase 3: Enumerate all project assets and subtract reachable
-            // ----------------------------------------------------------
-            ReportProgress(0.65f, "Identifying unused assets...");
-
-            // Use cached asset list from the scan context.
-            string[] projectAssets = context.AllProjectAssets;
-            var skippedExtensions = BuildSkippedExtensions(context.Settings);
-
-            int total = projectAssets.Length;
-
-            for (int i = 0; i < total; i++)
-            {
-                await YieldIfNeeded(i, total, $"Checking asset {i}/{total}...", ct, interval: 128);
-
-                string path = projectAssets[i];
-
-                // Skip excluded extensions (configured in settings).
-                string ext = System.IO.Path.GetExtension(path);
-                if (skippedExtensions.Contains(ext))
-                    continue;
-
-                // Skip editor-only paths (unless settings opt-in).
-                if (!context.Settings.scanEditorAssets && PCPAssetUtils.IsEditorOnlyPath(path))
-                    continue;
-
-                // Skip ignored paths.
-                if (IsIgnored(path, context))
-                    continue;
-
-                // If reachable, it is used.
-                if (reachable.Contains(path))
-                    continue;
-
-                // This asset is unused.
-                var entry = PCPUnusedAsset.FromPath(path);
-                _results.Add(entry);
-            }
-
-            // ----------------------------------------------------------
-            // Phase 4: Sort results by size descending
-            // ----------------------------------------------------------
-            ReportProgress(0.95f, "Sorting results...");
-            _results.Sort((a, b) => b.SizeBytes.CompareTo(a.SizeBytes));
+            _results.AddRange(localResults);
 
             ReportProgress(1f, $"Found {_results.Count} unused assets.");
         }
@@ -229,6 +122,83 @@ namespace ProjectCleanPro.Editor
         {
             base.Clear();
             _results.Clear();
+        }
+
+        // ----------------------------------------------------------------
+        // Helpers: extension + path filters
+        // ----------------------------------------------------------------
+
+        private static bool IsExcludedExtension(string path, PCPSettings settings)
+        {
+            if (settings?.excludedExtensions == null || settings.excludedExtensions.Count == 0)
+                return false;
+
+            var ext = Path.GetExtension(path);
+            if (string.IsNullOrEmpty(ext))
+                return false;
+
+            foreach (var excluded in settings.excludedExtensions)
+            {
+                if (string.Equals(ext, excluded, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
+        }
+
+        private static bool IsEditorOnlyPath(string path, PCPSettings settings)
+        {
+            if (settings != null && settings.scanEditorAssets)
+                return false;
+            return PCPAssetUtils.IsEditorOnlyPath(path);
+        }
+
+        // ----------------------------------------------------------------
+        // Helpers: result construction (background-safe, filesystem only)
+        // ----------------------------------------------------------------
+
+        private static PCPUnusedAsset BuildUnusedAsset(string path)
+        {
+            var info = new PCPAssetInfo
+            {
+                path = path,
+                name = Path.GetFileNameWithoutExtension(path),
+                extension = Path.GetExtension(path),
+                assetTypeName = "Unknown"
+            };
+
+            try
+            {
+                var fullPath = Path.GetFullPath(path);
+                if (File.Exists(fullPath))
+                {
+                    var fi = new FileInfo(fullPath);
+                    info.sizeBytes = fi.Length;
+                    info.lastModifiedTicks = fi.LastWriteTimeUtc.Ticks;
+                }
+            }
+            catch
+            {
+                // Leave sizeBytes = 0 if file stat fails.
+            }
+
+            bool isInResources = PCPAssetUtils.IsResourcesPath(path);
+            bool isInPackage = path.StartsWith("Packages/");
+
+            string suggestedAction;
+            if (isInResources)
+                suggestedAction = "In Resources folder - verify not loaded at runtime";
+            else if (isInPackage)
+                suggestedAction = "Package asset - consider removing the package";
+            else
+                suggestedAction = "Safe to delete";
+
+            return new PCPUnusedAsset
+            {
+                assetInfo = info,
+                isInResources = isInResources,
+                isInPackage = isInPackage,
+                suggestedAction = suggestedAction
+            };
         }
 
         // ----------------------------------------------------------------
