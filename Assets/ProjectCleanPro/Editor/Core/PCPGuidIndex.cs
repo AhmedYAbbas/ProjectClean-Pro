@@ -25,7 +25,7 @@ namespace ProjectCleanPro.Editor.Core
         /// </summary>
         public async Task BuildAsync(
             IReadOnlyList<string> metaFiles,
-            IReadOnlySet<string> changedFiles,
+            ICollection<string> changedFiles,
             CancellationToken ct)
         {
             if (changedFiles != null)
@@ -65,7 +65,7 @@ namespace ProjectCleanPro.Editor.Core
             m_GuidToPath.TryGetValue(guid, out var path) ? path : null;
 
         public HashSet<string> ResolveAll(IEnumerable<string> guids) =>
-            guids.Select(Resolve).Where(p => p != null).ToHashSet();
+            new HashSet<string>(guids.Select(Resolve).Where(p => p != null));
 
         public int Count => m_GuidToPath.Count;
 

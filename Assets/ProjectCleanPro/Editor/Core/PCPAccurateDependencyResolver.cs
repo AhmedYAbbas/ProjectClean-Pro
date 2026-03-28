@@ -17,7 +17,10 @@ namespace ProjectCleanPro.Editor.Core
         {
             ct.ThrowIfCancellationRequested();
 
-            var scheduler = context.Scheduler;
+            var scheduler = context.Scheduler
+                ?? throw new InvalidOperationException(
+                    "[PCP] PCPAccurateDependencyResolver requires a scheduler. " +
+                    "Build the graph only via PCPScanOrchestrator.");
             var cache = context.Cache;
 
             // Try loading from disk first

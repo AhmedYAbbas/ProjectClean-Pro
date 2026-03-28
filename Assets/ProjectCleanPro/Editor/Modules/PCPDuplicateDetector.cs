@@ -100,7 +100,7 @@ namespace ProjectCleanPro.Editor
                         return;
                     }
 
-                    var bytes = await System.IO.File.ReadAllBytesAsync(path, token);
+                    var bytes = await Task.Run(() => System.IO.File.ReadAllBytes(path), token);
                     string hash;
 
                     if (PCPGuidParser.IsGuidParseable(path))

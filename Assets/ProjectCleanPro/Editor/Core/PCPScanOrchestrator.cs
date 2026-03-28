@@ -294,7 +294,7 @@ namespace ProjectCleanPro.Editor
         private void InvalidateCachesForModeSwitch(PCPScanContext context)
         {
             // Clear dependency graph cache
-            var graphPath = Path.Combine("Library", "ProjectCleanPro", "DepGraph.bin");
+            var graphPath = Path.Combine(PCPScanCache.CacheDirectory, "DepGraph.bin");
             if (File.Exists(graphPath))
                 File.Delete(graphPath);
 

@@ -31,7 +31,7 @@ namespace ProjectCleanPro.Editor.Core
             // Step 1: Build GUID index from .meta files (background, parallel)
             var metaFiles = await context.GetAllMetaFilesAsync(ct);
             var changedFiles = context.Cache.HasAnyChanges
-                ? new HashSet<string>(context.Cache.GetStaleAssets()) as IReadOnlySet<string>
+                ? (ICollection<string>)new HashSet<string>(context.Cache.GetStaleAssets())
                 : null;
 
             await m_GuidIndex.BuildAsync(metaFiles, changedFiles, ct);

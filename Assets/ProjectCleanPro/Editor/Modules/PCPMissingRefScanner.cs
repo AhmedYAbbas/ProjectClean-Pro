@@ -92,7 +92,7 @@ namespace ProjectCleanPro.Editor
                         }
                     }
 
-                    var content = await System.IO.File.ReadAllTextAsync(path, token);
+                    var content = await Task.Run(() => System.IO.File.ReadAllText(path), token);
                     if (ContainsSuspiciousPatterns(content))
                         suspicious.Add(path);
                 }

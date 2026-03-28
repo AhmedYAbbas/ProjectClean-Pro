@@ -33,7 +33,10 @@ namespace ProjectCleanPro.Editor.Core
         {
             ct.ThrowIfCancellationRequested();
 
-            var scheduler = context.Scheduler;
+            var scheduler = context.Scheduler
+                ?? throw new InvalidOperationException(
+                    "[PCP] PCPBalancedDependencyResolver requires a scheduler. " +
+                    "Build the graph only via PCPScanOrchestrator.");
 
             if (!m_IsBuilt)
                 LoadFromDisk();
@@ -41,7 +44,7 @@ namespace ProjectCleanPro.Editor.Core
             // Step 1: Build GUID index (background)
             var metaFiles = await context.GetAllMetaFilesAsync(ct);
             var changedFiles = context.Cache.HasAnyChanges
-                ? new HashSet<string>(context.Cache.GetStaleAssets()) as IReadOnlySet<string>
+                ? (ICollection<string>)new HashSet<string>(context.Cache.GetStaleAssets())
                 : null;
             await m_GuidIndex.BuildAsync(metaFiles, changedFiles, ct);
 

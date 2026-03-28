@@ -161,7 +161,7 @@ namespace ProjectCleanPro.Editor.Core
                     {
                         m_AllAssets[dep] = 0;
                         var rev = m_Reverse.GetOrAdd(dep, _ => new HashSet<string>(StringComparer.Ordinal));
-                        rev.Add(asset);
+                        lock (rev) { rev.Add(asset); }
                     }
                 }
 
