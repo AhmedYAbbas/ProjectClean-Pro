@@ -78,12 +78,17 @@ namespace ProjectCleanPro.Editor
 
             AddSeparator(container);
 
-            // Section 6: Module Colors
+            // Section 6: Performance
+            BuildPerformanceSection(container);
+
+            AddSeparator(container);
+
+            // Section 7: Module Colors
             BuildModuleColorsSection(container);
 
             AddSeparator(container);
 
-            // Section 7: Actions
+            // Section 8: Actions
             BuildActionsSection(container);
         }
 
@@ -533,7 +538,48 @@ namespace ProjectCleanPro.Editor
         }
 
         // --------------------------------------------------------------------
-        // Section 6: Module Colors
+        // Section 6: Performance
+        // --------------------------------------------------------------------
+
+        private void BuildPerformanceSection(VisualElement parent)
+        {
+            var section = CreateSection("Performance");
+            parent.Add(section);
+
+            // Main thread budget slider
+            var budgetRow = new VisualElement();
+            budgetRow.style.flexDirection = FlexDirection.Row;
+            budgetRow.style.alignItems = Align.Center;
+            budgetRow.style.marginBottom = 8;
+
+            var budgetLabel = new Label("Main Thread Budget (ms)");
+            budgetLabel.style.minWidth = 200;
+            budgetLabel.AddToClassList("pcp-label-body");
+            budgetRow.Add(budgetLabel);
+
+            var budgetSlider = new SliderFloat(4f, 16f);
+            budgetSlider.value = m_Settings.mainThreadBudgetMs;
+            budgetSlider.style.flexGrow = 1;
+            budgetSlider.style.minWidth = 120;
+            budgetSlider.showInputField = true;
+            budgetSlider.tooltip = "Controls how much time per frame is spent on scan work.\n" +
+                "Lower values keep the editor smoother during scans.\n" +
+                "Higher values make scans complete faster but may cause stuttering.\n\n" +
+                "4ms = very smooth editor, slower scans\n" +
+                "8ms = balanced (default)\n" +
+                "16ms = fastest scans, editor may stutter";
+            budgetSlider.RegisterValueChangedCallback(evt =>
+            {
+                m_Settings.mainThreadBudgetMs = evt.newValue;
+                SaveSettings();
+            });
+            budgetRow.Add(budgetSlider);
+
+            section.Add(budgetRow);
+        }
+
+        // --------------------------------------------------------------------
+        // Section 7: Module Colors
         // --------------------------------------------------------------------
 
         private void BuildModuleColorsSection(VisualElement parent)
