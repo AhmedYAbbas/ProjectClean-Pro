@@ -1,11 +1,10 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using ProjectCleanPro.Editor;
 
 namespace ProjectCleanPro.Editor.Core
 {
-    internal interface IPCPDependencyResolver
+    public interface IPCPDependencyResolver
     {
         Task BuildGraphAsync(PCPScanContext context, CancellationToken ct);
         IReadOnlyCollection<string> GetReachableAssets();

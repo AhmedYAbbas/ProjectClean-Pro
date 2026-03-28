@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
-using ProjectCleanPro.Editor.Core;
 using UnityEditor;
-using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -50,9 +48,7 @@ namespace ProjectCleanPro.Editor
         private readonly List<Label> m_CardStatusLabels = new List<Label>();
         private readonly List<VisualElement> m_CardHeaders = new List<VisualElement>();
 
-        // Scan mode + banner elements
-        private HelpBox m_ModeChangedBanner;
-        private HelpBox m_FastModeBanner;
+        // Banner elements
         private Foldout m_WarningsFoldout;
         private VisualElement m_WarningsContainer;
 
@@ -69,7 +65,7 @@ namespace ProjectCleanPro.Editor
             {
                 new ModuleCardDef { name = "Unused Assets",      icon = "\u2716", cssModifier = "unused",       tabIndex = 1 },
                 new ModuleCardDef { name = "Missing References", icon = "\u26A0", cssModifier = "missing",      tabIndex = 2 },
-                new ModuleCardDef { name = "Duplicates",         icon = "\u2687", cssModifier = "duplicates",   tabIndex = 3 },
+                new ModuleCardDef { name = "Duplicates",         icon = "\u25A6", cssModifier = "duplicates",   tabIndex = 3 },
                 new ModuleCardDef { name = "Dependencies",       icon = "\u2194", cssModifier = "dependencies", tabIndex = 4 },
                 new ModuleCardDef { name = "Packages",           icon = "\u2750", cssModifier = "packages",     tabIndex = 5 },
                 new ModuleCardDef { name = "Shaders",            icon = "\u2726", cssModifier = "shaders",      tabIndex = 6 },
@@ -109,9 +105,6 @@ namespace ProjectCleanPro.Editor
 
             // Scan All button at top
             BuildScanAllButton(container);
-
-            // Scan mode selector + banners
-            BuildScanModeSection(container);
 
             // Summary row
             BuildSummaryRow(container);
@@ -170,69 +163,6 @@ namespace ProjectCleanPro.Editor
         }
 
         // --------------------------------------------------------------------
-        // Scan mode section
-        // --------------------------------------------------------------------
-
-        private void BuildScanModeSection(VisualElement parent)
-        {
-            var section = new VisualElement();
-            section.style.marginBottom = 12;
-
-            // Row: label + enum field
-            var row = new VisualElement();
-            row.style.flexDirection = FlexDirection.Row;
-            row.style.alignItems = Align.Center;
-            row.style.marginBottom = 4;
-
-            var modeLabel = new Label("Scan Mode");
-            modeLabel.AddToClassList("pcp-label");
-            modeLabel.style.minWidth = 90;
-            modeLabel.style.marginRight = 8;
-            modeLabel.tooltip =
-                "Accurate: full AssetDatabase analysis (slowest, most accurate)\n" +
-                "Balanced: hybrid GUID parsing + AssetDatabase\n" +
-                "Fast: pure file parsing (fastest, may miss some dependencies)";
-            row.Add(modeLabel);
-
-            var settings = PCPContext.Settings;
-            var modeEnum = new EnumField(settings != null ? (Enum)settings.scanMode : PCPScanMode.Accurate);
-            modeEnum.style.flexGrow = 1;
-            modeEnum.RegisterValueChangedCallback(evt =>
-            {
-                var s = PCPContext.Settings;
-                if (s == null) return;
-                var newMode = (PCPScanMode)evt.newValue;
-                if (newMode != s.scanMode)
-                {
-                    s.scanMode = newMode;
-                    s.Save();
-                    RefreshBanners();
-                }
-            });
-            row.Add(modeEnum);
-            section.Add(row);
-
-            // Warning: mode changed since last scan
-            m_ModeChangedBanner = new HelpBox(
-                "Scan mode changed \u2014 cached results will be cleared and a full rescan is required.",
-                HelpBoxMessageType.Warning);
-            m_ModeChangedBanner.style.display = DisplayStyle.None;
-            section.Add(m_ModeChangedBanner);
-
-            // Info: fast mode accuracy caveat
-            m_FastModeBanner = new HelpBox(
-                "Fast scan \u2014 some dependencies may not be detected.",
-                HelpBoxMessageType.Info);
-            m_FastModeBanner.style.display = DisplayStyle.None;
-            section.Add(m_FastModeBanner);
-
-            parent.Add(section);
-
-            // Apply initial banner state
-            RefreshBanners();
-        }
-
-        // --------------------------------------------------------------------
         // Warnings section
         // --------------------------------------------------------------------
 
@@ -254,24 +184,6 @@ namespace ProjectCleanPro.Editor
         // --------------------------------------------------------------------
         // Banner + warnings refresh
         // --------------------------------------------------------------------
-
-        private void RefreshBanners()
-        {
-            if (m_ModeChangedBanner == null || m_FastModeBanner == null) return;
-
-            var settings = PCPContext.Settings;
-            if (settings == null) return;
-
-            // Mode-changed banner: show when current mode differs from last-scan mode
-            // and there is actually a cached manifest to be invalidated.
-            bool modeChanged = settings.scanMode != settings.lastScanMode
-                               && PCPContext.ResultCacheManager.HasCachedManifest;
-            m_ModeChangedBanner.style.display = modeChanged ? DisplayStyle.Flex : DisplayStyle.None;
-
-            // Fast mode info banner
-            bool isFast = settings.scanMode == PCPScanMode.Fast;
-            m_FastModeBanner.style.display = isFast ? DisplayStyle.Flex : DisplayStyle.None;
-        }
 
         private void RefreshWarnings()
         {
@@ -466,7 +378,6 @@ namespace ProjectCleanPro.Editor
         public void RefreshData()
         {
             RefreshCardColors();
-            RefreshBanners();
             RefreshWarnings();
 
             if (m_ScanResult == null) return;
@@ -519,15 +430,33 @@ namespace ProjectCleanPro.Editor
 
         private int[] GetCardFindingCounts()
         {
+            int unusedPackages = 0;
+            if (m_ScanResult.packageAuditEntries != null)
+                foreach (var pkg in m_ScanResult.packageAuditEntries)
+                    if (pkg.status == PCPPackageStatus.Unused)
+                        unusedPackages++;
+
+            int shaderIssues = 0;
+            if (m_ScanResult.shaderEntries != null)
+                foreach (var se in m_ScanResult.shaderEntries)
+                    if (se.GetSeverity() != PCPSeverity.Info)
+                        shaderIssues++;
+
+            int sizeIssues = 0;
+            if (m_ScanResult.sizeEntries != null)
+                foreach (var se in m_ScanResult.sizeEntries)
+                    if (se.hasOptimizationSuggestion)
+                        sizeIssues++;
+
             return new[]
             {
                 m_ScanResult.unusedAssets.Count,
                 m_ScanResult.missingReferences.Count,
                 m_ScanResult.duplicateGroups.Count,
                 0, // Dependencies (not a "finding" count)
-                m_ScanResult.packageAuditEntries.Count,
-                m_ScanResult.shaderEntries.Count,
-                m_ScanResult.sizeEntries.Count,
+                unusedPackages,
+                shaderIssues,
+                sizeIssues,
             };
         }
 

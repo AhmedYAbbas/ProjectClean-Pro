@@ -1,6 +1,5 @@
 using NUnit.Framework;
 using ProjectCleanPro.Editor;
-using ProjectCleanPro.Editor.Core;
 using UnityEngine;
 
 namespace ProjectCleanPro.Tests.Editor
@@ -43,13 +42,6 @@ namespace ProjectCleanPro.Tests.Editor
         public void Settings_DefaultDependencyGraphMaxDepth_IsPositive()
         {
             Assert.Greater(m_Settings.dependencyGraphMaxDepth, 0);
-        }
-
-        [Test]
-        public void Settings_DefaultScanMode_IsAccurate()
-        {
-            var settings = PCPSettings.instance;
-            Assert.AreEqual(PCPScanMode.Accurate, settings.scanMode);
         }
 
         [Test]

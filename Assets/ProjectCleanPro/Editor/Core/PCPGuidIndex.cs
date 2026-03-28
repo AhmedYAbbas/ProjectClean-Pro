@@ -12,7 +12,7 @@ namespace ProjectCleanPro.Editor.Core
     /// Maps GUIDs to asset paths by reading .meta files.
     /// Built on background threads, shared across modules in Fast/Balanced modes.
     /// </summary>
-    internal sealed class PCPGuidIndex
+    public sealed class PCPGuidIndex
     {
         private readonly ConcurrentDictionary<string, string> m_GuidToPath = new();
         private readonly ConcurrentDictionary<string, string> m_PathToGuid = new();
@@ -47,18 +47,32 @@ namespace ProjectCleanPro.Editor.Core
 
             var toProcess = changedFiles == null
                 ? (IReadOnlyList<string>)metaFiles
-                : metaFiles.Where(f => changedFiles.Contains(f)).ToList();
+                : metaFiles.Where(f =>
+                {
+                    // changedFiles contains asset paths (e.g. "Assets/foo.png")
+                    // but metaFiles contains .meta paths (e.g. "Assets/foo.png.meta")
+                    // Strip the .meta suffix before checking membership.
+                    var assetPath = f.EndsWith(".meta") ? f.Substring(0, f.Length - 5) : f;
+                    return changedFiles.Contains(assetPath);
+                }).ToList();
 
-            await PCPThreading.ParallelForEachAsync(toProcess, async (metaPath, token) =>
+            bool isIncremental = changedFiles != null;
+            PCPSettings.Log($"[ProjectCleanPro] GUID index: {(isIncremental ? "incremental" : "full")} " +
+                      $"build — processing {toProcess.Count} .meta file(s)...");
+
+            await PCPThreading.ParallelForEachAsync(toProcess, (metaPath, token) =>
             {
-                var guid = await ReadGuidFromMetaAsync(metaPath, token);
+                var guid = ReadGuidFromMeta(metaPath);
                 if (guid != null)
                 {
                     var assetPath = metaPath.Substring(0, metaPath.Length - 5);
                     m_GuidToPath[guid] = assetPath;
                     m_PathToGuid[assetPath] = guid;
                 }
+                return Task.CompletedTask;
             }, PCPThreading.DefaultConcurrency, ct);
+
+            PCPSettings.Log($"[ProjectCleanPro] GUID index ready: {m_GuidToPath.Count} entries.");
         }
 
         public string Resolve(string guid) =>
@@ -70,30 +84,26 @@ namespace ProjectCleanPro.Editor.Core
         public int Count => m_GuidToPath.Count;
 
         /// <summary>
-        /// Reads the first few lines of a .meta file to extract the guid.
+        /// Reads a .meta file to extract the guid. Sync I/O — .meta files are
+        /// tiny (&lt; 500 bytes) so ReadAllText is optimal. Called from threadpool.
         /// </summary>
-        private static async Task<string> ReadGuidFromMetaAsync(string metaPath, CancellationToken ct)
+        private static string ReadGuidFromMeta(string metaPath)
         {
             try
             {
-                using var stream = new FileStream(metaPath, FileMode.Open, FileAccess.Read,
-                    FileShare.Read, bufferSize: 512, useAsync: true);
-                using var reader = new StreamReader(stream);
-
-                for (int i = 0; i < 5; i++)
+                var text = File.ReadAllText(metaPath);
+                const string prefix = "guid: ";
+                int idx = text.IndexOf(prefix, StringComparison.Ordinal);
+                if (idx >= 0)
                 {
-                    var line = await reader.ReadLineAsync();
-                    if (line == null) break;
-                    ct.ThrowIfCancellationRequested();
-
-                    const string prefix = "guid: ";
-                    int idx = line.IndexOf(prefix, StringComparison.Ordinal);
-                    if (idx >= 0)
+                    int guidStart = idx + prefix.Length;
+                    if (guidStart + 32 <= text.Length)
                     {
-                        int guidStart = idx + prefix.Length;
-                        if (guidStart + 32 <= line.Length)
+                        var candidate = text.Substring(guidStart, 32);
+                        // GUIDs end at newline or comma; trim whitespace
+                        if (candidate.Length >= 32)
                         {
-                            var candidate = line.Substring(guidStart, 32).Trim();
+                            candidate = candidate.Substring(0, 32).Trim();
                             if (candidate.Length == 32)
                                 return candidate;
                         }

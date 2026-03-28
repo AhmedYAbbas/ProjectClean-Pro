@@ -351,7 +351,7 @@ namespace ProjectCleanPro.Editor
             string foldoutTitle = $"{assetName}  |  {entries.Count} {refWord}";
 
             var foldout = new Foldout { text = foldoutTitle };
-            foldout.value = groupIndex < 10;
+            foldout.value = false;
             foldout.style.paddingLeft = 8;
             foldout.style.paddingRight = 8;
             foldout.style.paddingTop = 6;

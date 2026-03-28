@@ -1,7 +1,7 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -91,22 +91,16 @@ namespace ProjectCleanPro.Editor
             CancellationToken ct = default)
         {
             var sw = Stopwatch.StartNew();
+            PCPSettings.Log("[ProjectCleanPro] Starting full scan...");
 
-            // Step 1: Handle mode switch invalidation
             var settings = context.Settings;
-            if (settings.scanMode != settings.lastScanMode)
-            {
-                InvalidateCachesForModeSwitch(context);
-                settings.lastScanMode = settings.scanMode;
-                settings.Save();
-            }
 
-            // Step 2: Create scheduler with user's frame budget
+            // Create scheduler with user's frame budget
             using var scheduler = new PCPAsyncScheduler(settings.mainThreadBudgetMs);
             context.Scheduler = scheduler;
 
-            // Step 3: Create the right dependency resolver
-            context.DependencyResolver = PCPDependencyResolverFactory.Create(settings.scanMode);
+            // Create dependency resolver
+            context.DependencyResolver = PCPDependencyResolverFactory.Create();
 
             // Step 4: Async staleness computation (background)
             onProgress?.Invoke(0f, "Checking for changes...");
@@ -120,6 +114,9 @@ namespace ProjectCleanPro.Editor
                 var cached = m_ResultCache.LoadManifest();
                 if (cached != null)
                 {
+                    sw.Stop();
+                    PCPSettings.Log($"[ProjectCleanPro] No changes detected — all modules are up to date. " +
+                              $"Using cached results ({sw.Elapsed.TotalMilliseconds:F0}ms).");
                     onProgress?.Invoke(1f, "No changes detected");
                     return cached;
                 }
@@ -129,10 +126,18 @@ namespace ProjectCleanPro.Editor
             var dirtyModules = GetDirtyModules(context);
             bool needsGraph = dirtyModules.Any(m => m.RequiresDependencyGraph);
 
+            var dirtyNames = string.Join(", ", dirtyModules.Select(m => m.DisplayName));
+            PCPSettings.Log($"[ProjectCleanPro] {dirtyModules.Count} module(s) need updating: {dirtyNames}");
+
             if (needsGraph)
             {
                 onProgress?.Invoke(0.05f, "Building dependency graph...");
+                var graphSw = Stopwatch.StartNew();
                 await context.DependencyResolver.BuildGraphAsync(context, ct);
+                graphSw.Stop();
+                PCPSettings.Log($"[ProjectCleanPro] Dependency graph built in {graphSw.Elapsed.TotalSeconds:F2}s " +
+                          $"({context.DependencyResolver.AssetCount} assets, " +
+                          $"{context.DependencyResolver.ReachableCount} reachable).");
             }
 
             // Step 7: Run modules
@@ -145,9 +150,14 @@ namespace ProjectCleanPro.Editor
                 ct.ThrowIfCancellationRequested();
                 onProgress?.Invoke(progressBase, $"Scanning: {module.DisplayName}...");
 
+                var moduleSw = Stopwatch.StartNew();
                 module.Clear();
                 await module.ScanAsync(context, ct);
                 m_ResultCache.SaveModule(module);
+                moduleSw.Stop();
+
+                PCPSettings.Log($"[ProjectCleanPro] {module.DisplayName} completed in " +
+                          $"{moduleSw.Elapsed.TotalSeconds:F2}s — {module.FindingCount} finding(s).");
 
                 progressBase += progressPerModule;
             }
@@ -161,6 +171,10 @@ namespace ProjectCleanPro.Editor
             sw.Stop();
             var manifest = ComputeManifest(context, (float)sw.Elapsed.TotalSeconds);
             m_ResultCache.SaveManifest(manifest);
+
+            PCPSettings.Log($"[ProjectCleanPro] Full scan completed in {sw.Elapsed.TotalSeconds:F2}s — " +
+                      $"{manifest.totalFindingCount} total finding(s), " +
+                      $"health score {manifest.healthScore}/100.");
 
             onProgress?.Invoke(1f, "Complete");
             return manifest;
@@ -196,20 +210,13 @@ namespace ProjectCleanPro.Editor
                 throw new ArgumentException($"Module {moduleId} not registered.");
 
             var sw = Stopwatch.StartNew();
+            PCPSettings.Log($"[ProjectCleanPro] Starting {module.DisplayName} scan...");
             var settings = context.Settings;
-
-            // Handle mode switch invalidation
-            if (settings.scanMode != settings.lastScanMode)
-            {
-                InvalidateCachesForModeSwitch(context);
-                settings.lastScanMode = settings.scanMode;
-                settings.Save();
-            }
 
             // Create scheduler and resolver
             using var scheduler = new PCPAsyncScheduler(settings.mainThreadBudgetMs);
             context.Scheduler = scheduler;
-            context.DependencyResolver = PCPDependencyResolverFactory.Create(settings.scanMode);
+            context.DependencyResolver = PCPDependencyResolverFactory.Create();
 
             // Async staleness
             onProgress?.Invoke(0f, "Checking for changes...");
@@ -220,6 +227,9 @@ namespace ProjectCleanPro.Editor
             // Skip check
             if (!IsDirty(moduleId, context) && module.HasResults)
             {
+                sw.Stop();
+                PCPSettings.Log($"[ProjectCleanPro] No changes affect {module.DisplayName} — " +
+                          $"using cached results ({sw.Elapsed.TotalMilliseconds:F0}ms).");
                 onProgress?.Invoke(1f, "No changes detected.");
                 return m_ResultCache.LoadManifest();
             }
@@ -247,6 +257,9 @@ namespace ProjectCleanPro.Editor
             var manifest = ComputeManifest(context, (float)sw.Elapsed.TotalSeconds);
             m_ResultCache.SaveManifest(manifest);
 
+            PCPSettings.Log($"[ProjectCleanPro] {module.DisplayName} scan completed in " +
+                      $"{sw.Elapsed.TotalSeconds:F2}s — {module.FindingCount} finding(s).");
+
             onProgress?.Invoke(1f, "Scan complete.");
             return manifest;
         }
@@ -258,18 +271,75 @@ namespace ProjectCleanPro.Editor
         public PCPScanManifest ScanAllSync(PCPScanContext context,
             Action<float, string> onProgress = null)
         {
-            var task = ScanAllAsync(context, onProgress, CancellationToken.None);
-            task.GetAwaiter().GetResult();
-            return task.Result;
+            return RunWithPumpableSyncContext(() =>
+                ScanAllAsync(context, onProgress, CancellationToken.None), context);
         }
 
         public PCPScanManifest ScanModuleSync(PCPModuleId moduleId,
             PCPScanContext context,
             Action<float, string> onProgress = null)
         {
-            var task = ScanModuleAsync(moduleId, context, onProgress, CancellationToken.None);
-            task.GetAwaiter().GetResult();
-            return task.Result;
+            return RunWithPumpableSyncContext(() =>
+                ScanModuleAsync(moduleId, context, onProgress, CancellationToken.None), context);
+        }
+
+        /// <summary>
+        /// Runs an async task synchronously using a pumpable sync context.
+        /// This ensures async continuations execute on the main thread (required
+        /// by Unity APIs like EditorBuildSettings.scenes) while also being manually
+        /// pumpable so we don't deadlock in batch mode where EditorApplication.update
+        /// doesn't fire.
+        /// </summary>
+        private static TResult RunWithPumpableSyncContext<TResult>(
+            Func<Task<TResult>> taskFactory, PCPScanContext context)
+        {
+            var prevCtx = SynchronizationContext.Current;
+            var pumpCtx = new PumpableSynchronizationContext();
+            SynchronizationContext.SetSynchronizationContext(pumpCtx);
+            try
+            {
+                var task = taskFactory();
+                while (!task.IsCompleted)
+                {
+                    // Drain async continuations (awaits resume here)
+                    pumpCtx.Pump();
+                    // Drain PCP scheduler's main-thread work items
+                    context.Scheduler?.PumpMainThreadQueue();
+                    Thread.Sleep(1);
+                }
+                // Observe exceptions
+                return task.GetAwaiter().GetResult();
+            }
+            finally
+            {
+                SynchronizationContext.SetSynchronizationContext(prevCtx);
+            }
+        }
+
+        /// <summary>
+        /// Minimal SynchronizationContext whose queue can be drained manually.
+        /// Posts are enqueued and executed when <see cref="Pump"/> is called,
+        /// keeping all continuations on the calling (main) thread.
+        /// </summary>
+        private sealed class PumpableSynchronizationContext : SynchronizationContext
+        {
+            private readonly ConcurrentQueue<(SendOrPostCallback cb, object state)> m_Queue = new();
+
+            public override void Post(SendOrPostCallback d, object state)
+            {
+                m_Queue.Enqueue((d, state));
+            }
+
+            public override void Send(SendOrPostCallback d, object state)
+            {
+                d(state);
+            }
+
+            public void Pump()
+            {
+                while (m_Queue.TryDequeue(out var item))
+                    item.cb(item.state);
+            }
         }
 
         // ----------------------------------------------------------------
@@ -290,28 +360,6 @@ namespace ProjectCleanPro.Editor
         // ----------------------------------------------------------------
         // Internals
         // ----------------------------------------------------------------
-
-        private void InvalidateCachesForModeSwitch(PCPScanContext context)
-        {
-            // Clear dependency graph cache
-            var graphPath = Path.Combine(PCPScanCache.CacheDirectory, "DepGraph.bin");
-            if (File.Exists(graphPath))
-                File.Delete(graphPath);
-
-            // Clear all module results
-            m_ResultCache.InvalidateAll();
-
-            // Mark all modules dirty
-            foreach (var module in m_Modules)
-            {
-                if (module != null)
-                    context.Cache.MarkModuleDirty(module.Id);
-            }
-
-            // Keep timestamp/hash data — mode-independent
-            // Only clear staleness flags
-            context.Cache.ResetStaleness();
-        }
 
         private bool IsDirty(PCPModuleId id, PCPScanContext context)
         {
@@ -463,9 +511,6 @@ namespace ProjectCleanPro.Editor
             int moduleCount = Enum.GetValues(typeof(PCPModuleId)).Length;
             var summaries = new PCPModuleSummary[moduleCount];
 
-            int totalFindings = 0;
-            long totalWasted = 0;
-
             for (int i = 0; i < moduleCount; i++)
             {
                 var module = i < m_Modules.Length ? m_Modules[i] : null;
@@ -479,8 +524,6 @@ namespace ProjectCleanPro.Editor
                         totalSizeBytes = module.TotalSizeBytes,
                         hasResults = module.HasResults
                     };
-                    totalFindings += module.FindingCount;
-                    totalWasted += module.TotalSizeBytes;
                 }
             }
 
@@ -493,6 +536,18 @@ namespace ProjectCleanPro.Editor
                     allWarnings.Add(new PCPScanManifest.ScanWarning(module.Id, w));
             }
 
+            // Build a temporary PCPScanResult to compute authoritative aggregates
+            // using the same weighted formulas the dashboard displays.
+            var tempResult = new PCPScanResult
+            {
+                totalAssetsScanned = context.AllProjectAssets?.Length ?? 0
+            };
+            for (int i = 0; i < m_Modules.Length; i++)
+            {
+                if (m_Modules[i] != null)
+                    PCPScanResult.CollectModuleResults(m_Modules[i], tempResult);
+            }
+
             return new PCPScanManifest
             {
                 scanTimestampUtc = DateTime.UtcNow.ToString("o"),
@@ -500,21 +555,12 @@ namespace ProjectCleanPro.Editor
                 projectName = Application.productName,
                 unityVersion = Application.unityVersion,
                 totalAssetsScanned = context.AllProjectAssets?.Length ?? 0,
-                healthScore = ComputeHealthScore(totalFindings, context.AllProjectAssets?.Length ?? 1),
-                totalWastedBytes = totalWasted,
-                totalFindingCount = totalFindings,
+                healthScore = tempResult.HealthScore,
+                totalWastedBytes = tempResult.TotalWastedBytes,
+                totalFindingCount = tempResult.TotalFindingCount,
                 moduleSummaries = summaries,
                 warnings = allWarnings
             };
-        }
-
-        private static int ComputeHealthScore(int totalFindings, int totalAssets)
-        {
-            if (totalFindings == 0) return 100;
-            double scaleFactor = 100.0 / Math.Sqrt(Math.Max(totalAssets, 1));
-            double k = 0.02 * scaleFactor / 100.0 * Math.Sqrt(100.0);
-            double score = 100.0 * Math.Exp(-k * totalFindings);
-            return Math.Max(0, Math.Min(100, (int)Math.Round(score)));
         }
     }
 }

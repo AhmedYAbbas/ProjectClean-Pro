@@ -81,12 +81,12 @@ namespace ProjectCleanPro.Editor
             PCPReportFormat format;
             if (!Enum.TryParse(formatArg, ignoreCase: true, out format))
             {
-                Debug.LogError($"[PCPCli] Unknown format '{formatArg}'. Expected: json, csv, html.");
+                Debug.LogError($"[PCPCli] Unknown format '{formatArg}'. Expected: json, csv, html, markdown.");
                 EditorApplication.Exit(1);
                 return;
             }
 
-            string ext = format.ToString().ToLowerInvariant();
+            string ext = format == PCPReportFormat.Markdown ? "md" : format.ToString().ToLowerInvariant();
             RunAndExit(format, defaultExt: ext);
         }
 
@@ -113,6 +113,14 @@ namespace ProjectCleanPro.Editor
         public static void ScanAndExportHTML()
         {
             RunAndExit(PCPReportFormat.HTML, defaultExt: "html");
+        }
+
+        /// <summary>
+        /// Scans all modules and exports a Markdown report.
+        /// </summary>
+        public static void ScanAndExportMarkdown()
+        {
+            RunAndExit(PCPReportFormat.Markdown, defaultExt: "md");
         }
 
         // ----------------------------------------------------------------

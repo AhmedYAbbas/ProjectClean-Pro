@@ -14,7 +14,7 @@ namespace ProjectCleanPro.Editor.Core
     /// Manages a frame-budgeted main-thread queue and background task dispatch.
     /// Created per-scan, disposed when scan completes or is cancelled.
     /// </summary>
-    internal sealed class PCPAsyncScheduler : IDisposable
+    public sealed class PCPAsyncScheduler : IDisposable
     {
         private sealed class MainThreadWorkItem
         {

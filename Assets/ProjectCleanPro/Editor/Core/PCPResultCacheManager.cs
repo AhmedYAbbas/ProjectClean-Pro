@@ -43,6 +43,8 @@ namespace ProjectCleanPro.Editor
                 {
                     module.WriteResults(writer);
                 });
+                PCPSettings.Log($"[ProjectCleanPro] Cached {module.DisplayName} results " +
+                          $"({module.FindingCount} finding(s)).");
             }
             catch (Exception ex)
             {
@@ -69,11 +71,17 @@ namespace ProjectCleanPro.Editor
             if (module == null) return false;
 
             string path = GetModulePath(module.Id);
-            return PCPCacheIO.SafeRead(path, GetModuleVersion(module.Id), reader =>
+            bool loaded = PCPCacheIO.SafeRead(path, GetModuleVersion(module.Id), reader =>
             {
                 module.ReadResults(reader);
                 return true;
             }, out _);
+
+            if (loaded)
+                PCPSettings.Log($"[ProjectCleanPro] Loaded cached {module.DisplayName} results " +
+                          $"({module.FindingCount} finding(s)).");
+
+            return loaded;
         }
 
         /// <summary>

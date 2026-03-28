@@ -37,9 +37,8 @@ MonoBehaviour:
   dependencyGraphMaxDepth: 2
   shaderAnalyzerCheckPipeline: 1
   duplicateCompareImportSettings: 1
-  scanMode: 0
-  mainThreadBudgetMs: 20
-  lastScanMode: 0
+  mainThreadBudgetMs: 8
+  enableLogging: 1
   moduleColors:
   - {r: 1, g: 0.41960785, b: 0.41960785, a: 1}
   - {r: 0.30588236, g: 0.8039216, b: 0.76862746, a: 1}

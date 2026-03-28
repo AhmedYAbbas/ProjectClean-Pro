@@ -262,42 +262,14 @@ namespace ProjectCleanPro.Tests.Editor
         }
 
         // ================================================================
-        // 8. SCAN MODE DEFAULTS AND SWITCHING
+        // 8. DEPENDENCY RESOLVER FACTORY
         // ================================================================
 
         [Test]
-        public void ScanMode_DefaultIsAccurate()
+        public void DependencyResolverFactory_CreatesAccurateResolver()
         {
-            var settings = PCPSettings.instance;
-            Assert.AreEqual(PCPScanMode.Accurate, settings.scanMode);
-        }
-
-        [Test]
-        public void ScanMode_ModeSwitch_InvalidatesCache()
-        {
-            var settings = PCPSettings.instance;
-            settings.lastScanMode = PCPScanMode.Accurate;
-            settings.scanMode = PCPScanMode.Fast;
-
-            Assert.AreNotEqual(settings.scanMode, settings.lastScanMode,
-                "Mode switch should be detectable");
-        }
-
-        // ================================================================
-        // 9. DEPENDENCY RESOLVER FACTORY
-        // ================================================================
-
-        [Test]
-        public void DependencyResolverFactory_CreatesCorrectType()
-        {
-            var accurate = PCPDependencyResolverFactory.Create(PCPScanMode.Accurate);
-            Assert.IsInstanceOf<PCPAccurateDependencyResolver>(accurate);
-
-            var balanced = PCPDependencyResolverFactory.Create(PCPScanMode.Balanced);
-            Assert.IsInstanceOf<PCPBalancedDependencyResolver>(balanced);
-
-            var fast = PCPDependencyResolverFactory.Create(PCPScanMode.Fast);
-            Assert.IsInstanceOf<PCPFastDependencyResolver>(fast);
+            var resolver = PCPDependencyResolverFactory.Create();
+            Assert.IsInstanceOf<PCPAccurateDependencyResolver>(resolver);
         }
 
         // ================================================================

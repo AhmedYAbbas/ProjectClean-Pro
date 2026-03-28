@@ -60,7 +60,9 @@ namespace ProjectCleanPro.Tests.Editor
             var index = new PCPGuidIndex();
             await index.BuildAsync(new List<string> { meta1, meta2 }, null, CancellationToken.None);
 
-            var changed = new HashSet<string> { meta2 };
+            // changedFiles uses asset paths (without .meta suffix), matching production usage
+            var assetPath2 = meta2.Substring(0, meta2.Length - 5); // strip ".meta"
+            var changed = new HashSet<string> { assetPath2 };
             await index.BuildAsync(new List<string> { meta1, meta2 }, changed, CancellationToken.None);
 
             Assert.IsNotNull(index.Resolve("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1"));

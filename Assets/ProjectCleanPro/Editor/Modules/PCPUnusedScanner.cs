@@ -67,12 +67,13 @@ namespace ProjectCleanPro.Editor
             var reachable = resolver != null ? resolver.GetReachableAssets() : Array.Empty<string>();
             var reachableSet = new HashSet<string>(reachable, StringComparer.Ordinal);
 
-            // === PHASE 1: GATHER — Collect all asset paths (background) ===
+            // === PHASE 1: GATHER — Collect and filter asset paths (main thread) ===
             ReportProgress(0.05f, "Gathering asset paths...");
             var allAssets = await context.GetAllProjectAssetsAsync(ct);
             var candidates = allAssets
                 .Where(p => !IsExcludedExtension(p, context.Settings)
-                            && !IsEditorOnlyPath(p, context.Settings))
+                            && !IsEditorOnlyPath(p, context.Settings)
+                            && !IsIgnored(p, context))
                 .ToList();
 
             Interlocked.Exchange(ref m_TotalCount, candidates.Count);
@@ -93,9 +94,6 @@ namespace ProjectCleanPro.Editor
                     Interlocked.Increment(ref m_ProcessedCount);
 
                     if (reachableSet.Contains(path))
-                        continue;
-
-                    if (IsIgnored(path, context))
                         continue;
 
                     var asset = BuildUnusedAsset(path);

@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
-using System.Threading.Tasks;
 using NUnit.Framework;
 using ProjectCleanPro.Editor.Core;
 
@@ -27,7 +26,7 @@ namespace ProjectCleanPro.Tests.Editor
         }
 
         [Test]
-        public async Task ParseReferencesAsync_FindsGuidsInYaml()
+        public void ParseReferences_FindsGuidsInYaml()
         {
             var content = @"--- !u!114 &123
 MonoBehaviour:
@@ -35,9 +34,9 @@ MonoBehaviour:
   m_Material: {fileID: 2100000, guid: c22c5a2f3fa1e0947a1e82e283a6b70c, type: 2}";
 
             var filePath = Path.Combine(m_TempDir, "test.prefab");
-            await File.WriteAllTextAsync(filePath, content);
+            File.WriteAllText(filePath, content);
 
-            var guids = await PCPGuidParser.ParseReferencesAsync(filePath, CancellationToken.None);
+            var guids = PCPGuidParser.ParseReferences(filePath, CancellationToken.None);
 
             Assert.AreEqual(2, guids.Count);
             Assert.IsTrue(guids.Contains("e4f18583b7a683c4b9db3b1f46a8b93a"));
@@ -45,39 +44,39 @@ MonoBehaviour:
         }
 
         [Test]
-        public async Task ParseReferencesAsync_DeduplicatesGuids()
+        public void ParseReferences_DeduplicatesGuids()
         {
             var content = @"  m_A: {fileID: 0, guid: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1, type: 2}
   m_B: {fileID: 0, guid: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1, type: 2}";
 
             var filePath = Path.Combine(m_TempDir, "test.prefab");
-            await File.WriteAllTextAsync(filePath, content);
+            File.WriteAllText(filePath, content);
 
-            var guids = await PCPGuidParser.ParseReferencesAsync(filePath, CancellationToken.None);
+            var guids = PCPGuidParser.ParseReferences(filePath, CancellationToken.None);
 
             Assert.AreEqual(1, guids.Count);
         }
 
         [Test]
-        public async Task ParseReferencesAsync_EmptyFile_ReturnsEmpty()
+        public void ParseReferences_EmptyFile_ReturnsEmpty()
         {
             var filePath = Path.Combine(m_TempDir, "empty.prefab");
-            await File.WriteAllTextAsync(filePath, "");
+            File.WriteAllText(filePath, "");
 
-            var guids = await PCPGuidParser.ParseReferencesAsync(filePath, CancellationToken.None);
+            var guids = PCPGuidParser.ParseReferences(filePath, CancellationToken.None);
 
             Assert.AreEqual(0, guids.Count);
         }
 
         [Test]
-        public async Task ParseReferencesAsync_IgnoresInvalidHex()
+        public void ParseReferences_IgnoresInvalidHex()
         {
             var content = "  m_A: {fileID: 0, guid: not_a_valid_hex_string_here!!, type: 2}";
 
             var filePath = Path.Combine(m_TempDir, "test.prefab");
-            await File.WriteAllTextAsync(filePath, content);
+            File.WriteAllText(filePath, content);
 
-            var guids = await PCPGuidParser.ParseReferencesAsync(filePath, CancellationToken.None);
+            var guids = PCPGuidParser.ParseReferences(filePath, CancellationToken.None);
 
             Assert.AreEqual(0, guids.Count);
         }

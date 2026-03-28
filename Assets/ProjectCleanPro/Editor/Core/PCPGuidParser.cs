@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace ProjectCleanPro.Editor.Core
 {
@@ -11,26 +10,25 @@ namespace ProjectCleanPro.Editor.Core
     /// Uses streaming line-by-line reading to avoid loading large files into memory.
     /// Used by Fast and Balanced scan modes.
     /// </summary>
-    internal static class PCPGuidParser
+    public static class PCPGuidParser
     {
         private const string k_GuidPrefix = "guid: ";
         private const int k_GuidLength = 32;
 
         /// <summary>
         /// Reads a file line-by-line and extracts all GUID references.
-        /// Uses StreamReader for constant memory usage regardless of file size.
+        /// Uses synchronous I/O — callers run this on threadpool via ParallelForEachAsync.
         /// </summary>
-        public static async Task<HashSet<string>> ParseReferencesAsync(
-            string filePath, CancellationToken ct)
+        public static HashSet<string> ParseReferences(string filePath, CancellationToken ct)
         {
             var guids = new HashSet<string>();
 
             using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read,
-                FileShare.Read, bufferSize: 65536, useAsync: true);
+                FileShare.Read, bufferSize: 65536);
             using var reader = new StreamReader(stream);
 
             string line;
-            while ((line = await reader.ReadLineAsync()) != null)
+            while ((line = reader.ReadLine()) != null)
             {
                 ct.ThrowIfCancellationRequested();
                 ExtractGuidsFromLine(line, guids);

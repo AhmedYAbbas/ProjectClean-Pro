@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using ProjectCleanPro.Editor.Core;
 using UnityEditor;
 using UnityEditor.Compilation;
 using UnityEditor.PackageManager;
@@ -161,8 +163,7 @@ namespace ProjectCleanPro.Editor
                             string asmdefFullPath = Path.GetFullPath(asmdefPath);
                             if (File.Exists(asmdefFullPath))
                             {
-                                // Read on a background thread to avoid blocking the main thread.
-                                string asmdefContent = await Task.Run(() => File.ReadAllText(asmdefFullPath));
+                                string asmdefContent = File.ReadAllText(asmdefFullPath);
                                 string rootNs = ExtractJsonField(asmdefContent, "rootNamespace");
                                 if (!string.IsNullOrEmpty(rootNs))
                                 {
@@ -237,8 +238,7 @@ namespace ProjectCleanPro.Editor
 
                 try
                 {
-                    // Read on a background thread to avoid blocking the main thread.
-                    string content = await Task.Run(() => File.ReadAllText(fullPath));
+                    string content = File.ReadAllText(fullPath);
 
                     // Look for assembly references in the JSON.
                     foreach (var kvp in assemblyToPackage)
@@ -265,22 +265,15 @@ namespace ProjectCleanPro.Editor
             var codeReferenceCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             string[] csFileGuids = AssetDatabase.FindAssets("t:Script", new[] { "Assets" });
 
-            int totalCsFiles = csFileGuids.Length;
-            for (int i = 0; i < totalCsFiles; i++)
+            // Step 1: Main thread — resolve GUID paths and check cache.
+            var allCsItems = new List<(string csPath, string[] cachedUsings)>(csFileGuids.Length);
+
+            for (int i = 0; i < csFileGuids.Length; i++)
             {
-                ct.ThrowIfCancellationRequested();
-
-                if ((i & 63) == 0)
-                {
-                    float pct = 0.35f + 0.35f * ((float)i / Math.Max(totalCsFiles, 1));
-                    ReportProgress(pct, $"Scanning source file {i}/{totalCsFiles}...");
-                }
-
                 string csPath = AssetDatabase.GUIDToAssetPath(csFileGuids[i]);
                 if (!csPath.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
                     continue;
 
-                // Try to use cached using directives for unchanged files.
                 string[] usings = null;
                 if (!context.Cache.IsStale(csPath))
                 {
@@ -293,39 +286,64 @@ namespace ProjectCleanPro.Editor
                     }
                 }
 
-                if (usings == null)
-                {
-                    // Cache miss or stale — read and parse the file.
-                    string csFullPath = Path.GetFullPath(csPath);
-                    if (!File.Exists(csFullPath))
-                        continue;
+                allCsItems.Add((csPath, usings));
+            }
 
-                    string sourceContent;
+            // Step 2: Background — read and parse stale files in parallel.
+            var staleItems = new List<string>();
+            for (int i = 0; i < allCsItems.Count; i++)
+            {
+                if (allCsItems[i].cachedUsings == null)
+                    staleItems.Add(allCsItems[i].csPath);
+            }
+
+            ReportProgress(0.40f, $"Parsing {staleItems.Count} stale source files...");
+
+            var parsedResults = new ConcurrentDictionary<string, string[]>(StringComparer.Ordinal);
+
+            if (staleItems.Count > 0)
+            {
+                await PCPThreading.ParallelForEachAsync(staleItems, (csPath, token) =>
+                {
+                    token.ThrowIfCancellationRequested();
+                    string fullPath = Path.GetFullPath(csPath);
+                    if (!File.Exists(fullPath))
+                        return Task.CompletedTask;
+
                     try
                     {
-                        // Read on a background thread to avoid blocking the main thread.
-                        sourceContent = await Task.Run(() => File.ReadAllText(csFullPath));
+                        string content = File.ReadAllText(fullPath);
+                        MatchCollection matches = s_UsingRegex.Matches(content);
+                        var usingArr = new string[matches.Count];
+                        for (int j = 0; j < matches.Count; j++)
+                            usingArr[j] = matches[j].Groups[1].Value;
+                        parsedResults[csPath] = usingArr;
                     }
                     catch (Exception)
                     {
-                        continue;
+                        // Ignore read errors.
                     }
 
-                    MatchCollection matches = s_UsingRegex.Matches(sourceContent);
-                    var usingList = new List<string>(matches.Count);
-                    foreach (Match match in matches)
-                        usingList.Add(match.Groups[1].Value);
+                    return Task.CompletedTask;
+                }, PCPThreading.DefaultConcurrency, ct);
+            }
 
-                    usings = usingList.ToArray();
+            // Step 3: Update cache for freshly parsed files.
+            foreach (var kvp in parsedResults)
+                context.Cache.SetMetadata(kvp.Key, "packages.usings", string.Join(",", kvp.Value));
 
-                    // Store in cache for next scan.
-                    context.Cache.SetMetadata(csPath, "packages.usings",
-                        string.Join(",", usings));
-                }
+            // Step 4: Tally namespace references from all files.
+            ReportProgress(0.65f, "Matching namespaces to packages...");
+
+            for (int i = 0; i < allCsItems.Count; i++)
+            {
+                var (csPath, cachedUsings) = allCsItems[i];
+                string[] usings = cachedUsings;
+                if (usings == null && !parsedResults.TryGetValue(csPath, out usings))
+                    continue;
 
                 foreach (string ns in usings)
                 {
-                    // Check if this namespace matches any package namespace.
                     foreach (var kvp in namespaceToPackage)
                     {
                         if (ns.StartsWith(kvp.Key, StringComparison.OrdinalIgnoreCase) ||

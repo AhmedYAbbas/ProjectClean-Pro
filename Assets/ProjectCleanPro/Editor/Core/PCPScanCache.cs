@@ -127,13 +127,16 @@ namespace ProjectCleanPro.Editor
             {
                 m_DirtyModules.Clear();
                 m_StalenessComputed = true;
+                PCPSettings.Log("[ProjectCleanPro] Staleness check: no changes since last scan (fast path).");
                 return;
             }
 
             // Domain reload or first scan -> full timestamp check.
             if (PCPAssetChangeTracker.FullCheckNeeded || m_Entries.Count == 0)
             {
+                PCPSettings.Log($"[ProjectCleanPro] Staleness check: full timestamp comparison for {currentAssetPaths.Length} assets...");
                 RefreshStalenessFull(currentAssetPaths);
+                PCPSettings.Log($"[ProjectCleanPro] Staleness result: {m_StaleAssets.Count} stale, {m_NewAssets.Count} new.");
                 m_StalenessComputed = true;
                 return;
             }
@@ -154,6 +157,9 @@ namespace ProjectCleanPro.Editor
                         m_Dirty = true;
                     }
                 }
+                PCPSettings.Log($"[ProjectCleanPro] Staleness check (incremental): " +
+                          $"{m_StaleAssets.Count} stale, {m_NewAssets.Count} new " +
+                          $"out of {changedPaths.Count} tracked change(s).");
             }
 
             m_StalenessComputed = true;
@@ -167,10 +173,50 @@ namespace ProjectCleanPro.Editor
             m_StaleAssets.Clear();
             m_NewAssets.Clear();
 
-            if (PCPAssetChangeTracker.FullCheckNeeded || m_Entries.Count == 0)
+            bool needsFullCheck = PCPAssetChangeTracker.FullCheckNeeded || m_Entries.Count == 0;
+            List<string> allAssets = null;
+
+            if (!needsFullCheck && PCPAssetChangeTracker.HasChanges)
             {
-                // Full check: compare timestamps for all assets on background threads
-                var allAssets = await CollectAllAssetPathsAsync(ct);
+                // Incremental: only check tracked changes.
+                foreach (var path in PCPAssetChangeTracker.ChangedAssets)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (!m_Entries.ContainsKey(path))
+                        m_NewAssets[path] = 0;
+                    else
+                        m_StaleAssets[path] = 0;
+                }
+                PCPSettings.Log($"[ProjectCleanPro] Staleness check (incremental): " +
+                          $"{m_StaleAssets.Count} stale, {m_NewAssets.Count} new.");
+            }
+            else if (!needsFullCheck)
+            {
+                // Tracker reports no changes — verify with a quick file count.
+                // OnPostprocessAllAssets can miss events (e.g. external file ops
+                // before Unity refreshes), so compare actual file count against
+                // the cache to catch untracked additions or deletions.
+                allAssets = await CollectAllAssetPathsAsync(ct);
+                if (allAssets.Count != m_Entries.Count)
+                {
+                    needsFullCheck = true;
+                    PCPSettings.Log($"[ProjectCleanPro] Staleness check: file count mismatch " +
+                              $"(disk={allAssets.Count}, cache={m_Entries.Count}), forcing full check...");
+                }
+                else
+                {
+                    PCPSettings.Log("[ProjectCleanPro] Staleness check: no changes since last scan (fast path).");
+                }
+            }
+
+            if (needsFullCheck)
+            {
+                // Full check: compare timestamps for all assets on background threads.
+                // Reuse allAssets if already collected by the count check above.
+                if (allAssets == null)
+                    allAssets = await CollectAllAssetPathsAsync(ct);
+
+                PCPSettings.Log($"[ProjectCleanPro] Staleness check: full timestamp comparison for {allAssets.Count} assets...");
 
                 await Core.PCPThreading.ParallelForEachAsync(allAssets, (path, token) =>
                 {
@@ -198,17 +244,8 @@ namespace ProjectCleanPro.Editor
                     if (!currentPathSet.Contains(key))
                         m_Entries.TryRemove(key, out _);
                 }
-            }
-            else if (PCPAssetChangeTracker.HasChanges)
-            {
-                foreach (var path in PCPAssetChangeTracker.ChangedAssets)
-                {
-                    ct.ThrowIfCancellationRequested();
-                    if (!m_Entries.ContainsKey(path))
-                        m_NewAssets[path] = 0;
-                    else
-                        m_StaleAssets[path] = 0;
-                }
+
+                PCPSettings.Log($"[ProjectCleanPro] Staleness result: {m_StaleAssets.Count} stale, {m_NewAssets.Count} new.");
             }
 
             m_StalenessComputed = true;
@@ -689,7 +726,14 @@ namespace ProjectCleanPro.Editor
                 }, out _);
 
             if (!loaded)
+            {
                 m_Entries.Clear();
+                PCPSettings.Log("[ProjectCleanPro] Scan cache: no existing cache found, starting fresh.");
+            }
+            else
+            {
+                PCPSettings.Log($"[ProjectCleanPro] Scan cache loaded: {m_Entries.Count} cached asset(s).");
+            }
         }
 
         /// <summary>
@@ -738,6 +782,7 @@ namespace ProjectCleanPro.Editor
                 });
 
                 m_Dirty = false;
+                PCPSettings.Log($"[ProjectCleanPro] Scan cache saved: {m_Entries.Count} asset(s).");
 
                 // Clean up legacy files.
                 CleanupLegacy(s_LegacyBinPath);
@@ -776,6 +821,7 @@ namespace ProjectCleanPro.Editor
             CleanupLegacy(s_CacheFilePath);
             CleanupLegacy(s_LegacyBinPath);
             CleanupLegacy(s_LegacyJsonPath);
+            Core.PCPDependencyResolverBase.DeleteGraphFile();
         }
 
         // ----------------------------------------------------------------

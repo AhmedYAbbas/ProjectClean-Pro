@@ -6,11 +6,10 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
-using ProjectCleanPro.Editor;
 
 namespace ProjectCleanPro.Editor.Core
 {
-    internal abstract class PCPDependencyResolverBase : IPCPDependencyResolver
+    public abstract class PCPDependencyResolverBase : IPCPDependencyResolver
     {
         protected readonly ConcurrentDictionary<string, HashSet<string>> m_Forward = new();
         protected readonly ConcurrentDictionary<string, HashSet<string>> m_Reverse = new();
@@ -132,6 +131,8 @@ namespace ProjectCleanPro.Editor.Core
                     foreach (var r in m_Reachable)
                         writer.Write(r);
                 });
+                PCPSettings.Log($"[ProjectCleanPro] Dependency graph saved: {m_Forward.Count} assets, " +
+                          $"{m_Reachable.Count} reachable.");
             }
             catch (Exception ex)
             {
@@ -177,9 +178,12 @@ namespace ProjectCleanPro.Editor.Core
             if (loaded && success)
             {
                 m_IsBuilt = true;
+                PCPSettings.Log($"[ProjectCleanPro] Dependency graph loaded from cache: " +
+                          $"{m_Forward.Count} assets, {m_Reachable.Count} reachable.");
                 return true;
             }
 
+            PCPSettings.Log("[ProjectCleanPro] Dependency graph: no valid cache found, will rebuild.");
             Clear();
             return false;
         }
@@ -191,6 +195,22 @@ namespace ProjectCleanPro.Editor.Core
             m_Reachable = new HashSet<string>(StringComparer.Ordinal);
             m_AllAssets.Clear();
             m_IsBuilt = false;
+        }
+
+        /// <summary>
+        /// Deletes the persisted dependency graph file from disk.
+        /// </summary>
+        public static void DeleteGraphFile()
+        {
+            try
+            {
+                if (File.Exists(s_GraphPath))
+                    File.Delete(s_GraphPath);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[ProjectCleanPro] Failed to delete dependency graph cache: {ex.Message}");
+            }
         }
 
         protected static HashSet<string> CollectRoots(PCPScanContext context)

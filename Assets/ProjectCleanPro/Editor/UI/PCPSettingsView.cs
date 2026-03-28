@@ -546,6 +546,11 @@ namespace ProjectCleanPro.Editor
             var section = CreateSection("Performance");
             parent.Add(section);
 
+            // Console logging toggle
+            AddToggle(section, "Enable console logging",
+                m_Settings.enableLogging,
+                val => { m_Settings.enableLogging = val; SaveSettings(); });
+
             // Main thread budget slider
             var budgetRow = new VisualElement();
             budgetRow.style.flexDirection = FlexDirection.Row;
@@ -557,7 +562,7 @@ namespace ProjectCleanPro.Editor
             budgetLabel.AddToClassList("pcp-label-body");
             budgetRow.Add(budgetLabel);
 
-            var budgetSlider = new SliderFloat(4f, 16f);
+            var budgetSlider = new Slider(4f, 16f);
             budgetSlider.value = m_Settings.mainThreadBudgetMs;
             budgetSlider.style.flexGrow = 1;
             budgetSlider.style.minWidth = 120;
@@ -745,6 +750,7 @@ namespace ProjectCleanPro.Editor
             m_Settings.dependencyGraphMaxDepth = 2;
             m_Settings.shaderAnalyzerCheckPipeline = true;
             m_Settings.duplicateCompareImportSettings = true;
+            m_Settings.enableLogging = true;
             m_Settings.excludedExtensions = new List<string>(PCPSettings.s_DefaultExcludedExtensions);
             m_Settings.ignoreRules.Clear();
             m_Settings.alwaysUsedRoots.Clear();

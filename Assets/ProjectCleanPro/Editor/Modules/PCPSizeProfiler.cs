@@ -38,7 +38,19 @@ namespace ProjectCleanPro.Editor
         /// <summary>Total project asset size in bytes.</summary>
         public long TotalProjectSize { get; private set; }
 
-        public override int FindingCount => _results.Count;
+        public override int FindingCount
+        {
+            get
+            {
+                int count = 0;
+                for (int i = 0; i < _results.Count; i++)
+                {
+                    if (_results[i].hasOptimizationSuggestion)
+                        count++;
+                }
+                return count;
+            }
+        }
 
         public override long TotalSizeBytes => TotalProjectSize;
 

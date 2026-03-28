@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using UnityEditor;
 using UnityEngine;
 
 namespace ProjectCleanPro.Editor
@@ -49,10 +48,6 @@ namespace ProjectCleanPro.Editor
         /// </summary>
         public System.Threading.CancellationToken CancellationToken;
 
-        /// <summary>
-        /// Scan mode to use for this run. Null means use the value from project settings.
-        /// </summary>
-        public PCPScanMode? ScanMode { get; set; }
     }
 
     /// <summary>
@@ -63,6 +58,7 @@ namespace ProjectCleanPro.Editor
         JSON,
         CSV,
         HTML,
+        Markdown,
     }
 
     // ----------------------------------------------------------------
@@ -130,11 +126,8 @@ namespace ProjectCleanPro.Editor
             // ---- Apply transient options on top of persisted settings ----
             var settings = PCPSettings.instance;
             bool prevIncludeAll = settings.includeAllScenes;
-            PCPScanMode prevScanMode = settings.scanMode;
             if (options.IncludeAllScenes)
                 settings.includeAllScenes = true;
-            if (options.ScanMode.HasValue)
-                settings.scanMode = options.ScanMode.Value;
 
             try
             {
@@ -211,8 +204,6 @@ namespace ProjectCleanPro.Editor
                 // ---- Restore mutated settings ----
                 if (options.IncludeAllScenes)
                     settings.includeAllScenes = prevIncludeAll;
-                if (options.ScanMode.HasValue)
-                    settings.scanMode = prevScanMode;
             }
         }
 
@@ -227,7 +218,7 @@ namespace ProjectCleanPro.Editor
         /// <paramref name="outputPath"/>.
         /// </summary>
         /// <param name="result">The scan result to export.</param>
-        /// <param name="format">Output format (JSON, CSV, or HTML).</param>
+        /// <param name="format">Output format (JSON, CSV, HTML, or Markdown).</param>
         /// <param name="outputPath">Absolute path to the output file.</param>
         public static void ExportReport(PCPScanResult result, PCPReportFormat format, string outputPath)
         {
@@ -244,6 +235,9 @@ namespace ProjectCleanPro.Editor
                     break;
                 case PCPReportFormat.HTML:
                     PCPReportExporter.ExportHTML(result, outputPath);
+                    break;
+                case PCPReportFormat.Markdown:
+                    PCPReportExporter.ExportMarkdown(result, outputPath);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(format), format, null);
@@ -388,7 +382,6 @@ namespace ProjectCleanPro.Editor
                     AdditionalScanRoots = options.AdditionalScanRoots,
                     VerboseLogging      = options.VerboseLogging,
                     CancellationToken   = options.CancellationToken,
-                    ScanMode            = options.ScanMode,
                 }
                 : new PCPScanOptions();
 

@@ -46,13 +46,13 @@ namespace ProjectCleanPro.Editor
             new TabDefinition { label = "Dashboard",    icon = "\u2302", moduleId = null          },
             new TabDefinition { label = "Unused",       icon = "\u2716", moduleId = "unused"      },
             new TabDefinition { label = "Missing",      icon = "\u26A0", moduleId = "missing"     },
-            new TabDefinition { label = "Duplicates",   icon = "\u2687", moduleId = "duplicates"  },
+            new TabDefinition { label = "Duplicates",   icon = "\u25A6", moduleId = "duplicates"  },
             new TabDefinition { label = "Dependencies", icon = "\u2194", moduleId = "dependencies"},
             new TabDefinition { label = "Packages",     icon = "\u2750", moduleId = "packages"    },
             new TabDefinition { label = "Shaders",      icon = "\u2726", moduleId = "shaders"     },
             new TabDefinition { label = "Size",         icon = "\u25A3", moduleId = "size"        },
             new TabDefinition { label = "Archive",      icon = "\u2709", moduleId = null          },
-            new TabDefinition { label = "Settings",     icon = "\u2699", moduleId = null          },
+            new TabDefinition { label = "Settings",     icon = "\u2261", moduleId = null          },
         };
 
         // --------------------------------------------------------------------
@@ -581,7 +581,7 @@ namespace ProjectCleanPro.Editor
             for (int i = 0; i < allModules.Count; i++)
             {
                 if (allModules[i] != null)
-                    CollectModuleResults(allModules[i], m_LastScanResult);
+                    PCPScanResult.CollectModuleResults(allModules[i], m_LastScanResult);
             }
 
             m_LastScanTime = DateTime.UtcNow;
@@ -688,35 +688,6 @@ namespace ProjectCleanPro.Editor
             // so it's up to date when the user switches back.
             if (m_Views != null && m_Views[0] is IPCPRefreshable dashboard)
                 dashboard.Refresh();
-        }
-
-        private static void CollectModuleResults(IPCPModule module, PCPScanResult result)
-        {
-            switch (module.Id)
-            {
-                case PCPModuleId.Unused when module is PCPUnusedScanner u:
-                    result.unusedAssets.AddRange(u.Results);
-                    break;
-                case PCPModuleId.Missing when module is PCPMissingRefScanner m:
-                    result.missingReferences.AddRange(m.Results);
-                    break;
-                case PCPModuleId.Duplicates when module is PCPDuplicateDetector d:
-                    result.duplicateGroups.AddRange(d.Results);
-                    break;
-                case PCPModuleId.Dependencies when module is PCPDependencyModule dep:
-                    result.circularDependencies.AddRange(dep.CircularDependencies);
-                    result.orphanAssets.AddRange(dep.OrphanAssets);
-                    break;
-                case PCPModuleId.Packages when module is PCPPackageAuditor p:
-                    result.packageAuditEntries.AddRange(p.Results);
-                    break;
-                case PCPModuleId.Shaders when module is PCPShaderAnalyzer s:
-                    result.shaderEntries.AddRange(s.Results);
-                    break;
-                case PCPModuleId.Size when module is PCPSizeProfiler z:
-                    result.sizeEntries.AddRange(z.Results);
-                    break;
-            }
         }
 
         private static void ClearModuleResults(PCPModuleId moduleId, PCPScanResult result)

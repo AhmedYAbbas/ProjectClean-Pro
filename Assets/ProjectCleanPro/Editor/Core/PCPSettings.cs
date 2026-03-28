@@ -1,4 +1,3 @@
-using ProjectCleanPro.Editor.Core;
 using System;
 using System.Collections.Generic;
 using UnityEditor;
@@ -97,14 +96,27 @@ namespace ProjectCleanPro.Editor
         public bool duplicateCompareImportSettings = true;
 
         // ----------------------------------------------------------------
-        // Scan mode
+        // Performance
         // ----------------------------------------------------------------
 
-        public PCPScanMode scanMode = PCPScanMode.Accurate;
         public float mainThreadBudgetMs = 8f;
 
-        // Internal: tracks which mode was used for the last scan (for cache invalidation)
-        [SerializeField] internal PCPScanMode lastScanMode = PCPScanMode.Accurate;
+        // ----------------------------------------------------------------
+        // Logging
+        // ----------------------------------------------------------------
+
+        [Header("Logging")]
+        [Tooltip("Log scan progress, cache activity, and timing to the Console.")]
+        public bool enableLogging = true;
+
+        /// <summary>
+        /// Logs a message to the Console if logging is enabled.
+        /// </summary>
+        public static void Log(string message)
+        {
+            if (instance.enableLogging)
+                Debug.Log(message);
+        }
 
         // ----------------------------------------------------------------
         // UI / Theming

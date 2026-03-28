@@ -20,12 +20,6 @@ namespace ProjectCleanPro.Tests.Editor
         }
 
         [Test]
-        public void Context_DependencyResolver_IsNotNull()
-        {
-            Assert.IsNotNull(PCPContext.DependencyResolver);
-        }
-
-        [Test]
         public void Context_ScanCache_IsNotNull()
         {
             Assert.IsNotNull(PCPContext.ScanCache);
@@ -52,14 +46,6 @@ namespace ProjectCleanPro.Tests.Editor
         {
             var a = PCPContext.Settings;
             var b = PCPContext.Settings;
-            Assert.AreSame(a, b);
-        }
-
-        [Test]
-        public void Context_DependencyResolver_ReturnsSameInstance()
-        {
-            var a = PCPContext.DependencyResolver;
-            var b = PCPContext.DependencyResolver;
             Assert.AreSame(a, b);
         }
 
@@ -110,7 +96,6 @@ namespace ProjectCleanPro.Tests.Editor
 
             // Services should be re-created on next access (lazy init).
             Assert.IsNotNull(PCPContext.Settings);
-            Assert.IsNotNull(PCPContext.DependencyResolver);
             Assert.IsNotNull(PCPContext.ScanCache);
             Assert.IsNotNull(PCPContext.IgnoreRules);
         }

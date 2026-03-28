@@ -1,18 +1,10 @@
-using System;
-
 namespace ProjectCleanPro.Editor.Core
 {
-    internal static class PCPDependencyResolverFactory
+    public static class PCPDependencyResolverFactory
     {
-        public static IPCPDependencyResolver Create(PCPScanMode mode)
+        public static IPCPDependencyResolver Create()
         {
-            return mode switch
-            {
-                PCPScanMode.Accurate => new PCPAccurateDependencyResolver(),
-                PCPScanMode.Balanced => new PCPBalancedDependencyResolver(new PCPGuidIndex()),
-                PCPScanMode.Fast => new PCPFastDependencyResolver(new PCPGuidIndex()),
-                _ => throw new ArgumentOutOfRangeException(nameof(mode))
-            };
+            return new PCPAccurateDependencyResolver();
         }
     }
 }

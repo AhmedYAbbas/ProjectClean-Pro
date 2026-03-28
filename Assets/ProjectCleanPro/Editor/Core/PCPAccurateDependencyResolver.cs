@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -11,7 +12,7 @@ namespace ProjectCleanPro.Editor.Core
     /// Main-thread work is frame-budgeted via the scheduler.
     /// Graph building and BFS run on background threads.
     /// </summary>
-    internal sealed class PCPAccurateDependencyResolver : PCPDependencyResolverBase
+    public sealed class PCPAccurateDependencyResolver : PCPDependencyResolverBase
     {
         public override async Task BuildGraphAsync(PCPScanContext context, CancellationToken ct)
         {
@@ -47,6 +48,8 @@ namespace ProjectCleanPro.Editor.Core
 
             if (stalePaths.Count > 0)
             {
+                PCPSettings.Log($"[ProjectCleanPro] Dependency graph: querying dependencies for " +
+                               $"{stalePaths.Count} stale asset(s)...");
                 var depsPerAsset = await scheduler.BatchOnMainThread(
                     stalePaths,
                     path => AssetDatabase.GetDependencies(path, false),
@@ -64,17 +67,17 @@ namespace ProjectCleanPro.Editor.Core
                 }, ct);
             }
 
-            // Phase 4: BFS reachability (background)
+            // Phase 4: BFS reachability
+            // CollectRoots uses EditorBuildSettings (main-thread-only), so collect first
             ct.ThrowIfCancellationRequested();
+            var roots = CollectRoots(context);
             await scheduler.ScheduleBackground(ct2 =>
             {
-                var roots = CollectRoots(context);
                 ComputeReachability(roots);
+                m_IsBuilt = true;
+                SaveToDisk();
                 return Task.CompletedTask;
             }, ct);
-
-            m_IsBuilt = true;
-            SaveToDisk();
         }
     }
 }

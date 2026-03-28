@@ -330,5 +330,38 @@ namespace ProjectCleanPro.Editor
         {
             return GetSummary();
         }
+
+        /// <summary>
+        /// Collects results from a module into this scan result.
+        /// Shared by both the orchestrator (manifest computation) and the window.
+        /// </summary>
+        public static void CollectModuleResults(IPCPModule module, PCPScanResult result)
+        {
+            switch (module.Id)
+            {
+                case PCPModuleId.Unused when module is PCPUnusedScanner u:
+                    result.unusedAssets.AddRange(u.Results);
+                    break;
+                case PCPModuleId.Missing when module is PCPMissingRefScanner m:
+                    result.missingReferences.AddRange(m.Results);
+                    break;
+                case PCPModuleId.Duplicates when module is PCPDuplicateDetector d:
+                    result.duplicateGroups.AddRange(d.Results);
+                    break;
+                case PCPModuleId.Dependencies when module is PCPDependencyModule dep:
+                    result.circularDependencies.AddRange(dep.CircularDependencies);
+                    result.orphanAssets.AddRange(dep.OrphanAssets);
+                    break;
+                case PCPModuleId.Packages when module is PCPPackageAuditor p:
+                    result.packageAuditEntries.AddRange(p.Results);
+                    break;
+                case PCPModuleId.Shaders when module is PCPShaderAnalyzer s:
+                    result.shaderEntries.AddRange(s.Results);
+                    break;
+                case PCPModuleId.Size when module is PCPSizeProfiler z:
+                    result.sizeEntries.AddRange(z.Results);
+                    break;
+            }
+        }
     }
 }

@@ -27,7 +27,7 @@ namespace ProjectCleanPro.Editor
 
         public override PCPModuleId Id => PCPModuleId.Duplicates;
         public override string DisplayName => "Duplicates";
-        public override string Icon => "\u2687"; // ⚇
+        public override string Icon => "\u25A6"; // ▦
         public override Color AccentColor => new Color(0.557f, 0.267f, 0.678f, 1f); // #8E44AD
 
         public override IReadOnlyCollection<string> RelevantExtensions => null;
@@ -106,7 +106,8 @@ namespace ProjectCleanPro.Editor
                     if (PCPGuidParser.IsGuidParseable(path))
                     {
                         // Normalize YAML: compute hash from metadata key in cache if available
-                        var normalizedHash = cache.GetMetadata(path, "dup.normalizedHash");
+                        // v2: also strips m_Name lines for proper duplicate detection
+                        var normalizedHash = cache.GetMetadata(path, "dup.normalizedHash.v2");
                         if (normalizedHash != null && !cache.IsStale(path))
                         {
                             hash = normalizedHash;
@@ -114,7 +115,7 @@ namespace ProjectCleanPro.Editor
                         else
                         {
                             hash = ComputeNormalizedYamlHash(bytes);
-                            cache.SetMetadata(path, "dup.normalizedHash", hash);
+                            cache.SetMetadata(path, "dup.normalizedHash.v2", hash);
                         }
                     }
                     else
@@ -349,9 +350,11 @@ namespace ProjectCleanPro.Editor
             foreach (var line in lines)
             {
                 var trimmed = line.TrimStart();
-                // Skip guid references — they differ between duplicates of the same content
+                // Skip lines that differ between duplicates of the same content:
+                // guid/fileID/m_Script for reference differences,
+                // m_Name because Unity sets it to the new filename on duplicate
                 if (trimmed.StartsWith("guid:") || trimmed.StartsWith("m_Script:") ||
-                    trimmed.StartsWith("fileID:"))
+                    trimmed.StartsWith("fileID:") || trimmed.StartsWith("m_Name:"))
                     continue;
                 sb.AppendLine(line);
             }

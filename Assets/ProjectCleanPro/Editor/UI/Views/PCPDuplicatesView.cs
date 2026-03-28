@@ -44,7 +44,7 @@ namespace ProjectCleanPro.Editor
                 scanResult,
                 createContext,
                 "Duplicate Assets",
-                "\u2687",
+                "\u25A6",
                 2)
         {
         }
