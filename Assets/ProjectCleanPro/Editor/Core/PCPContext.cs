@@ -11,7 +11,6 @@ namespace ProjectCleanPro.Editor
     public static class PCPContext
     {
         private static PCPSettings s_Settings;
-        private static PCPDependencyResolver s_DependencyResolver;
         private static PCPScanCache s_ScanCache;
         private static PCPIgnoreRules s_IgnoreRules;
         private static PCPRenderPipelineDetector s_RenderPipelineDetector;
@@ -32,19 +31,6 @@ namespace ProjectCleanPro.Editor
                 if (s_Settings == null)
                     s_Settings = PCPSettings.instance;
                 return s_Settings;
-            }
-        }
-
-        public static PCPDependencyResolver DependencyResolver
-        {
-            get
-            {
-                if (s_DependencyResolver == null)
-                {
-                    s_DependencyResolver = new PCPDependencyResolver();
-                    s_DependencyResolver.LoadFromDisk();
-                }
-                return s_DependencyResolver;
             }
         }
 
@@ -140,7 +126,6 @@ namespace ProjectCleanPro.Editor
                 return;
 
             _ = Settings;
-            _ = DependencyResolver;
             _ = ScanCache;
             _ = IgnoreRules;
             _ = RenderPipelineDetector;
@@ -171,8 +156,6 @@ namespace ProjectCleanPro.Editor
                 s_ScanCache = null;
             }
 
-            s_DependencyResolver?.SaveToDisk();
-            s_DependencyResolver = null;
             s_IgnoreRules = null;
             s_RenderPipelineDetector = null;
             s_Settings = null;

@@ -899,30 +899,23 @@ namespace ProjectCleanPro.Tests.Editor
         }
 
         // ================================================================
-        // 14. DEPENDENCY RESOLVER INTEGRATION
+        // 14. SCAN CACHE STANDALONE OPERATIONS
         // ================================================================
 
         [Test]
-        public void DependencyResolver_Build_AcceptsCacheParameter()
+        public void ScanCache_RefreshStaleness_DoesNotThrow()
         {
-            // Verify the API signature works — Build with a cache parameter should not throw.
-            var resolver = new PCPDependencyResolver();
+            // Verify cache staleness refresh works with an empty asset list.
             var cache = new PCPScanCache();
-
-            // Build with empty roots — just verifying the method signature is callable.
-            resolver.Build(new List<string>(), cache: cache);
-
-            Assert.IsTrue(resolver.IsBuilt);
+            Assert.DoesNotThrow(() => cache.RefreshStaleness(new string[0]));
         }
 
         [Test]
-        public void DependencyResolver_Build_AcceptsNullCache()
+        public void ScanCache_Save_DoesNotThrow()
         {
-            // Build without a cache should still work (backward compatible).
-            var resolver = new PCPDependencyResolver();
-            resolver.Build(new List<string>());
-
-            Assert.IsTrue(resolver.IsBuilt);
+            // Verify cache can be saved without error.
+            var cache = new PCPScanCache();
+            Assert.DoesNotThrow(() => cache.Save());
         }
     }
 }

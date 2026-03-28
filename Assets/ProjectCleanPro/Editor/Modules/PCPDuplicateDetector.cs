@@ -149,7 +149,7 @@ namespace ProjectCleanPro.Editor
             }
 
             // === PHASE 3: ANALYZE — Build results (background) ===
-            var resolver = context.NewDependencyResolver ?? (object)context.DependencyResolver;
+            var resolver = context.DependencyResolver;
 
             _results.Clear();
             foreach (var group in groups)
@@ -263,7 +263,7 @@ namespace ProjectCleanPro.Editor
 
         private PCPDuplicateGroup BuildDuplicateGroup(
             IGrouping<string, KeyValuePair<string, string>> group,
-            object resolver)
+            IPCPDependencyResolver resolver)
         {
             var paths = group.Select(kv => kv.Key).ToList();
             if (paths.Count < 2)
@@ -276,14 +276,9 @@ namespace ProjectCleanPro.Editor
                 string guid = AssetDatabase.AssetPathToGUID(path);
 
                 int refCount = 0;
-                if (resolver is IPCPDependencyResolver newResolver && newResolver.IsBuilt)
+                if (resolver != null && resolver.IsBuilt)
                 {
-                    refCount = newResolver.GetDependentCount(path);
-                }
-                else if (resolver is PCPDependencyResolver oldResolver && oldResolver.IsBuilt)
-                {
-                    var dependents = oldResolver.GetDependents(path);
-                    refCount = dependents != null ? dependents.Count : 0;
+                    refCount = resolver.GetDependentCount(path);
                 }
 
                 long sizeBytes = 0;

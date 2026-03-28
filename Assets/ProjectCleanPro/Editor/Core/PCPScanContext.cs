@@ -26,9 +26,9 @@ namespace ProjectCleanPro.Editor
         public PCPIgnoreRules IgnoreRules { get; }
 
         /// <summary>
-        /// The resolved asset dependency graph.
+        /// Dependency resolver — interface, implementation varies by scan mode.
         /// </summary>
-        public PCPDependencyResolver DependencyResolver { get; }
+        public IPCPDependencyResolver DependencyResolver { get; set; }
 
         /// <summary>
         /// Incremental scan cache for skipping unchanged assets.
@@ -58,12 +58,6 @@ namespace ProjectCleanPro.Editor
 
         /// <summary>The scan's work coordinator. Created per-scan, null before scan starts.</summary>
         public PCPAsyncScheduler Scheduler { get; set; }
-
-        /// <summary>
-        /// Dependency resolver — interface, implementation varies by scan mode.
-        /// Replaces the concrete PCPDependencyResolver property.
-        /// </summary>
-        public IPCPDependencyResolver NewDependencyResolver { get; set; }
 
         /// <summary>Shared GUID index for Fast/Balanced modes. Null in Accurate mode.</summary>
         public PCPGuidIndex GuidIndex { get; set; }
@@ -108,7 +102,6 @@ namespace ProjectCleanPro.Editor
         /// </summary>
         /// <param name="settings">Project-wide settings.</param>
         /// <param name="ignoreRules">Ignore-rule evaluator.</param>
-        /// <param name="dependencyResolver">The built dependency graph.</param>
         /// <param name="cache">Incremental scan cache.</param>
         /// <param name="renderPipeline">Detected render pipeline info.</param>
         /// <param name="onProgress">Optional progress callback.</param>
@@ -116,7 +109,6 @@ namespace ProjectCleanPro.Editor
         public PCPScanContext(
             PCPSettings settings,
             PCPIgnoreRules ignoreRules,
-            PCPDependencyResolver dependencyResolver,
             PCPScanCache cache,
             PCPRenderPipelineInfo renderPipeline,
             Action<float, string> onProgress = null,
@@ -124,7 +116,6 @@ namespace ProjectCleanPro.Editor
         {
             Settings = settings ?? throw new ArgumentNullException(nameof(settings));
             IgnoreRules = ignoreRules ?? throw new ArgumentNullException(nameof(ignoreRules));
-            DependencyResolver = dependencyResolver ?? throw new ArgumentNullException(nameof(dependencyResolver));
             Cache = cache ?? throw new ArgumentNullException(nameof(cache));
             RenderPipeline = renderPipeline ?? throw new ArgumentNullException(nameof(renderPipeline));
             OnProgress = onProgress;
@@ -133,12 +124,10 @@ namespace ProjectCleanPro.Editor
         }
 
         /// <summary>
-        /// Creates a new scan context with all required dependencies including
-        /// backward-compatible properties.
+        /// Creates a new scan context with all required dependencies.
         /// </summary>
         public PCPScanContext(
             PCPSettings settings,
-            PCPDependencyResolver dependencyResolver,
             PCPScanCache scanCache,
             PCPIgnoreRules ignoreRules,
             PCPRenderPipelineDetector renderPipelineDetector,
@@ -146,7 +135,6 @@ namespace ProjectCleanPro.Editor
         {
             Settings = settings ?? throw new ArgumentNullException(nameof(settings));
             IgnoreRules = ignoreRules ?? throw new ArgumentNullException(nameof(ignoreRules));
-            DependencyResolver = dependencyResolver ?? throw new ArgumentNullException(nameof(dependencyResolver));
             Cache = scanCache ?? throw new ArgumentNullException(nameof(scanCache));
             RenderPipelineDetector = renderPipelineDetector;
             RenderPipeline = renderPipelineDetector?.Info;
@@ -298,7 +286,6 @@ namespace ProjectCleanPro.Editor
             PCPContext.Initialize();
             return new PCPScanContext(
                 PCPContext.Settings,
-                PCPContext.DependencyResolver,
                 PCPContext.ScanCache,
                 PCPContext.IgnoreRules,
                 PCPContext.RenderPipelineDetector,

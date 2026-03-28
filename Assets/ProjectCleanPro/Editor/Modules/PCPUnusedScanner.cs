@@ -63,14 +63,8 @@ namespace ProjectCleanPro.Editor
             _results.Clear();
 
             // Get the reachable set from the dependency resolver.
-            var resolverObj = context.NewDependencyResolver ?? (object)context.DependencyResolver;
-            IReadOnlyCollection<string> reachable;
-
-            if (resolverObj is IPCPDependencyResolver newResolver)
-                reachable = newResolver.GetReachableAssets();
-            else
-                reachable = ((PCPDependencyResolver)resolverObj).GetAllReachable();
-
+            var resolver = context.DependencyResolver;
+            var reachable = resolver != null ? resolver.GetReachableAssets() : Array.Empty<string>();
             var reachableSet = new HashSet<string>(reachable, StringComparer.Ordinal);
 
             // === PHASE 1: GATHER — Collect all asset paths (background) ===

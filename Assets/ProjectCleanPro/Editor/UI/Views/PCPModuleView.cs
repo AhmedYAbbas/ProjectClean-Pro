@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -190,7 +191,7 @@ namespace ProjectCleanPro.Editor
             m_Header.IsScanning = true;
 
             // Yield one frame so the UI shows the scanning state.
-            await PCPEditorAsync.YieldToEditor();
+            await Task.Yield();
 
             try
             {
@@ -227,7 +228,7 @@ namespace ProjectCleanPro.Editor
         {
             m_Header.IsScanning = true;
 
-            await PCPEditorAsync.YieldToEditor();
+            await Task.Yield();
 
             try
             {
@@ -379,8 +380,7 @@ namespace ProjectCleanPro.Editor
                 return;
 
             var context = m_CreateContext?.Invoke();
-            var resolver = context?.DependencyResolver;
-            var preview = PCPSafeDelete.Preview(pathList, resolver);
+            var preview = PCPSafeDelete.Preview(pathList, context?.DependencyResolver);
 
             if (PCPDeletePreviewDialog.Show(preview, out bool archive))
             {
@@ -390,7 +390,7 @@ namespace ProjectCleanPro.Editor
 
                 try
                 {
-                    PCPSafeDelete.ArchiveAndDelete(preview, settings, resolver);
+                    PCPSafeDelete.ArchiveAndDelete(preview, settings, context?.DependencyResolver);
 
                     bool anyHadDependents = preview.items.Any(item => item.referenceCount > 0);
 
@@ -409,7 +409,6 @@ namespace ProjectCleanPro.Editor
                         foreach (string path in deletedPaths)
                             context.Cache.RemoveEntry(path);
 
-                        resolver?.RemoveAssets(deletedPaths);
                         context.Cache.Save();
                         PCPResultCache.Save(m_ScanResult);
 

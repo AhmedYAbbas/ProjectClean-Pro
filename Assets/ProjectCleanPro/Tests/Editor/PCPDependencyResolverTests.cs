@@ -6,272 +6,122 @@ using ProjectCleanPro.Editor;
 namespace ProjectCleanPro.Tests.Editor
 {
     /// <summary>
-    /// Tests for <see cref="PCPDependencyResolver"/> covering graph building,
-    /// BFS reachability, queries, and edge cases.
-    /// Note: These tests use the live AssetDatabase, so results depend on actual project state.
+    /// Tests for the dependency resolver system.
+    /// Verifies that scan context properly exposes the resolver interface
+    /// and that the context factory methods work correctly.
     /// </summary>
     [TestFixture]
     public sealed class PCPDependencyResolverTests
     {
-        private PCPDependencyResolver m_Resolver;
-
-        [SetUp]
-        public void SetUp()
-        {
-            m_Resolver = new PCPDependencyResolver();
-        }
-
-        [TearDown]
-        public void TearDown()
-        {
-            m_Resolver.Clear();
-        }
-
         // ================================================================
-        // 1. INITIAL STATE
+        // 1. SCAN CONTEXT - RESOLVER LIFECYCLE
         // ================================================================
 
         [Test]
-        public void InitialState_IsBuilt_IsFalse()
+        public void ScanContext_FromGlobalContext_DependencyResolver_StartsNull()
         {
-            Assert.IsFalse(m_Resolver.IsBuilt);
+            // DependencyResolver is set by the orchestrator during a scan,
+            // not by the constructor. Before any scan it should be null.
+            var ctx = PCPScanContext.FromGlobalContext();
+            // This is expected — the resolver is created per-scan by the orchestrator.
+            Assert.IsNull(ctx.DependencyResolver,
+                "DependencyResolver should be null before a scan starts");
         }
 
         [Test]
-        public void InitialState_AssetCount_IsZero()
+        public void ScanContext_FromGlobalContext_Cache_IsNotNull()
         {
-            Assert.AreEqual(0, m_Resolver.AssetCount);
+            var ctx = PCPScanContext.FromGlobalContext();
+            Assert.IsNotNull(ctx.Cache, "Cache should always be initialized");
         }
 
         [Test]
-        public void InitialState_ReachableCount_IsZero()
+        public void ScanContext_FromGlobalContext_Settings_IsNotNull()
         {
-            Assert.AreEqual(0, m_Resolver.ReachableCount);
-        }
-
-        // ================================================================
-        // 2. BUILD WITH EMPTY ROOTS
-        // ================================================================
-
-        [Test]
-        public void Build_EmptyRoots_SetsIsBuilt()
-        {
-            m_Resolver.Build(new List<string>());
-            Assert.IsTrue(m_Resolver.IsBuilt);
+            var ctx = PCPScanContext.FromGlobalContext();
+            Assert.IsNotNull(ctx.Settings, "Settings should always be initialized");
         }
 
         [Test]
-        public void Build_EmptyRoots_ReachableCountIsZero()
+        public void ScanContext_FromGlobalContext_IgnoreRules_IsNotNull()
         {
-            m_Resolver.Build(new List<string>());
-            Assert.AreEqual(0, m_Resolver.ReachableCount);
-        }
-
-        [Test]
-        public void Build_EmptyRoots_AssetCountReflectsProject()
-        {
-            m_Resolver.Build(new List<string>());
-            // Should have scanned Assets/ — asset count depends on project.
-            Assert.GreaterOrEqual(m_Resolver.AssetCount, 0);
+            var ctx = PCPScanContext.FromGlobalContext();
+            Assert.IsNotNull(ctx.IgnoreRules, "IgnoreRules should always be initialized");
         }
 
         // ================================================================
-        // 3. BUILD WITH REAL PROJECT DATA
+        // 2. SCAN CONTEXT CONSTRUCTOR - NO RESOLVER PARAMETER
         // ================================================================
 
         [Test]
-        public void Build_WithBuildScenes_SetsReachable()
+        public void ScanContext_Constructor_DoesNotRequireResolver()
         {
-            string[] buildScenes = PCPAssetUtils.GetBuildScenePaths();
+            // The new constructor no longer takes a PCPDependencyResolver parameter.
+            // Verify it can be constructed without one.
+            PCPContext.Initialize();
+            var ctx = new PCPScanContext(
+                PCPContext.Settings,
+                PCPContext.ScanCache,
+                PCPContext.IgnoreRules,
+                PCPContext.RenderPipelineDetector);
 
-            m_Resolver.Build(buildScenes);
-
-            Assert.IsTrue(m_Resolver.IsBuilt);
-
-            // If there are build scenes, there should be reachable assets.
-            if (buildScenes.Length > 0)
-            {
-                Assert.Greater(m_Resolver.ReachableCount, 0,
-                    "With build scenes as roots, some assets should be reachable");
-            }
-        }
-
-        [Test]
-        public void Build_WithProgressCallback_CallsProgress()
-        {
-            bool progressCalled = false;
-            m_Resolver.Build(
-                new List<string>(),
-                onProgress: (progress, label) =>
-                {
-                    progressCalled = true;
-                    Assert.GreaterOrEqual(progress, 0f);
-                    Assert.LessOrEqual(progress, 1f);
-                    Assert.IsNotNull(label);
-                });
-
-            Assert.IsTrue(progressCalled, "Progress callback should have been invoked");
-        }
-
-        [Test]
-        public void Build_WithCache_DoesNotThrow()
-        {
-            var cache = new PCPScanCache();
-            Assert.DoesNotThrow(() =>
-                m_Resolver.Build(new List<string>(), cache: cache));
+            Assert.IsNotNull(ctx);
+            Assert.IsNotNull(ctx.Settings);
+            Assert.IsNotNull(ctx.Cache);
+            Assert.IsNull(ctx.DependencyResolver,
+                "DependencyResolver starts null and is set by the orchestrator");
         }
 
         // ================================================================
-        // 4. QUERIES
+        // 3. IGNORE RULES INTEGRATION
         // ================================================================
 
         [Test]
-        public void GetDependencies_UnknownAsset_ReturnsEmpty()
+        public void ScanContext_IgnoreRules_WorksAfterConstruction()
         {
-            m_Resolver.Build(new List<string>());
-            var deps = m_Resolver.GetDependencies("Assets/NonExistent/file.xyz");
-            Assert.IsNotNull(deps);
-            Assert.AreEqual(0, deps.Count);
-        }
+            var ctx = PCPScanContext.FromGlobalContext();
+            Assert.IsNotNull(ctx.IgnoreRules);
 
-        [Test]
-        public void GetDependents_UnknownAsset_ReturnsEmpty()
-        {
-            m_Resolver.Build(new List<string>());
-            var dependents = m_Resolver.GetDependents("Assets/NonExistent/file.xyz");
-            Assert.IsNotNull(dependents);
-            Assert.AreEqual(0, dependents.Count);
-        }
-
-        [Test]
-        public void IsReachable_NonReachableAsset_ReturnsFalse()
-        {
-            m_Resolver.Build(new List<string>());
-            Assert.IsFalse(m_Resolver.IsReachable("Assets/NonExistent/file.xyz"));
-        }
-
-        [Test]
-        public void GetAllReachable_EmptyRoots_ReturnsEmptyCollection()
-        {
-            m_Resolver.Build(new List<string>());
-            var reachable = m_Resolver.GetAllReachable();
-            Assert.IsNotNull(reachable);
-            Assert.AreEqual(0, reachable.Count);
-        }
-
-        [Test]
-        public void GetAllAssets_AfterBuild_ReturnsNonNull()
-        {
-            m_Resolver.Build(new List<string>());
-            Assert.IsNotNull(m_Resolver.GetAllAssets());
-        }
-
-        [Test]
-        public void GetAllUnreachable_EmptyRoots_AllAssetsAreUnreachable()
-        {
-            m_Resolver.Build(new List<string>());
-
-            int unreachableCount = m_Resolver.GetAllUnreachable().Count();
-            Assert.AreEqual(m_Resolver.AssetCount, unreachableCount,
-                "With no roots, all assets should be unreachable");
+            // IgnoreRules should not throw on usage.
+            bool result = ctx.IgnoreRules.IsIgnored("Assets/SomeFile.png");
+            Assert.IsNotNull(result.ToString()); // just verifying no throw
         }
 
         // ================================================================
-        // 5. REACHABILITY WITH REAL ROOTS
+        // 4. PROGRESS REPORTING
         // ================================================================
 
         [Test]
-        public void Build_RootIsReachable()
+        public void ScanContext_ReportProgress_DoesNotThrow()
         {
-            string[] scenes = PCPAssetUtils.GetBuildScenePaths();
-            if (scenes.Length == 0)
-            {
-                Assert.Pass("No build scenes in project — skipping.");
-                return;
-            }
-
-            m_Resolver.Build(scenes);
-
-            foreach (string scene in scenes)
-            {
-                Assert.IsTrue(m_Resolver.IsReachable(scene),
-                    $"Root scene '{scene}' should be reachable");
-            }
+            var ctx = PCPScanContext.FromGlobalContext();
+            Assert.DoesNotThrow(() => ctx.ReportProgress(0.5f, "Testing"));
         }
 
         [Test]
-        public void Build_UnreachableAssetsExist_WhenRootsProvided()
+        public void ScanContext_ThrowIfCancelled_DoesNotThrowWhenNotCancelled()
         {
-            string[] scenes = PCPAssetUtils.GetBuildScenePaths();
-            m_Resolver.Build(scenes);
-
-            // There should typically be some unreachable assets in any non-trivial project.
-            // We just verify the method works; whether there are unreachable assets depends
-            // on the project.
-            var unreachable = m_Resolver.GetAllUnreachable();
-            Assert.IsNotNull(unreachable);
+            var ctx = PCPScanContext.FromGlobalContext();
+            Assert.DoesNotThrow(() => ctx.ThrowIfCancelled());
         }
 
         // ================================================================
-        // 6. CLEAR
+        // 5. STALENESS
         // ================================================================
 
         [Test]
-        public void Clear_ResetsState()
+        public void ScanContext_EnsureStaleness_DoesNotThrow()
         {
-            m_Resolver.Build(new List<string>());
-            Assert.IsTrue(m_Resolver.IsBuilt);
-
-            m_Resolver.Clear();
-
-            Assert.IsFalse(m_Resolver.IsBuilt);
-            Assert.AreEqual(0, m_Resolver.AssetCount);
-            Assert.AreEqual(0, m_Resolver.ReachableCount);
+            var ctx = PCPScanContext.FromGlobalContext();
+            Assert.DoesNotThrow(() => ctx.EnsureStaleness());
         }
 
         [Test]
-        public void Clear_CanRebuildAfter()
+        public void ScanContext_AllProjectAssets_ReturnsNonNull()
         {
-            m_Resolver.Build(new List<string>());
-            m_Resolver.Clear();
-            Assert.DoesNotThrow(() => m_Resolver.Build(new List<string>()));
-            Assert.IsTrue(m_Resolver.IsBuilt);
-        }
-
-        // ================================================================
-        // 7. NULL HANDLING IN ROOTS
-        // ================================================================
-
-        [Test]
-        public void Build_NullRootEntries_AreSkipped()
-        {
-            var roots = new List<string> { null, "", "Assets/Scenes/Main.unity" };
-            Assert.DoesNotThrow(() => m_Resolver.Build(roots));
-        }
-
-        // ================================================================
-        // 8. BIDIRECTIONAL EDGES
-        // ================================================================
-
-        [Test]
-        public void Build_ForwardAndReverseEdgesAreConsistent()
-        {
-            m_Resolver.Build(new List<string>());
-
-            // For each asset's dependencies, the reverse edge should exist.
-            foreach (string asset in m_Resolver.GetAllAssets())
-            {
-                var deps = m_Resolver.GetDependencies(asset);
-                foreach (string dep in deps)
-                {
-                    var dependents = m_Resolver.GetDependents(dep);
-                    Assert.IsTrue(dependents.Contains(asset),
-                        $"If '{asset}' depends on '{dep}', then '{dep}' should have '{asset}' as a dependent");
-                }
-
-                // Only check first 5 assets to keep test fast.
-                break;
-            }
+            var ctx = PCPScanContext.FromGlobalContext();
+            var assets = ctx.AllProjectAssets;
+            Assert.IsNotNull(assets);
         }
     }
 }

@@ -27,7 +27,7 @@ namespace ProjectCleanPro.Editor
         /// <param name="assetPaths">Project-relative asset paths to preview for deletion.</param>
         /// <param name="resolver">A built dependency resolver for reference counting.</param>
         /// <returns>A fully populated delete preview.</returns>
-        public static PCPDeletePreview Preview(List<string> assetPaths, PCPDependencyResolver resolver)
+        public static PCPDeletePreview Preview(List<string> assetPaths, IPCPDependencyResolver resolver)
         {
             if (assetPaths == null)
                 throw new ArgumentNullException(nameof(assetPaths));
@@ -157,7 +157,7 @@ namespace ProjectCleanPro.Editor
         /// <param name="preview">A preview previously built via <see cref="Preview"/>.</param>
         /// <param name="settings">Project settings controlling archive and git behaviour.</param>
         public static void ArchiveAndDelete(PCPDeletePreview preview, PCPSettings settings,
-            PCPDependencyResolver resolver = null)
+            IPCPDependencyResolver resolver = null)
         {
             if (preview == null || !preview.HasItems)
                 return;
@@ -262,7 +262,7 @@ namespace ProjectCleanPro.Editor
         /// GUIDs can still be resolved.
         /// </summary>
         private static void NullOutReferences(PCPDeletePreview preview,
-            PCPDependencyResolver resolver)
+            IPCPDependencyResolver resolver)
         {
             // Collect the set of asset paths being deleted.
             var deletionSet = new HashSet<string>(

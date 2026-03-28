@@ -175,7 +175,7 @@ namespace ProjectCleanPro.Editor
 
             ReportProgress(total > 0 ? index / (float)total : 0f, label);
             ct.ThrowIfCancellationRequested();
-            await PCPEditorAsync.YieldToEditor();
+            await Task.Yield();
         }
 
         /// <summary>

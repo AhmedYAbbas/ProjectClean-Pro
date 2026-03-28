@@ -23,7 +23,6 @@ namespace ProjectCleanPro.Tests.Editor
             Assert.IsNotNull(ctx, "ScanContext should not be null");
             Assert.IsNotNull(ctx.Settings, "Settings should not be null");
             Assert.IsNotNull(ctx.IgnoreRules, "IgnoreRules should not be null");
-            Assert.IsNotNull(ctx.DependencyResolver, "DependencyResolver should not be null");
             Assert.IsNotNull(ctx.Cache, "Cache should not be null");
             Assert.IsNotNull(ctx.RenderPipeline, "RenderPipeline should not be null");
         }
@@ -202,22 +201,13 @@ namespace ProjectCleanPro.Tests.Editor
         // ================================================================
 
         [Test]
-        public void DependencyResolver_WithCache_ProducesSameResultAsWithout()
+        public void ScanContext_DependencyResolver_IsNullBeforeScan()
         {
-            var resolverNoCache = new PCPDependencyResolver();
-            resolverNoCache.Build(new List<string>());
-            int countNoCache = resolverNoCache.AssetCount;
-
-            var cache = new PCPScanCache();
-            var resolverWithCache = new PCPDependencyResolver();
-            resolverWithCache.Build(new List<string>(), cache: cache);
-            int countWithCache = resolverWithCache.AssetCount;
-
-            Assert.AreEqual(countNoCache, countWithCache,
-                "Asset count should be the same with or without cache");
-
-            resolverNoCache.Clear();
-            resolverWithCache.Clear();
+            // DependencyResolver is set by the orchestrator during scanning.
+            // Before any scan, it should be null.
+            var ctx = PCPScanContext.FromGlobalContext();
+            Assert.IsNull(ctx.DependencyResolver,
+                "DependencyResolver is created per-scan by the orchestrator");
         }
 
         // ================================================================

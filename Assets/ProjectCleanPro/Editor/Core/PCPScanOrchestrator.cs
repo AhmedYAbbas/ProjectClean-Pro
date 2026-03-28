@@ -106,7 +106,7 @@ namespace ProjectCleanPro.Editor
             context.Scheduler = scheduler;
 
             // Step 3: Create the right dependency resolver
-            context.NewDependencyResolver = PCPDependencyResolverFactory.Create(settings.scanMode);
+            context.DependencyResolver = PCPDependencyResolverFactory.Create(settings.scanMode);
 
             // Step 4: Async staleness computation (background)
             onProgress?.Invoke(0f, "Checking for changes...");
@@ -132,7 +132,7 @@ namespace ProjectCleanPro.Editor
             if (needsGraph)
             {
                 onProgress?.Invoke(0.05f, "Building dependency graph...");
-                await context.NewDependencyResolver.BuildGraphAsync(context, ct);
+                await context.DependencyResolver.BuildGraphAsync(context, ct);
             }
 
             // Step 7: Run modules
@@ -209,7 +209,7 @@ namespace ProjectCleanPro.Editor
             // Create scheduler and resolver
             using var scheduler = new PCPAsyncScheduler(settings.mainThreadBudgetMs);
             context.Scheduler = scheduler;
-            context.NewDependencyResolver = PCPDependencyResolverFactory.Create(settings.scanMode);
+            context.DependencyResolver = PCPDependencyResolverFactory.Create(settings.scanMode);
 
             // Async staleness
             onProgress?.Invoke(0f, "Checking for changes...");
@@ -228,7 +228,7 @@ namespace ProjectCleanPro.Editor
             if (module.RequiresDependencyGraph)
             {
                 onProgress?.Invoke(0.05f, "Building dependency graph...");
-                await context.NewDependencyResolver.BuildGraphAsync(context, ct);
+                await context.DependencyResolver.BuildGraphAsync(context, ct);
             }
 
             // Run module
@@ -258,16 +258,18 @@ namespace ProjectCleanPro.Editor
         public PCPScanManifest ScanAllSync(PCPScanContext context,
             Action<float, string> onProgress = null)
         {
-            return PCPEditorAsync.RunSync(() =>
-                ScanAllAsync(context, onProgress, CancellationToken.None));
+            var task = ScanAllAsync(context, onProgress, CancellationToken.None);
+            task.GetAwaiter().GetResult();
+            return task.Result;
         }
 
         public PCPScanManifest ScanModuleSync(PCPModuleId moduleId,
             PCPScanContext context,
             Action<float, string> onProgress = null)
         {
-            return PCPEditorAsync.RunSync(() =>
-                ScanModuleAsync(moduleId, context, onProgress, CancellationToken.None));
+            var task = ScanModuleAsync(moduleId, context, onProgress, CancellationToken.None);
+            task.GetAwaiter().GetResult();
+            return task.Result;
         }
 
         // ----------------------------------------------------------------
