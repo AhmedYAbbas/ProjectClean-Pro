@@ -48,6 +48,11 @@ namespace ProjectCleanPro.Editor
         /// token after each module completes.
         /// </summary>
         public System.Threading.CancellationToken CancellationToken;
+
+        /// <summary>
+        /// Scan mode to use for this run. Null means use the value from project settings.
+        /// </summary>
+        public PCPScanMode? ScanMode { get; set; }
     }
 
     /// <summary>
@@ -125,8 +130,11 @@ namespace ProjectCleanPro.Editor
             // ---- Apply transient options on top of persisted settings ----
             var settings = PCPSettings.instance;
             bool prevIncludeAll = settings.includeAllScenes;
+            PCPScanMode prevScanMode = settings.scanMode;
             if (options.IncludeAllScenes)
                 settings.includeAllScenes = true;
+            if (options.ScanMode.HasValue)
+                settings.scanMode = options.ScanMode.Value;
 
             try
             {
@@ -203,6 +211,8 @@ namespace ProjectCleanPro.Editor
                 // ---- Restore mutated settings ----
                 if (options.IncludeAllScenes)
                     settings.includeAllScenes = prevIncludeAll;
+                if (options.ScanMode.HasValue)
+                    settings.scanMode = prevScanMode;
             }
         }
 
@@ -378,6 +388,7 @@ namespace ProjectCleanPro.Editor
                     AdditionalScanRoots = options.AdditionalScanRoots,
                     VerboseLogging      = options.VerboseLogging,
                     CancellationToken   = options.CancellationToken,
+                    ScanMode            = options.ScanMode,
                 }
                 : new PCPScanOptions();
 

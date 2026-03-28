@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 
 namespace ProjectCleanPro.Editor
@@ -46,6 +48,16 @@ namespace ProjectCleanPro.Editor
             {
                 Debug.LogWarning($"[ProjectCleanPro] Failed to save {module.DisplayName} results: {ex.Message}");
             }
+        }
+
+        public async Task SaveModuleAsync(IPCPModule module, CancellationToken ct)
+        {
+            await Task.Run(() => SaveModule(module), ct);
+        }
+
+        public async Task SaveManifestAsync(PCPScanManifest manifest, CancellationToken ct)
+        {
+            await Task.Run(() => SaveManifest(manifest), ct);
         }
 
         /// <summary>
