@@ -1,8 +1,11 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using ProjectCleanPro.Editor.Core;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -32,7 +35,7 @@ namespace ProjectCleanPro.Editor
         // Results
         // ----------------------------------------------------------------
 
-        private readonly List<PCPMissingReference> _results = new List<PCPMissingReference>();
+        private List<PCPMissingReference> _results = new List<PCPMissingReference>();
 
         /// <summary>Read-only access to the scan results.</summary>
         public IReadOnlyList<PCPMissingReference> Results => _results;
@@ -59,82 +62,109 @@ namespace ProjectCleanPro.Editor
         {
             _results.Clear();
 
-            // ----------------------------------------------------------
-            // Phase 1: Collect all scannable assets
-            // ----------------------------------------------------------
-            ReportProgress(0f, "Finding prefabs, scenes, and assets...");
-
-            var assetPaths = new List<string>();
-            string[] allPaths = context.AllProjectAssets;
-
-            for (int i = 0; i < allPaths.Length; i++)
-            {
-                string path = allPaths[i];
-
-                string ext = System.IO.Path.GetExtension(path);
-                if (!s_ScannableExtensions.Contains(ext))
-                    continue;
-
-                if (IsIgnored(path, context))
-                    continue;
-
-                // Skip editor-only paths unless settings opt-in.
-                if (!context.Settings.scanEditorAssets && PCPAssetUtils.IsEditorOnlyPath(path))
-                    continue;
-
-                assetPaths.Add(path);
-            }
-
-            ct.ThrowIfCancellationRequested();
-
-            int total = assetPaths.Count;
-            if (total == 0)
-            {
-                ReportProgress(1f, "No scannable assets found.");
-                return;
-            }
-
-            // ----------------------------------------------------------
-            // Phase 2: Scan each asset for missing references
-            // ----------------------------------------------------------
-            for (int i = 0; i < total; i++)
-            {
-                string assetPath = assetPaths[i];
-
-                // If the asset hasn't changed and was previously scanned with
-                // zero missing references, we can safely skip it.
-                if (!context.Cache.IsStale(assetPath))
+            var allAssets = await context.GetAllProjectAssetsAsync(ct);
+            var candidates = allAssets
+                .Where(p =>
                 {
-                    string cachedCount = context.Cache.GetMetadata(assetPath, "missing.count");
-                    if (cachedCount != null && cachedCount == "0")
-                        continue;
+                    var ext = System.IO.Path.GetExtension(p);
+                    return ext is ".prefab" or ".unity" or ".asset";
+                })
+                .Where(p => !IsIgnored(p, context))
+                .Where(p => context.Settings.scanEditorAssets || !PCPAssetUtils.IsEditorOnlyPath(p))
+                .ToList();
+
+            Interlocked.Exchange(ref m_TotalCount, candidates.Count);
+
+            // === PHASE 1: GATHER — Pre-filter on background threads ===
+            var suspicious = new ConcurrentBag<string>();
+
+            await PCPThreading.ParallelForEachAsync(candidates, async (path, token) =>
+            {
+                try
+                {
+                    if (!context.Cache.IsStale(path))
+                    {
+                        var cachedCount = context.Cache.GetMetadata(path, "missing.count");
+                        if (cachedCount == "0")
+                        {
+                            Interlocked.Increment(ref m_ProcessedCount);
+                            return;
+                        }
+                    }
+
+                    var content = await System.IO.File.ReadAllTextAsync(path, token);
+                    if (ContainsSuspiciousPatterns(content))
+                        suspicious.Add(path);
                 }
+                catch (OperationCanceledException) { throw; }
+                catch (System.Exception ex)
+                {
+                    m_Warnings.Enqueue($"Skipped {path}: {ex.Message}");
+                }
+                finally
+                {
+                    Interlocked.Increment(ref m_ProcessedCount);
+                }
+            }, PCPThreading.DefaultConcurrency, ct);
 
-                await YieldIfNeeded(i, total, $"Scanning asset {i}/{total}...", ct, interval: 32);
+            // === PHASE 2: QUERY — Deep inspection on main thread (frame-budgeted) ===
+            var suspiciousList = suspicious.ToList();
 
-                int countBefore = _results.Count;
-                ScanAsset(assetPath);
-                int found = _results.Count - countBefore;
+            if (suspiciousList.Count > 0 && context.Scheduler != null)
+            {
+                var results = await context.Scheduler.BatchOnMainThread(
+                    suspiciousList,
+                    path => InspectForMissingRefs(path),
+                    ct);
 
-                // Cache the result count so we can skip clean assets next time.
-                context.Cache.SetMetadata(assetPath, "missing.count", found.ToString());
+                // === PHASE 3: ANALYZE — Build results ===
+                var combined = new List<PCPMissingReference>();
+                for (int i = 0; i < suspiciousList.Count; i++)
+                {
+                    var refs = results[i];
+                    if (refs != null && refs.Count > 0)
+                        combined.AddRange(refs);
+
+                    context.Cache.SetMetadata(suspiciousList[i], "missing.count",
+                        (refs?.Count ?? 0).ToString());
+                }
+                _results = combined;
             }
-
-            ReportProgress(1f, $"Found {_results.Count} missing references.");
+            else
+            {
+                _results = new List<PCPMissingReference>();
+            }
         }
 
-        /// <summary>
-        /// Scans a single asset for missing script components and broken serialized references.
-        /// </summary>
-        private void ScanAsset(string assetPath)
+        // ----------------------------------------------------------------
+        // Background pre-filter
+        // ----------------------------------------------------------------
+
+        private static bool ContainsSuspiciousPatterns(string content)
         {
+            return content.Contains("fileID: 0,") ||
+                   content.Contains("guid: 00000000000000000000000000000000") ||
+                   content.Contains("{fileID: 0}");
+        }
+
+        // ----------------------------------------------------------------
+        // Main-thread deep inspection
+        // ----------------------------------------------------------------
+
+        /// <summary>
+        /// Loads and inspects a single asset on the main thread for missing references.
+        /// Returns all findings for that asset, or an empty list if none.
+        /// </summary>
+        private List<PCPMissingReference> InspectForMissingRefs(string assetPath)
+        {
+            var findings = new List<PCPMissingReference>();
             string assetName = System.IO.Path.GetFileNameWithoutExtension(assetPath);
             string ext = System.IO.Path.GetExtension(assetPath);
 
             if (ext.Equals(".unity", StringComparison.OrdinalIgnoreCase))
             {
-                ScanScene(assetPath, assetName);
-                return;
+                CollectSceneFindings(assetPath, assetName, findings);
+                return findings;
             }
 
             UnityEngine.Object[] allObjects;
@@ -145,12 +175,11 @@ namespace ProjectCleanPro.Editor
             }
             catch (Exception)
             {
-                // If we cannot load the asset, skip it.
-                return;
+                return findings;
             }
 
             if (allObjects == null || allObjects.Length == 0)
-                return;
+                return findings;
 
             // For prefabs, traverse the full GameObject hierarchy just like scenes,
             // then skip GameObjects/Components since they were already covered.
@@ -176,13 +205,13 @@ namespace ProjectCleanPro.Editor
                     foreach (Transform t in transforms)
                     {
                         GameObject child = t.gameObject;
-                        CheckForMissingScripts(child, assetPath, assetName);
+                        CollectMissingScriptFindings(child, assetPath, assetName, findings);
 
                         Component[] components = child.GetComponents<Component>();
                         foreach (Component comp in components)
                         {
                             if (comp == null) continue;
-                            CheckSerializedProperties(comp, assetPath, assetName);
+                            CollectSerializedPropertyFindings(comp, assetPath, assetName, findings);
                         }
                     }
                 }
@@ -195,17 +224,19 @@ namespace ProjectCleanPro.Editor
                 {
                     // Non-prefab assets (ScriptableObjects, etc.)
                     if (go != null)
-                        CheckForMissingScripts(go, assetPath, assetName);
+                        CollectMissingScriptFindings(go, assetPath, assetName, findings);
 
-                    CheckSerializedProperties(obj, assetPath, assetName);
+                    CollectSerializedPropertyFindings(obj, assetPath, assetName, findings);
                 }
             }
+
+            return findings;
         }
 
         /// <summary>
         /// Scans a scene file by opening it additively, scanning all root objects, then closing it.
         /// </summary>
-        private void ScanScene(string assetPath, string assetName)
+        private void CollectSceneFindings(string assetPath, string assetName, List<PCPMissingReference> findings)
         {
             // Check if the scene is already open so we don't close it afterwards.
             Scene alreadyOpen = default;
@@ -245,13 +276,13 @@ namespace ProjectCleanPro.Editor
                     foreach (Transform t in transforms)
                     {
                         GameObject go = t.gameObject;
-                        CheckForMissingScripts(go, assetPath, assetName);
+                        CollectMissingScriptFindings(go, assetPath, assetName, findings);
 
                         Component[] components = go.GetComponents<Component>();
                         foreach (Component comp in components)
                         {
                             if (comp == null) continue;
-                            CheckSerializedProperties(comp, assetPath, assetName);
+                            CollectSerializedPropertyFindings(comp, assetPath, assetName, findings);
                         }
                     }
                 }
@@ -266,7 +297,8 @@ namespace ProjectCleanPro.Editor
         /// <summary>
         /// Checks a GameObject's components for missing (null) MonoBehaviour scripts.
         /// </summary>
-        private void CheckForMissingScripts(GameObject go, string assetPath, string assetName)
+        private void CollectMissingScriptFindings(GameObject go, string assetPath, string assetName,
+            List<PCPMissingReference> findings)
         {
             Component[] components = go.GetComponents<Component>();
 
@@ -274,7 +306,7 @@ namespace ProjectCleanPro.Editor
             {
                 if (components[c] == null)
                 {
-                    _results.Add(new PCPMissingReference
+                    findings.Add(new PCPMissingReference
                     {
                         sourceAssetPath = assetPath,
                         sourceAssetName = assetName,
@@ -291,7 +323,8 @@ namespace ProjectCleanPro.Editor
         /// <summary>
         /// Iterates all serialized properties on an object to find broken object references.
         /// </summary>
-        private void CheckSerializedProperties(UnityEngine.Object obj, string assetPath, string assetName)
+        private void CollectSerializedPropertyFindings(UnityEngine.Object obj, string assetPath, string assetName,
+            List<PCPMissingReference> findings)
         {
             SerializedObject so;
 
@@ -334,7 +367,7 @@ namespace ProjectCleanPro.Editor
                         componentType = comp.GetType().FullName ?? comp.GetType().Name;
                     }
 
-                    _results.Add(new PCPMissingReference
+                    findings.Add(new PCPMissingReference
                     {
                         sourceAssetPath = assetPath,
                         sourceAssetName = assetName,
