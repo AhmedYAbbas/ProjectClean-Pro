@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using ProjectCleanPro.Editor.Core;
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -47,6 +49,12 @@ namespace ProjectCleanPro.Editor
         private readonly List<Label> m_CardSizeLabels = new List<Label>();
         private readonly List<Label> m_CardStatusLabels = new List<Label>();
         private readonly List<VisualElement> m_CardHeaders = new List<VisualElement>();
+
+        // Scan mode + banner elements
+        private HelpBox m_ModeChangedBanner;
+        private HelpBox m_FastModeBanner;
+        private Foldout m_WarningsFoldout;
+        private VisualElement m_WarningsContainer;
 
         // Card definitions
         private static readonly ModuleCardDef[] k_CardDefs;
@@ -102,11 +110,17 @@ namespace ProjectCleanPro.Editor
             // Scan All button at top
             BuildScanAllButton(container);
 
+            // Scan mode selector + banners
+            BuildScanModeSection(container);
+
             // Summary row
             BuildSummaryRow(container);
 
             // Card grid
             BuildCardGrid(container);
+
+            // Scan warnings section
+            BuildWarningsSection(container);
 
             // Initial refresh
             RefreshData();
@@ -153,6 +167,134 @@ namespace ProjectCleanPro.Editor
             btnColumn.Add(secondaryRow);
 
             parent.Add(btnColumn);
+        }
+
+        // --------------------------------------------------------------------
+        // Scan mode section
+        // --------------------------------------------------------------------
+
+        private void BuildScanModeSection(VisualElement parent)
+        {
+            var section = new VisualElement();
+            section.style.marginBottom = 12;
+
+            // Row: label + enum field
+            var row = new VisualElement();
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.alignItems = Align.Center;
+            row.style.marginBottom = 4;
+
+            var modeLabel = new Label("Scan Mode");
+            modeLabel.AddToClassList("pcp-label");
+            modeLabel.style.minWidth = 90;
+            modeLabel.style.marginRight = 8;
+            modeLabel.tooltip =
+                "Accurate: full AssetDatabase analysis (slowest, most accurate)\n" +
+                "Balanced: hybrid GUID parsing + AssetDatabase\n" +
+                "Fast: pure file parsing (fastest, may miss some dependencies)";
+            row.Add(modeLabel);
+
+            var settings = PCPContext.Settings;
+            var modeEnum = new EnumField(settings != null ? (Enum)settings.scanMode : PCPScanMode.Accurate);
+            modeEnum.style.flexGrow = 1;
+            modeEnum.RegisterValueChangedCallback(evt =>
+            {
+                var s = PCPContext.Settings;
+                if (s == null) return;
+                var newMode = (PCPScanMode)evt.newValue;
+                if (newMode != s.scanMode)
+                {
+                    s.scanMode = newMode;
+                    s.Save();
+                    RefreshBanners();
+                }
+            });
+            row.Add(modeEnum);
+            section.Add(row);
+
+            // Warning: mode changed since last scan
+            m_ModeChangedBanner = new HelpBox(
+                "Scan mode changed \u2014 cached results will be cleared and a full rescan is required.",
+                HelpBoxMessageType.Warning);
+            m_ModeChangedBanner.style.display = DisplayStyle.None;
+            section.Add(m_ModeChangedBanner);
+
+            // Info: fast mode accuracy caveat
+            m_FastModeBanner = new HelpBox(
+                "Fast scan \u2014 some dependencies may not be detected.",
+                HelpBoxMessageType.Info);
+            m_FastModeBanner.style.display = DisplayStyle.None;
+            section.Add(m_FastModeBanner);
+
+            parent.Add(section);
+
+            // Apply initial banner state
+            RefreshBanners();
+        }
+
+        // --------------------------------------------------------------------
+        // Warnings section
+        // --------------------------------------------------------------------
+
+        private void BuildWarningsSection(VisualElement parent)
+        {
+            m_WarningsFoldout = new Foldout();
+            m_WarningsFoldout.text = "0 file(s) could not be scanned";
+            m_WarningsFoldout.value = false;
+            m_WarningsFoldout.style.marginTop = 8;
+            m_WarningsFoldout.style.display = DisplayStyle.None;
+
+            m_WarningsContainer = new VisualElement();
+            m_WarningsContainer.style.paddingLeft = 16;
+            m_WarningsFoldout.Add(m_WarningsContainer);
+
+            parent.Add(m_WarningsFoldout);
+        }
+
+        // --------------------------------------------------------------------
+        // Banner + warnings refresh
+        // --------------------------------------------------------------------
+
+        private void RefreshBanners()
+        {
+            if (m_ModeChangedBanner == null || m_FastModeBanner == null) return;
+
+            var settings = PCPContext.Settings;
+            if (settings == null) return;
+
+            // Mode-changed banner: show when current mode differs from last-scan mode
+            // and there is actually a cached manifest to be invalidated.
+            bool modeChanged = settings.scanMode != settings.lastScanMode
+                               && PCPContext.ResultCacheManager.HasCachedManifest;
+            m_ModeChangedBanner.style.display = modeChanged ? DisplayStyle.Flex : DisplayStyle.None;
+
+            // Fast mode info banner
+            bool isFast = settings.scanMode == PCPScanMode.Fast;
+            m_FastModeBanner.style.display = isFast ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        private void RefreshWarnings()
+        {
+            if (m_WarningsFoldout == null || m_WarningsContainer == null) return;
+
+            var manifest = PCPContext.LastScanManifest;
+            if (manifest?.warnings == null || manifest.warnings.Count == 0)
+            {
+                m_WarningsFoldout.style.display = DisplayStyle.None;
+                return;
+            }
+
+            m_WarningsFoldout.style.display = DisplayStyle.Flex;
+            m_WarningsFoldout.text = $"{manifest.warnings.Count} file(s) could not be scanned";
+
+            m_WarningsContainer.Clear();
+            foreach (var warning in manifest.warnings)
+            {
+                var warningLabel = new Label($"\u2022 {warning.message}");
+                warningLabel.AddToClassList("pcp-label-small");
+                warningLabel.style.whiteSpace = WhiteSpace.Normal;
+                m_WarningsContainer.Add(warningLabel);
+            }
         }
 
         // --------------------------------------------------------------------
@@ -324,6 +466,8 @@ namespace ProjectCleanPro.Editor
         public void RefreshData()
         {
             RefreshCardColors();
+            RefreshBanners();
+            RefreshWarnings();
 
             if (m_ScanResult == null) return;
 
