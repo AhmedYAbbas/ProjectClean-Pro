@@ -177,7 +177,7 @@ namespace ProjectCleanPro.Editor
                 float pct = 0.3f + 0.65f * ((float)shaderIndex / Math.Max(totalShaders, 1));
                 ReportProgress(pct, $"Analysing shader {shaderIndex}/{totalShaders}...");
 
-                var entry = AnalyseShader(shaderPath, materialCountByShader, projectPipeline,
+                var entry = await AnalyseShader(shaderPath, materialCountByShader, projectPipeline,
                     context.Cache);
                 if (entry != null)
                 {
@@ -205,7 +205,7 @@ namespace ProjectCleanPro.Editor
         /// <summary>
         /// Analyses a single shader asset and returns a populated <see cref="PCPShaderEntry"/>.
         /// </summary>
-        private PCPShaderEntry AnalyseShader(
+        private async Task<PCPShaderEntry> AnalyseShader(
             string shaderPath,
             Dictionary<string, int> materialCountByShader,
             PCPRenderPipeline projectPipeline,
@@ -291,7 +291,8 @@ namespace ProjectCleanPro.Editor
                         string sourceText;
                         try
                         {
-                            sourceText = File.ReadAllText(fullPath);
+                            // Read shader source on a background thread to avoid blocking the main thread.
+                            sourceText = await Task.Run(() => File.ReadAllText(fullPath));
                         }
                         catch (Exception)
                         {

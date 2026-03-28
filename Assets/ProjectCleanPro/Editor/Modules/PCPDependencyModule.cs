@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
+using ProjectCleanPro.Editor.Core;
 
 namespace ProjectCleanPro.Editor
 {
@@ -105,10 +106,11 @@ namespace ProjectCleanPro.Editor
         public override long TotalSizeBytes => 0L;
 
         // ----------------------------------------------------------------
-        // Cached resolver reference
+        // Cached resolver references
         // ----------------------------------------------------------------
 
         private PCPDependencyResolver _resolver;
+        private IPCPDependencyResolver _newResolver;
 
         // ----------------------------------------------------------------
         // Scan implementation
@@ -118,43 +120,64 @@ namespace ProjectCleanPro.Editor
         {
             _circularDeps.Clear();
             _orphanAssets.Clear();
-            _resolver = context.DependencyResolver;
+
+            // Prefer the new interface resolver; fall back to the concrete type.
+            var resolverObj = context.NewDependencyResolver ?? (object)context.DependencyResolver;
+            if (resolverObj is IPCPDependencyResolver iResolver)
+            {
+                _newResolver = iResolver;
+                _resolver = null;
+            }
+            else
+            {
+                _newResolver = null;
+                _resolver = context.DependencyResolver;
+            }
 
             // ----------------------------------------------------------
             // Phase 1: Ensure the dependency graph is built
             // ----------------------------------------------------------
             ReportProgress(0f, "Building dependency graph...");
 
-            if (!_resolver.IsBuilt)
-            {
-                var roots = new HashSet<string>(StringComparer.Ordinal);
+            bool isBuilt = _newResolver != null ? _newResolver.IsBuilt : _resolver.IsBuilt;
 
-                // Include scenes as roots — all project scenes or just build scenes.
-                if (context.Settings.includeAllScenes)
+            if (!isBuilt)
+            {
+                if (_newResolver != null)
                 {
-                    string[] allScenes = PCPAssetUtils.GetAllScenePaths(context.AllProjectAssets);
-                    for (int i = 0; i < allScenes.Length; i++)
-                        roots.Add(allScenes[i]);
+                    await _newResolver.BuildGraphAsync(context, ct);
                 }
                 else
                 {
-                    string[] buildScenePaths = PCPAssetUtils.GetBuildScenePaths();
-                    for (int i = 0; i < buildScenePaths.Length; i++)
-                        roots.Add(buildScenePaths[i]);
-                }
+                    var roots = new HashSet<string>(StringComparer.Ordinal);
 
-                // Include Addressable entries as roots.
-                if (context.Settings.includeAddressables && PCPAddressablesBridge.HasAddressables)
-                {
-                    var addressableRoots = PCPAddressablesBridge.GetRoots();
-                    for (int i = 0; i < addressableRoots.Count; i++)
-                        roots.Add(addressableRoots[i]);
-                }
+                    // Include scenes as roots — all project scenes or just build scenes.
+                    if (context.Settings.includeAllScenes)
+                    {
+                        string[] allScenes = PCPAssetUtils.GetAllScenePaths(context.AllProjectAssets);
+                        for (int i = 0; i < allScenes.Length; i++)
+                            roots.Add(allScenes[i]);
+                    }
+                    else
+                    {
+                        string[] buildScenePaths = PCPAssetUtils.GetBuildScenePaths();
+                        for (int i = 0; i < buildScenePaths.Length; i++)
+                            roots.Add(buildScenePaths[i]);
+                    }
 
-                await _resolver.BuildAsync(roots, (p, label) =>
-                {
-                    ReportProgress(p * 0.4f, label);
-                }, context.Cache, context.AllProjectAssets, ct: ct);
+                    // Include Addressable entries as roots.
+                    if (context.Settings.includeAddressables && PCPAddressablesBridge.HasAddressables)
+                    {
+                        var addressableRoots = PCPAddressablesBridge.GetRoots();
+                        for (int i = 0; i < addressableRoots.Count; i++)
+                            roots.Add(addressableRoots[i]);
+                    }
+
+                    await _resolver.BuildAsync(roots, (p, label) =>
+                    {
+                        ReportProgress(p * 0.4f, label);
+                    }, context.Cache, context.AllProjectAssets, ct: ct);
+                }
             }
 
             ct.ThrowIfCancellationRequested();
@@ -186,7 +209,9 @@ namespace ProjectCleanPro.Editor
         /// </summary>
         private void DetectCircularDependencies(CancellationToken ct)
         {
-            var allAssets = _resolver.GetAllAssets();
+            var allAssets = _newResolver != null
+                ? _newResolver.GetAllAssets()
+                : _resolver.GetAllAssets();
             if (allAssets == null || allAssets.Count == 0)
                 return;
 
@@ -237,7 +262,9 @@ namespace ProjectCleanPro.Editor
                 // Lazy-load dependencies on first visit.
                 if (frame.deps == null)
                 {
-                    var depsCollection = _resolver.GetDependencies(frame.asset);
+                    var depsCollection = _newResolver != null
+                        ? _newResolver.GetDependencies(frame.asset)
+                        : _resolver.GetDependencies(frame.asset);
                     frame.deps = new List<string>(depsCollection);
                 }
 
@@ -333,7 +360,9 @@ namespace ProjectCleanPro.Editor
         /// </summary>
         private void FindOrphans(PCPScanContext context, CancellationToken ct)
         {
-            var allAssets = _resolver.GetAllAssets();
+            var allAssets = _newResolver != null
+                ? _newResolver.GetAllAssets()
+                : _resolver.GetAllAssets();
             if (allAssets == null)
                 return;
 
@@ -367,7 +396,9 @@ namespace ProjectCleanPro.Editor
                     continue;
 
                 // Check if anything depends on this asset.
-                var dependents = _resolver.GetDependents(asset);
+                IReadOnlyCollection<string> dependents = _newResolver != null
+                    ? _newResolver.GetDependents(asset)
+                    : _resolver.GetDependents(asset);
                 if (dependents == null || dependents.Count == 0)
                 {
                     _orphanAssets.Add(asset);
@@ -396,7 +427,7 @@ namespace ProjectCleanPro.Editor
             nodes = new List<PCPGraphNode>();
             edges = new List<PCPGraphEdge>();
 
-            if (_resolver == null || string.IsNullOrEmpty(centerAsset))
+            if (_newResolver == null && _resolver == null || string.IsNullOrEmpty(centerAsset))
                 return;
 
             var visited = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -425,7 +456,9 @@ namespace ProjectCleanPro.Editor
                     continue;
 
                 // Forward edges: what this asset depends on.
-                var deps = _resolver.GetDependencies(asset);
+                var deps = _newResolver != null
+                    ? _newResolver.GetDependencies(asset)
+                    : _resolver.GetDependencies(asset);
                 foreach (string dep in deps)
                 {
                     edges.Add(new PCPGraphEdge { from = asset, to = dep });
@@ -438,7 +471,9 @@ namespace ProjectCleanPro.Editor
                 }
 
                 // Reverse edges: what depends on this asset.
-                var dependents = _resolver.GetDependents(asset);
+                var dependents = _newResolver != null
+                    ? _newResolver.GetDependents(asset)
+                    : _resolver.GetDependents(asset);
                 foreach (string dependent in dependents)
                 {
                     edges.Add(new PCPGraphEdge { from = dependent, to = asset });
@@ -458,6 +493,7 @@ namespace ProjectCleanPro.Editor
             _circularDeps.Clear();
             _orphanAssets.Clear();
             _resolver = null;
+            _newResolver = null;
         }
 
         // ----------------------------------------------------------------

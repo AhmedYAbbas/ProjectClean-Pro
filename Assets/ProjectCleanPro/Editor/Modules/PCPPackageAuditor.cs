@@ -161,7 +161,8 @@ namespace ProjectCleanPro.Editor
                             string asmdefFullPath = Path.GetFullPath(asmdefPath);
                             if (File.Exists(asmdefFullPath))
                             {
-                                string asmdefContent = File.ReadAllText(asmdefFullPath);
+                                // Read on a background thread to avoid blocking the main thread.
+                                string asmdefContent = await Task.Run(() => File.ReadAllText(asmdefFullPath));
                                 string rootNs = ExtractJsonField(asmdefContent, "rootNamespace");
                                 if (!string.IsNullOrEmpty(rootNs))
                                 {
@@ -236,7 +237,8 @@ namespace ProjectCleanPro.Editor
 
                 try
                 {
-                    string content = File.ReadAllText(fullPath);
+                    // Read on a background thread to avoid blocking the main thread.
+                    string content = await Task.Run(() => File.ReadAllText(fullPath));
 
                     // Look for assembly references in the JSON.
                     foreach (var kvp in assemblyToPackage)
@@ -301,7 +303,8 @@ namespace ProjectCleanPro.Editor
                     string sourceContent;
                     try
                     {
-                        sourceContent = File.ReadAllText(csFullPath);
+                        // Read on a background thread to avoid blocking the main thread.
+                        sourceContent = await Task.Run(() => File.ReadAllText(csFullPath));
                     }
                     catch (Exception)
                     {
