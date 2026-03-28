@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using ProjectCleanPro.Editor.Core;
 using UnityEditor;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
@@ -87,89 +90,92 @@ namespace ProjectCleanPro.Editor
             Action<float, string> onProgress = null,
             CancellationToken ct = default)
         {
-            var stopwatch = Stopwatch.StartNew();
+            var sw = Stopwatch.StartNew();
 
-            // 1. Pre-compute staleness.
-            context.EnsureStaleness(GetActiveModuleList());
+            // Step 1: Handle mode switch invalidation
+            var settings = context.Settings;
+            if (settings.scanMode != settings.lastScanMode)
+            {
+                InvalidateCachesForModeSwitch(context);
+                settings.lastScanMode = settings.scanMode;
+                settings.Save();
+            }
+
+            // Step 2: Create scheduler with user's frame budget
+            using var scheduler = new PCPAsyncScheduler(settings.mainThreadBudgetMs);
+            context.Scheduler = scheduler;
+
+            // Step 3: Create the right dependency resolver
+            context.NewDependencyResolver = PCPDependencyResolverFactory.Create(settings.scanMode);
+
+            // Step 4: Async staleness computation (background)
+            onProgress?.Invoke(0f, "Checking for changes...");
+            await context.Cache.RefreshStalenessAsync(context, ct);
+            context.Cache.ComputeModuleDirtiness(GetActiveModuleList());
             ApplyExternalDirtiness(context);
 
-            // 2. Skip check: nothing changed and all modules have results.
-            var existingManifest = m_ResultCache.LoadManifest();
-            if (!context.Cache.HasAnyChanges &&
-                !PCPSettingsTracker.HasDirtyModules &&
-                !PCPAssetChangeTracker.PackagesChanged &&
-                existingManifest != null &&
-                existingManifest.HasAllModuleResults() &&
-                AllModulesHaveResults())
+            // Step 5: Skip check
+            if (!context.Cache.HasAnyChanges && AllModulesHaveResults())
             {
-                Debug.Log("[ProjectCleanPro] No changes detected \u2014 skipping scan.");
-                onProgress?.Invoke(1f, "No changes detected.");
-                return existingManifest;
-            }
-
-            // 3. Build dependency graph if any dirty module requires it.
-            bool graphNeeded = false;
-            foreach (var moduleId in s_ExecutionOrder)
-            {
-                var module = GetModule(moduleId);
-                if (module != null && IsDirty(moduleId, context) && module.RequiresDependencyGraph)
+                var cached = m_ResultCache.LoadManifest();
+                if (cached != null)
                 {
-                    graphNeeded = true;
-                    break;
+                    onProgress?.Invoke(1f, "No changes detected");
+                    return cached;
                 }
             }
 
-            if (graphNeeded)
+            // Step 6: Build dependency graph (if needed)
+            var dirtyModules = GetDirtyModules(context);
+            bool needsGraph = dirtyModules.Any(m => m.RequiresDependencyGraph);
+
+            if (needsGraph)
             {
                 onProgress?.Invoke(0.05f, "Building dependency graph...");
-                var roots = CollectRoots(context);
-                await context.DependencyResolver.BuildAsync(
-                    roots,
-                    (p, label) => onProgress?.Invoke(0.05f + p * 0.25f, label),
-                    context.Cache,
-                    context.AllProjectAssets,
-                    ct);
+                await context.NewDependencyResolver.BuildGraphAsync(context, ct);
             }
 
-            // 4. Run dirty modules in order.
-            int totalModules = s_ExecutionOrder.Length;
-            int moduleIndex = 0;
+            // Step 7: Run modules
+            onProgress?.Invoke(0.30f, "Scanning modules...");
+            float progressBase = 0.30f;
+            float progressPerModule = 0.65f / Math.Max(1, dirtyModules.Count);
 
-            foreach (var moduleId in s_ExecutionOrder)
+            foreach (var module in dirtyModules)
             {
                 ct.ThrowIfCancellationRequested();
-
-                var module = GetModule(moduleId);
-                if (module == null) { moduleIndex++; continue; }
-
-                if (!IsDirty(moduleId, context))
-                {
-                    moduleIndex++;
-                    continue;
-                }
-
-                float baseProgress = 0.3f + 0.65f * ((float)moduleIndex / totalModules);
-                onProgress?.Invoke(baseProgress, $"Scanning: {module.DisplayName}...");
+                onProgress?.Invoke(progressBase, $"Scanning: {module.DisplayName}...");
 
                 module.Clear();
                 await module.ScanAsync(context, ct);
                 m_ResultCache.SaveModule(module);
 
-                await PCPEditorAsync.YieldToEditor();
-                moduleIndex++;
+                progressBase += progressPerModule;
             }
 
-            // 5. Finalize.
-            context.FinalizeScan();
+            // Step 8: Finalize (background)
+            onProgress?.Invoke(0.95f, "Saving results...");
+            await context.FinalizeScanAsync(ct);
             PCPSettingsTracker.Reset();
 
-            // 6. Compute and save manifest.
-            stopwatch.Stop();
-            var manifest = ComputeManifest(context, (float)stopwatch.Elapsed.TotalSeconds);
+            // Step 9: Manifest
+            sw.Stop();
+            var manifest = ComputeManifest(context, (float)sw.Elapsed.TotalSeconds);
             m_ResultCache.SaveManifest(manifest);
 
-            onProgress?.Invoke(1f, "Scan complete.");
+            onProgress?.Invoke(1f, "Complete");
             return manifest;
+        }
+
+        private List<IPCPModule> GetDirtyModules(PCPScanContext context)
+        {
+            var result = new List<IPCPModule>();
+            foreach (var id in s_ExecutionOrder)
+            {
+                var module = GetModule(id);
+                if (module != null && IsDirty(id, context))
+                    result.Add(module);
+            }
+            return result;
         }
 
         // ----------------------------------------------------------------
@@ -189,46 +195,56 @@ namespace ProjectCleanPro.Editor
             if (module == null)
                 throw new ArgumentException($"Module {moduleId} not registered.");
 
-            var stopwatch = Stopwatch.StartNew();
+            var sw = Stopwatch.StartNew();
+            var settings = context.Settings;
 
-            // 1. Pre-compute staleness.
-            context.EnsureStaleness(GetActiveModuleList());
+            // Handle mode switch invalidation
+            if (settings.scanMode != settings.lastScanMode)
+            {
+                InvalidateCachesForModeSwitch(context);
+                settings.lastScanMode = settings.scanMode;
+                settings.Save();
+            }
+
+            // Create scheduler and resolver
+            using var scheduler = new PCPAsyncScheduler(settings.mainThreadBudgetMs);
+            context.Scheduler = scheduler;
+            context.NewDependencyResolver = PCPDependencyResolverFactory.Create(settings.scanMode);
+
+            // Async staleness
+            onProgress?.Invoke(0f, "Checking for changes...");
+            await context.Cache.RefreshStalenessAsync(context, ct);
+            context.Cache.ComputeModuleDirtiness(GetActiveModuleList());
             ApplyExternalDirtiness(context);
 
-            // 2. Skip check.
+            // Skip check
             if (!IsDirty(moduleId, context) && module.HasResults)
             {
-                Debug.Log($"[ProjectCleanPro] No changes for {module.DisplayName} \u2014 skipping.");
                 onProgress?.Invoke(1f, "No changes detected.");
                 return m_ResultCache.LoadManifest();
             }
 
-            // 3. Build graph if needed.
+            // Build graph if needed
             if (module.RequiresDependencyGraph)
             {
                 onProgress?.Invoke(0.05f, "Building dependency graph...");
-                var roots = CollectRoots(context);
-                await context.DependencyResolver.BuildAsync(
-                    roots,
-                    (p, label) => onProgress?.Invoke(0.05f + p * 0.3f, label),
-                    context.Cache,
-                    context.AllProjectAssets,
-                    ct);
+                await context.NewDependencyResolver.BuildGraphAsync(context, ct);
             }
 
-            // 4. Run module.
+            // Run module
             onProgress?.Invoke(0.35f, $"Scanning: {module.DisplayName}...");
             module.Clear();
             await module.ScanAsync(context, ct);
             m_ResultCache.SaveModule(module);
 
-            // 5. Finalize.
-            context.FinalizeScan();
+            // Finalize
+            onProgress?.Invoke(0.95f, "Saving results...");
+            await context.FinalizeScanAsync(ct);
             PCPSettingsTracker.Reset();
 
-            // 6. Update manifest.
-            stopwatch.Stop();
-            var manifest = ComputeManifest(context, (float)stopwatch.Elapsed.TotalSeconds);
+            // Manifest
+            sw.Stop();
+            var manifest = ComputeManifest(context, (float)sw.Elapsed.TotalSeconds);
             m_ResultCache.SaveManifest(manifest);
 
             onProgress?.Invoke(1f, "Scan complete.");
@@ -272,6 +288,28 @@ namespace ProjectCleanPro.Editor
         // ----------------------------------------------------------------
         // Internals
         // ----------------------------------------------------------------
+
+        private void InvalidateCachesForModeSwitch(PCPScanContext context)
+        {
+            // Clear dependency graph cache
+            var graphPath = Path.Combine("Library", "ProjectCleanPro", "DepGraph.bin");
+            if (File.Exists(graphPath))
+                File.Delete(graphPath);
+
+            // Clear all module results
+            m_ResultCache.InvalidateAll();
+
+            // Mark all modules dirty
+            foreach (var module in m_Modules)
+            {
+                if (module != null)
+                    context.Cache.MarkModuleDirty(module.Id);
+            }
+
+            // Keep timestamp/hash data — mode-independent
+            // Only clear staleness flags
+            context.Cache.ResetStaleness();
+        }
 
         private bool IsDirty(PCPModuleId id, PCPScanContext context)
         {
