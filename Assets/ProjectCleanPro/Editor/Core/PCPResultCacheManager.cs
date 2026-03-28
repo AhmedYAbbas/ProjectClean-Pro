@@ -138,6 +138,17 @@ namespace ProjectCleanPro.Editor
                         writer.Write(s.totalSizeBytes);
                         writer.Write(s.hasResults);
                     }
+
+                    int warnCount = manifest.warnings?.Count ?? 0;
+                    writer.Write(warnCount);
+                    if (manifest.warnings != null)
+                    {
+                        foreach (var w in manifest.warnings)
+                        {
+                            writer.Write((byte)w.moduleId);
+                            writer.Write(w.message ?? "");
+                        }
+                    }
                 });
             }
             catch (Exception ex)
@@ -177,6 +188,15 @@ namespace ProjectCleanPro.Editor
                         totalSizeBytes = reader.ReadInt64(),
                         hasResults = reader.ReadBoolean()
                     };
+                }
+
+                int warnCount = reader.ReadInt32();
+                m.warnings = new System.Collections.Generic.List<PCPScanManifest.ScanWarning>(warnCount);
+                for (int i = 0; i < warnCount; i++)
+                {
+                    m.warnings.Add(new PCPScanManifest.ScanWarning(
+                        (PCPModuleId)reader.ReadByte(),
+                        reader.ReadString()));
                 }
 
                 return m;

@@ -482,6 +482,15 @@ namespace ProjectCleanPro.Editor
                 }
             }
 
+            var allWarnings = new List<PCPScanManifest.ScanWarning>();
+            for (int i = 0; i < m_Modules.Length; i++)
+            {
+                var module = m_Modules[i];
+                if (module == null) continue;
+                foreach (var w in module.Warnings)
+                    allWarnings.Add(new PCPScanManifest.ScanWarning(module.Id, w));
+            }
+
             return new PCPScanManifest
             {
                 scanTimestampUtc = DateTime.UtcNow.ToString("o"),
@@ -492,7 +501,8 @@ namespace ProjectCleanPro.Editor
                 healthScore = ComputeHealthScore(totalFindings, context.AllProjectAssets?.Length ?? 1),
                 totalWastedBytes = totalWasted,
                 totalFindingCount = totalFindings,
-                moduleSummaries = summaries
+                moduleSummaries = summaries,
+                warnings = allWarnings
             };
         }
 

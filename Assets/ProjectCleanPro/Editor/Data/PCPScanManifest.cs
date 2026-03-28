@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace ProjectCleanPro.Editor
 {
@@ -14,7 +15,7 @@ namespace ProjectCleanPro.Editor
     [Serializable]
     public sealed class PCPScanManifest
     {
-        public const int FormatVersion = 1;
+        public const int FormatVersion = 2;
 
         // ----------------------------------------------------------------
         // Global metadata
@@ -39,6 +40,26 @@ namespace ProjectCleanPro.Editor
         // ----------------------------------------------------------------
 
         public PCPModuleSummary[] moduleSummaries;
+
+        // ----------------------------------------------------------------
+        // Warnings
+        // ----------------------------------------------------------------
+
+        /// <summary>Warnings from modules that encountered non-fatal errors during scan.</summary>
+        public List<ScanWarning> warnings = new List<ScanWarning>();
+
+        [System.Serializable]
+        public struct ScanWarning
+        {
+            public PCPModuleId moduleId;
+            public string message;
+
+            public ScanWarning(PCPModuleId moduleId, string message)
+            {
+                this.moduleId = moduleId;
+                this.message = message;
+            }
+        }
 
         /// <summary>
         /// Returns the summary for a specific module, or a default struct
