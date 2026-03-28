@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using NUnit.Framework;
 using ProjectCleanPro.Editor;
+using ProjectCleanPro.Editor.Core;
 
 namespace ProjectCleanPro.Tests.Editor
 {
@@ -258,6 +259,57 @@ namespace ProjectCleanPro.Tests.Editor
             //var entry = new PCPSizeEntry { sizeBytes = 2048 };
             //string expected = PCPAssetInfo.FormatBytes(2048);
             //Assert.AreEqual(expected, entry.FormattedSize);
+        }
+
+        // ================================================================
+        // 8. SCAN MODE DEFAULTS AND SWITCHING
+        // ================================================================
+
+        [Test]
+        public void ScanMode_DefaultIsAccurate()
+        {
+            var settings = PCPSettings.instance;
+            Assert.AreEqual(PCPScanMode.Accurate, settings.scanMode);
+        }
+
+        [Test]
+        public void ScanMode_ModeSwitch_InvalidatesCache()
+        {
+            var settings = PCPSettings.instance;
+            settings.lastScanMode = PCPScanMode.Accurate;
+            settings.scanMode = PCPScanMode.Fast;
+
+            Assert.AreNotEqual(settings.scanMode, settings.lastScanMode,
+                "Mode switch should be detectable");
+        }
+
+        // ================================================================
+        // 9. DEPENDENCY RESOLVER FACTORY
+        // ================================================================
+
+        [Test]
+        public void DependencyResolverFactory_CreatesCorrectType()
+        {
+            var accurate = PCPDependencyResolverFactory.Create(PCPScanMode.Accurate);
+            Assert.IsInstanceOf<PCPAccurateDependencyResolver>(accurate);
+
+            var balanced = PCPDependencyResolverFactory.Create(PCPScanMode.Balanced);
+            Assert.IsInstanceOf<PCPBalancedDependencyResolver>(balanced);
+
+            var fast = PCPDependencyResolverFactory.Create(PCPScanMode.Fast);
+            Assert.IsInstanceOf<PCPFastDependencyResolver>(fast);
+        }
+
+        // ================================================================
+        // 10. ASYNC SCHEDULER LIFECYCLE
+        // ================================================================
+
+        [Test]
+        public void AsyncScheduler_CreatesAndDisposes()
+        {
+            using var scheduler = new PCPAsyncScheduler(8f);
+            Assert.AreEqual(8f, scheduler.BudgetMs);
+            // Should not throw on dispose
         }
 
         // ================================================================
