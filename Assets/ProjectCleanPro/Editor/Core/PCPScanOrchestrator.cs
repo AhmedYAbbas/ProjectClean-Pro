@@ -102,6 +102,11 @@ namespace ProjectCleanPro.Editor
             // Create dependency resolver
             context.DependencyResolver = PCPDependencyResolverFactory.Create();
 
+            // Flush any in-memory asset changes to disk so file hashes are up-to-date.
+            // Without this, modifying a material in the Inspector (for example) may not
+            // be reflected on disk yet, causing the duplicate detector to hash stale content.
+            AssetDatabase.SaveAssets();
+
             // Step 4: Async staleness computation (background)
             onProgress?.Invoke(0f, "Checking for changes...");
             await context.Cache.RefreshStalenessAsync(context, ct);
@@ -217,6 +222,9 @@ namespace ProjectCleanPro.Editor
             using var scheduler = new PCPAsyncScheduler(settings.mainThreadBudgetMs);
             context.Scheduler = scheduler;
             context.DependencyResolver = PCPDependencyResolverFactory.Create();
+
+            // Flush any in-memory asset changes to disk so file hashes are up-to-date.
+            AssetDatabase.SaveAssets();
 
             // Async staleness
             onProgress?.Invoke(0f, "Checking for changes...");

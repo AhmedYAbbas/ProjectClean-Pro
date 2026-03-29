@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Documentation Difference Report — ProjectClean Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #fafaf8;
+  --surface: #ffffff;
+  --surface2: #f3f3ef;
+  --border: #e4e4dc;
+  --border2: #d0d0c4;
+  --ink: #1a1a16;
+  --ink2: #4a4a3e;
+  --ink3: #7a7a6a;
+  --accent: #1a6b3c;
+  --accent-light: #e8f5ee;
+  --accent2: #0f4f8c;
+  --accent2-light: #e6f0fa;
+  --warn: #b85a00;
+  --warn-light: #fff3e6;
+  --danger: #c0392b;
+  --danger-light: #fdf0ee;
+  --note: #6b5a00;
+  --note-light: #fdf8e6;
+  --code-bg: #f0f0ea;
+  --sidebar-w: 260px;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;font-size:15px}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:'IBM Plex Sans',sans-serif;
+  font-weight:400;
+  line-height:1.7;
+  display:flex;
+  min-height:100vh;
+}
+
+/* SIDEBAR */
+.sidebar{
+  width:var(--sidebar-w);
+  flex-shrink:0;
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  position:sticky;
+  top:0;
+  height:100vh;
+  overflow-y:auto;
+  display:flex;
+  flex-direction:column;
+}
+.sidebar-brand{
+  padding:24px 20px 16px;
+  border-bottom:1px solid var(--border);
+}
+.brand-logo{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:8px;
+}
+.brand-icon{
+  width:34px;height:34px;
+  background:var(--danger);
+  border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;color:#fff;
+  flex-shrink:0;
+}
+.brand-name{
+  font-family:'IBM Plex Serif',serif;
+  font-size:15px;
+  font-weight:600;
+  color:var(--ink);
+}
+.brand-ver{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  color:var(--ink3);
+  background:var(--surface2);
+  border:1px solid var(--border);
+  padding:2px 7px;
+  border-radius:4px;
+  letter-spacing:1px;
+}
+.nav-section{
+  padding:16px 0 8px;
+  border-bottom:1px solid var(--border);
+}
+.nav-section:last-child{border-bottom:none}
+.nav-label{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:9px;
+  letter-spacing:2.5px;
+  text-transform:uppercase;
+  color:var(--ink3);
+  padding:0 20px 8px;
+}
+.nav-link{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 20px;
+  font-size:13px;
+  color:var(--ink2);
+  text-decoration:none;
+  transition:all .15s;
+  border-left:2px solid transparent;
+}
+.nav-link:hover{background:var(--surface2);color:var(--ink);border-left-color:var(--border2)}
+.nav-link .icon{font-size:13px;width:16px;text-align:center;flex-shrink:0}
+.sidebar-footer{
+  margin-top:auto;
+  padding:16px 20px;
+  border-top:1px solid var(--border);
+  font-size:11px;
+  color:var(--ink3);
+}
+
+/* MAIN */
+.main{
+  flex:1;
+  max-width:960px;
+  padding:48px 56px;
+  overflow-x:hidden;
+}
+
+/* TYPOGRAPHY */
+h1{
+  font-family:'IBM Plex Serif',serif;
+  font-size:34px;
+  font-weight:600;
+  line-height:1.15;
+  color:var(--ink);
+  margin-bottom:16px;
+}
+h2{
+  font-family:'IBM Plex Serif',serif;
+  font-size:24px;
+  font-weight:600;
+  color:var(--ink);
+  margin-top:56px;
+  margin-bottom:16px;
+  padding-bottom:10px;
+  border-bottom:2px solid var(--border);
+}
+h2:first-child{margin-top:0}
+h3{
+  font-family:'IBM Plex Sans',sans-serif;
+  font-size:17px;
+  font-weight:600;
+  color:var(--ink);
+  margin-top:32px;
+  margin-bottom:10px;
+}
+p{
+  color:var(--ink2);
+  margin-bottom:14px;
+  line-height:1.75;
+  font-size:14.5px;
+}
+p:last-child{margin-bottom:0}
+a{color:var(--accent2);text-decoration:none}
+a:hover{text-decoration:underline}
+strong{color:var(--ink);font-weight:600}
+em{font-family:'IBM Plex Serif',serif;font-style:italic}
+
+code{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:12.5px;
+  background:var(--code-bg);
+  padding:2px 6px;
+  border-radius:4px;
+  color:var(--ink);
+  border:1px solid var(--border);
+}
+
+/* CALLOUTS */
+.callout{
+  border-radius:8px;
+  padding:14px 18px;
+  margin:20px 0;
+  display:flex;
+  gap:12px;
+  align-items:flex-start;
+  font-size:13.5px;
+}
+.callout-icon{font-size:16px;flex-shrink:0;margin-top:1px}
+.callout p{margin:0;font-size:13.5px;line-height:1.6}
+.callout strong{font-size:13.5px}
+.callout.note{background:var(--note-light);border:1px solid #e6d88a;color:var(--note)}
+.callout.info{background:var(--accent2-light);border:1px solid #a8c8e8;color:var(--accent2)}
+.callout.warn{background:var(--warn-light);border:1px solid #e8c08a;color:var(--warn)}
+.callout.tip{background:var(--accent-light);border:1px solid #8ec8a8;color:var(--accent)}
+.callout.danger{background:var(--danger-light);border:1px solid #e8a8a0;color:var(--danger)}
+
+/* BADGES */
+.badge{
+  display:inline-block;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  letter-spacing:.5px;
+  padding:2px 8px;
+  border-radius:4px;
+  font-weight:500;
+  text-transform:uppercase;
+  vertical-align:middle;
+}
+.badge-green{background:var(--accent-light);color:var(--accent);border:1px solid #8ec8a8}
+.badge-blue{background:var(--accent2-light);color:var(--accent2);border:1px solid #a8c8e8}
+.badge-orange{background:var(--warn-light);color:var(--warn);border:1px solid #e8c08a}
+.badge-gray{background:var(--surface2);color:var(--ink3);border:1px solid var(--border2)}
+.badge-red{background:var(--danger-light);color:var(--danger);border:1px solid #e8a8a0}
+
+/* TABLES */
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin:16px 0;
+  font-size:13px;
+}
+th{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10.5px;
+  letter-spacing:1px;
+  text-transform:uppercase;
+  color:var(--ink3);
+  background:var(--surface2);
+  padding:10px 14px;
+  text-align:left;
+  border:1px solid var(--border);
+}
+td{
+  padding:10px 14px;
+  border:1px solid var(--border);
+  color:var(--ink2);
+  vertical-align:top;
+  line-height:1.5;
+}
+tr:nth-child(even) td{background:var(--surface2)}
+
+/* STAT CARDS */
+.stat-row{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:14px;
+  margin:20px 0 28px;
+}
+.stat-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:18px 20px;
+  text-align:center;
+}
+.stat-card .stat-num{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:36px;
+  font-weight:600;
+  line-height:1.1;
+}
+.stat-card .stat-label{
+  font-size:12px;
+  color:var(--ink3);
+  margin-top:6px;
+  letter-spacing:.5px;
+}
+.stat-red .stat-num{color:var(--danger)}
+.stat-green .stat-num{color:var(--accent)}
+.stat-orange .stat-num{color:var(--warn)}
+
+/* PAGE HEADER */
+.page-header{
+  background:linear-gradient(135deg,#4a2828 0%,var(--danger) 100%);
+  border-radius:12px;
+  padding:36px 40px;
+  margin-bottom:40px;
+  color:#fff;
+}
+.page-header h1{color:#fff;margin-bottom:10px;font-size:30px}
+.page-header p{color:rgba(255,255,255,.8);margin-bottom:0;font-size:14.5px}
+.header-meta{
+  display:flex;gap:16px;flex-wrap:wrap;
+  margin-top:20px;
+}
+.header-chip{
+  background:rgba(255,255,255,.15);
+  border:1px solid rgba(255,255,255,.25);
+  border-radius:6px;
+  padding:4px 12px;
+  font-size:11.5px;
+  font-family:'IBM Plex Mono',monospace;
+  letter-spacing:.5px;
+}
+
+.section-anchor{
+  display:block;
+  padding-top:80px;
+  margin-top:-80px;
+}
+
+/* DOC LABELS */
+.doc-a{
+  display:inline-block;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  padding:2px 8px;
+  border-radius:4px;
+  font-weight:600;
+  letter-spacing:.5px;
+  text-transform:uppercase;
+  background:#e6f0fa;
+  color:#0f4f8c;
+  border:1px solid #a8c8e8;
+}
+.doc-b{
+  display:inline-block;
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  padding:2px 8px;
+  border-radius:4px;
+  font-weight:600;
+  letter-spacing:.5px;
+  text-transform:uppercase;
+  background:#e8f5ee;
+  color:#1a6b3c;
+  border:1px solid #8ec8a8;
+}
+
+hr{border:none;border-top:1px solid var(--border);margin:32px 0}
+
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px}
+
+@media print{
+  .sidebar{display:none}
+  .main{padding:32px;max-width:100%}
+}
+@media(max-width:900px){
+  body{flex-direction:column}
+  .sidebar{width:100%;height:auto;position:static;overflow:hidden}
+  .nav-section{display:none}
+  .main{padding:24px}
+  .stat-row{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-logo">
+      <div class="brand-icon">&Delta;</div>
+      <div>
+        <div class="brand-name">Difference Report</div>
+        <div class="brand-ver">MARCH 2026</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">Report</div>
+    <a href="#summary" class="nav-link"><span class="icon">&#9670;</span>Summary</a>
+    <a href="#legend" class="nav-link"><span class="icon">&#9670;</span>Legend</a>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">Findings</div>
+    <a href="#missing-from-feature-doc" class="nav-link"><span class="icon">&#10008;</span>Missing from Feature Doc</a>
+    <a href="#missing-sub-features" class="nav-link"><span class="icon">&#9888;</span>Under-specified Features</a>
+    <a href="#missing-from-html-doc" class="nav-link"><span class="icon">&#10004;</span>Missing from HTML Doc</a>
+    <a href="#discrepancies" class="nav-link"><span class="icon">&#8800;</span>Discrepancies</a>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">Conclusion</div>
+    <a href="#action-items" class="nav-link"><span class="icon">&#9998;</span>Action Items</a>
+  </div>
+
+  <div class="sidebar-footer">
+    Comparing:<br>
+    <span class="doc-a">HTML DOC</span> vs <span class="doc-b">FEATURE DOC</span>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+
+<!-- PAGE HEADER -->
+<div class="page-header">
+  <h1>Documentation Difference Report</h1>
+  <p>A full comparison between the public-facing HTML documentation and the codebase-derived Feature Documentation, identifying every gap, discrepancy, and missing detail in both directions.</p>
+  <div class="header-meta">
+    <span class="header-chip">projectclean_pro_docs.html</span>
+    <span class="header-chip">vs</span>
+    <span class="header-chip">FeatureDocumentation.md</span>
+  </div>
+</div>
+
+<!-- ======== SUMMARY ======== -->
+<span class="section-anchor" id="summary"></span>
+<h2>Summary</h2>
+
+<div class="stat-row">
+  <div class="stat-card stat-red">
+    <div class="stat-num">11</div>
+    <div class="stat-label">Entire sections missing<br>from Feature Doc</div>
+  </div>
+  <div class="stat-card stat-orange">
+    <div class="stat-num">40+</div>
+    <div class="stat-label">Sub-features missing or<br>under-specified in Feature Doc</div>
+  </div>
+  <div class="stat-card stat-green">
+    <div class="stat-num">15</div>
+    <div class="stat-label">Details in Feature Doc<br>missing from HTML Doc</div>
+  </div>
+</div>
+
+<div class="stat-row">
+  <div class="stat-card stat-orange">
+    <div class="stat-num">7</div>
+    <div class="stat-label">Direct discrepancies<br>between the two docs</div>
+  </div>
+  <div class="stat-card" style="grid-column:span 2">
+    <div class="stat-num" style="font-size:16px;color:var(--ink2);font-weight:400;line-height:1.6;text-align:left">
+      The <span class="doc-a">HTML DOC</span> is significantly more comprehensive as a public-facing product document, covering installation, compatibility, CLI, keyboard shortcuts, FAQ, and competitive comparison.<br><br>
+      The <span class="doc-b">FEATURE DOC</span> is more accurate about actual UI specifics like the 10-tab sidebar, dashboard card structure, status bar, progress overlay, accent colors, and scan execution order.
+    </div>
+  </div>
+</div>
+
+<!-- ======== LEGEND ======== -->
+<span class="section-anchor" id="legend"></span>
+<h2>Legend</h2>
+
+<table>
+  <thead><tr><th>Label</th><th>Refers To</th><th>File</th></tr></thead>
+  <tbody>
+    <tr><td><span class="doc-a">HTML DOC</span></td><td>The public-facing product documentation</td><td><code>Assets/Docs/projectclean_pro_docs.html</code></td></tr>
+    <tr><td><span class="doc-b">FEATURE DOC</span></td><td>The codebase-derived feature documentation</td><td><code>Assets/ProjectCleanPro/Documentation~/FeatureDocumentation.md</code></td></tr>
+  </tbody>
+</table>
+
+<!-- ======== MISSING FROM FEATURE DOC ======== -->
+<span class="section-anchor" id="missing-from-feature-doc"></span>
+<h2>1. Entire Sections Missing from <span class="doc-b">Feature Doc</span></h2>
+
+<p>The following sections exist in the <span class="doc-a">HTML DOC</span> but have no equivalent in the <span class="doc-b">FEATURE DOC</span>:</p>
+
+<table>
+  <thead><tr><th>#</th><th>Section</th><th>What It Covers</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td><strong>Requirements &amp; Compatibility</strong></td>
+      <td>Full Unity version compatibility table (5.6 through 6.x), render pipeline compatibility matrix (Built-in / URP / HDRP / Custom SRP per feature), system requirements (OS support, no DLLs, editor-only).</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td><strong>Installation</strong></td>
+      <td>Two installation methods (Asset Store import + UPM Git URL), folder structure after import, step-by-step instructions with numbered flow.</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td><strong>Quick Start</strong></td>
+      <td>5-step walkthrough for first-time users: Scan &rarr; Review &rarr; Configure Ignore Rules &rarr; Safe Delete &rarr; Export Report. The Feature Doc has "Getting Started" but only describes the window layout, not a user workflow.</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td><strong>Addressables Support</strong> (dedicated section)</td>
+      <td>Group scanning, AssetReference field detection, labels support, Addressables-only asset detection, group cleanliness audit, missing Addressables references, stale group entries. The Feature Doc only briefly mentions Addressables as a scan root toggle in Settings.</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td><strong>CLI &amp; CI/CD Integration</strong></td>
+      <td>Full CLI usage with Unity batch-mode commands, <code>-pcp-fail-on</code> conditions table, <code>-pcp-modules</code> / <code>-pcp-format</code> / <code>-pcp-config</code> / <code>-pcp-no-archive</code> / <code>-pcp-verbose</code> flags, complete GitHub Actions YAML example. The Feature Doc only mentions CI as a one-line bullet point under Scripting API.</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td><strong>Ignore Rules</strong> (dedicated section)</td>
+      <td>6 rule types (PathPrefix, PathExact, Regex, AssetType, Label, Folder), right-click "Add to Ignore Rules" context menu, and the <code>pcp-keep</code> AssetDatabase label. The Feature Doc describes ignore rules briefly in Settings but lists only PathPrefix and FileExtension types, and omits the <code>pcp-keep</code> label entirely.</td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td><strong>Keyboard Shortcuts</strong></td>
+      <td>Full shortcut table with Windows/Linux and macOS bindings: <kbd>Ctrl+Alt+P</kbd> (open), <kbd>Ctrl+Shift+S</kbd> (full scan), <kbd>F5</kbd> (module scan), <kbd>Ctrl+A</kbd> (select all), <kbd>Escape</kbd> (deselect), <kbd>Enter</kbd> (ping), <kbd>Ctrl+I</kbd> (ignore), <kbd>Delete</kbd> (preview delete), <kbd>Ctrl+E</kbd> (export), <kbd>Ctrl+Shift+A</kbd> (archive).</td>
+    </tr>
+    <tr>
+      <td>8</td>
+      <td><strong>Comparison with Other Tools</strong></td>
+      <td>Feature comparison table benchmarking ProjectClean Pro against Asset Hunter PRO and Asset Cleaner PRO across 20 feature rows.</td>
+    </tr>
+    <tr>
+      <td>9</td>
+      <td><strong>FAQ</strong></td>
+      <td>7 Q&amp;A entries covering: auto-deletion safety, false positive causes, StreamingAssets handling, team environments, Input System / Cinemachine compatibility, editor-only assets, and animation parameter limitations.</td>
+    </tr>
+    <tr>
+      <td>10</td>
+      <td><strong>Known Limitations</strong></td>
+      <td>Reflect-loaded scripts, procedurally loaded assets, third-party build pipeline overrides, binary serialization mode, and planned features roadmap (Animator graph v1.1, Timeline / Playable v1.2, Localization v1.2).</td>
+    </tr>
+    <tr>
+      <td>11</td>
+      <td><strong>Changelog</strong></td>
+      <td>v1.0.0 release changelog with itemized feature list and tested Unity / render pipeline versions.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ======== MISSING SUB-FEATURES ======== -->
+<span class="section-anchor" id="missing-sub-features"></span>
+<h2>2. Features Under-Specified or Missing from <span class="doc-b">Feature Doc</span></h2>
+
+<p>These features are documented in the <span class="doc-a">HTML DOC</span> but are either absent or only shallowly covered in the <span class="doc-b">FEATURE DOC</span>:</p>
+
+<h3>Unused Assets Scanner</h3>
+<table>
+  <thead><tr><th>Feature</th><th>HTML Doc Detail</th><th>Feature Doc Coverage</th></tr></thead>
+  <tbody>
+    <tr><td><strong>MAYBE USED status</strong></td><td>Badge for assets referenced only from disabled/excluded scenes</td><td>Not listed. Only UNUSED and IN RESOURCES statuses appear.</td></tr>
+    <tr><td><strong>IGNORED status</strong></td><td>Badge for assets matching an ignore rule</td><td>Not mentioned</td></tr>
+    <tr><td><strong>IN USE status</strong></td><td>Badge confirming asset is reachable from scan roots</td><td>Not mentioned</td></tr>
+    <tr><td><strong>StreamingAssets handling</strong></td><td>Explicitly states StreamingAssets are auto-excluded with reasoning</td><td>Not mentioned</td></tr>
+    <tr><td><strong>Scene usage mapping</strong></td><td>Hover or click any asset to see which scenes reference it</td><td>Not mentioned</td></tr>
+    <tr><td><strong>Folder + type grouping</strong></td><td>Results tree groups findings by folder first, then by type</td><td>Describes a flat list view only</td></tr>
+    <tr><td><strong>Scripts warning</strong></td><td>Explicit callout about limited C# script detection (reflection, dynamic loading)</td><td>Not mentioned</td></tr>
+  </tbody>
+</table>
+
+<h3>Missing References Detector</h3>
+<table>
+  <thead><tr><th>Feature</th><th>HTML Doc Detail</th><th>Feature Doc Coverage</th></tr></thead>
+  <tbody>
+    <tr><td><strong>GUID-level scanning</strong></td><td>Reads raw YAML serialization, validates GUID + fileID cross-check</td><td>Described generically as "broken object references"</td></tr>
+    <tr><td><strong>One-click null-out</strong></td><td>Option to null-out broken fields programmatically with undo support</td><td>Not mentioned</td></tr>
+    <tr><td><strong>Binary asset support</strong></td><td>Switches project to Force Text temporarily for scanning (with prompt and revert)</td><td>Not mentioned</td></tr>
+    <tr><td><strong>Direct-navigate to broken field</strong></td><td>Double-click any finding to open the containing asset and ping in inspector</td><td>Not mentioned</td></tr>
+    <tr><td><strong>ScriptableObject scanning</strong></td><td>Explicitly listed as scanned asset type</td><td>Mentioned in passing but not called out</td></tr>
+  </tbody>
+</table>
+
+<h3>Duplicate Finder</h3>
+<table>
+  <thead><tr><th>Feature</th><th>HTML Doc Detail</th><th>Feature Doc Coverage</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Material duplicate detection</strong></td><td>Identifies materials with identical shader + property values even as separate files</td><td>Not mentioned</td></tr>
+    <tr><td><strong>Texture atlas cross-check</strong></td><td>Detects textures in sprite atlases and flags them as shared</td><td>Not mentioned</td></tr>
+  </tbody>
+</table>
+
+<h3>Dependency Graph</h3>
+<table>
+  <thead><tr><th>Feature</th><th>HTML Doc Detail</th><th>Feature Doc Coverage</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Upstream / Downstream views</strong></td><td>Explicit "who uses this?" and "what does this use?" view modes</td><td>Only describes general navigation</td></tr>
+    <tr><td><strong>Node size by file size</strong></td><td>Optional node scaling proportional to asset size</td><td>Not mentioned</td></tr>
+    <tr><td><strong>Export as SVG/PNG</strong></td><td>Save the current graph view for documentation</td><td>Not mentioned</td></tr>
+    <tr><td><strong>Filter by folder</strong></td><td>Limit graph to assets within a specific folder</td><td>Not mentioned</td></tr>
+    <tr><td><strong>Right-click "Show in Dependency Graph"</strong></td><td>Context menu integration from Unity Project window</td><td>Not mentioned</td></tr>
+  </tbody>
+</table>
+
+<h3>Package Auditor</h3>
+<table>
+  <thead><tr><th>Feature</th><th>HTML Doc Detail</th><th>Feature Doc Coverage</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Built-in package detection</strong></td><td>Lists all enabled built-in packages and flags zero-usage ones</td><td>Not mentioned</td></tr>
+    <tr><td><strong>Safe removal guidance</strong></td><td>Warns if removal triggers compilation errors; "Preview Impact" dry-run check</td><td>Not mentioned</td></tr>
+    <tr><td><strong>One-click removal</strong></td><td>Remove packages directly from PCP UI via PackageManager API</td><td>Not mentioned</td></tr>
+    <tr><td><strong>Package health check</strong></td><td>Flags incompatible versions, available updates, deprecated packages</td><td>Not mentioned</td></tr>
+    <tr><td><strong>Whitelist / "always keep"</strong></td><td>Mark packages to suppress findings for intentionally installed but unused packages</td><td>Not mentioned</td></tr>
+    <tr><td><strong>Package size reporting</strong></td><td>Shows disk footprint of each package</td><td>Mentions reference count but not disk size</td></tr>
+  </tbody>
+</table>
+
+<h3>Shader Analyzer</h3>
+<table>
+  <thead><tr><th>Feature</th><th>HTML Doc Detail</th><th>Feature Doc Coverage</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Shader Graph analysis</strong></td><td>Flags unused Shader Graphs, excessive node counts</td><td>Not mentioned</td></tr>
+    <tr><td><strong>Variant collection audit</strong></td><td>Lists ShaderVariantCollections, checks for stale entries</td><td>Not mentioned</td></tr>
+    <tr><td><strong>Keyword redundancy check</strong></td><td>Finds defined-but-never-enabled keywords</td><td>Not mentioned</td></tr>
+    <tr><td><strong>Compilation error detection</strong></td><td>Lists shaders with compile errors on current platform</td><td>Not mentioned</td></tr>
+    <tr><td><strong>URP Shader Graph upgrader</strong></td><td>Detects legacy shaders with official upgrade paths</td><td>Not mentioned</td></tr>
+    <tr><td><strong>HDRP material validator</strong></td><td>Surfaces HDRP validation results in batch review</td><td>Not mentioned</td></tr>
+  </tbody>
+</table>
+
+<h3>Size Profiler</h3>
+<table>
+  <thead><tr><th>Feature</th><th>HTML Doc Detail</th><th>Feature Doc Coverage</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Build size estimates</strong></td><td>Per-platform build size contribution estimates using Unity compression data</td><td>Not mentioned</td></tr>
+    <tr><td><strong>Texture compression audit</strong></td><td>Flags suboptimal compression for target platform (e.g., RGBA32 on mobile)</td><td>Only says "&gt;1 MB uncompressed"</td></tr>
+    <tr><td><strong>Oversized texture detection</strong></td><td>Source resolution larger than Max Texture Size import setting</td><td>Not mentioned</td></tr>
+    <tr><td><strong>Audio compression audit</strong></td><td>Identifies uncompressed PCM clips; suggests Compressed In Memory / Streaming</td><td>Only says "&gt;1 MB"</td></tr>
+    <tr><td><strong>Mesh complexity report</strong></td><td>Vertex count, poly count, Read/Write enabled flag</td><td>Not mentioned</td></tr>
+    <tr><td><strong>Platform-specific estimates</strong></td><td>Switch between Android, iOS, PC, WebGL, Console targets</td><td>Not mentioned</td></tr>
+    <tr><td><strong>Historical comparison</strong></td><td>Save size snapshots and compare over time</td><td>Not mentioned</td></tr>
+  </tbody>
+</table>
+
+<h3>Safe Delete System</h3>
+<table>
+  <thead><tr><th>Feature</th><th>HTML Doc Detail</th><th>Feature Doc Coverage</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Selective restore</strong></td><td>Restore individual files from an archive session, not just the entire batch</td><td>Only mentions "Restore All" per session</td></tr>
+    <tr><td><strong>Meta file handling</strong></td><td>Automatically deletes corresponding <code>.meta</code> files</td><td>Not mentioned</td></tr>
+    <tr><td><strong>Dry-run mode</strong></td><td>Run the delete flow without actually deleting; logs to Console</td><td>Not mentioned</td></tr>
+    <tr><td><strong>Archive size management</strong></td><td>Auto-purge by size (MB), not just by days</td><td>Only mentions day-based retention</td></tr>
+    <tr><td><strong>Delete log</strong></td><td>All deletions logged to <code>Library/ProjectCleanPro/deletions.log</code> with timestamps and user</td><td>Not mentioned</td></tr>
+  </tbody>
+</table>
+
+<h3>Scripting API</h3>
+<table>
+  <thead><tr><th>Feature</th><th>HTML Doc Detail</th><th>Feature Doc Coverage</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Code examples</strong></td><td>Full C# snippets for PCPScanner, PCPScanResult, PCPSafeDelete, PCPReportExporter, PCPIgnoreRules</td><td>Describes the API conceptually with no code</td></tr>
+    <tr><td><strong>PCPSafeDelete API</strong></td><td>Programmatic preview + execute deletion with options</td><td>Not mentioned</td></tr>
+    <tr><td><strong>PCPIgnoreRules API</strong></td><td>Add/manage ignore rules from code</td><td>Not mentioned</td></tr>
+    <tr><td><strong>Async scan API</strong></td><td><code>RunFullScanAsync</code> with progress callback</td><td>Mentions cancellation tokens but no async details</td></tr>
+  </tbody>
+</table>
+
+<h3>Reports</h3>
+<table>
+  <thead><tr><th>Feature</th><th>HTML Doc Detail</th><th>Feature Doc Coverage</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Report contents breakdown</strong></td><td>Scan timestamp, Unity version, project name, render pipeline, dependency graph adjacency list, scan config snapshot, per-category size breakdown</td><td>Only lists the 4 export formats</td></tr>
+  </tbody>
+</table>
+
+<!-- ======== MISSING FROM HTML DOC ======== -->
+<span class="section-anchor" id="missing-from-html-doc"></span>
+<h2>3. Content in <span class="doc-b">Feature Doc</span> but Missing from <span class="doc-a">HTML Doc</span></h2>
+
+<p>These details are present in the <span class="doc-b">FEATURE DOC</span> (derived from actual codebase) but absent from the <span class="doc-a">HTML DOC</span>:</p>
+
+<table>
+  <thead><tr><th>Feature</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Dashboard: Project Health Score</strong></td><td>Detailed breakdown of color thresholds (100% green, 50% yellow, &lt;50% red)</td></tr>
+    <tr><td><strong>Dashboard: Reset Results button</strong></td><td>Explicit "Reset Results" button with confirmation dialog</td></tr>
+    <tr><td><strong>Dashboard: Scan Warnings foldout</strong></td><td>Collapsible section listing files that couldn't be scanned</td></tr>
+    <tr><td><strong>Dashboard: Module summary cards</strong></td><td>7 cards with finding count, wasted space, clean/issue status, and "View Results" button</td></tr>
+    <tr><td><strong>Status Bar</strong></td><td>Persistent bottom bar showing last scan time, findings summary, and real-time status</td></tr>
+    <tr><td><strong>Scan Progress Overlay</strong></td><td>Semi-transparent overlay with module label, progress bar (0&ndash;100%), and cancel button</td></tr>
+    <tr><td><strong>Module Header component</strong></td><td>Per-module accent bar, icon, name, stats label, and scan/cancel button</td></tr>
+    <tr><td><strong>Active Filters Label</strong></td><td>Small italic text showing currently active filter state ("Active: Type: Texture | Status: UNUSED")</td></tr>
+    <tr><td><strong>Column resizing</strong></td><td>Drag header borders to resize columns; minimum 30px width</td></tr>
+    <tr><td><strong>Shift+Click range select</strong></td><td>Range selection support in result lists</td></tr>
+    <tr><td><strong>Module Accent Colors (settings)</strong></td><td>8 customizable accent colors with swatches and live preview, including defaults (#FF6B6B, #4ECDC4, #96CEB4, #DDA0DD, #FFEAA7, #45B7D1, #F7DC6F, #98D8C8)</td></tr>
+    <tr><td><strong>Main Thread Budget (settings)</strong></td><td>Configurable 4&ndash;16ms frame budget slider with behavior descriptions</td></tr>
+    <tr><td><strong>Console logging toggle (settings)</strong></td><td>Toggle for scan progress and cache activity logging</td></tr>
+    <tr><td><strong>Settings auto-save</strong></td><td>All settings save automatically; no Apply button needed</td></tr>
+    <tr><td><strong>Module execution order</strong></td><td>Optimized scan ordering: Unused first (builds shared dep graph) &rarr; Dependencies &rarr; Duplicates &rarr; independent modules</td></tr>
+  </tbody>
+</table>
+
+<div class="callout info">
+  <span class="callout-icon">&#9432;</span>
+  <div><strong>Note:</strong> The HTML doc says "six module tabs at the top" in the Quick Start section, while the Feature Doc correctly identifies 10 navigation tabs (Dashboard + 7 modules + Archive + Settings) in a left sidebar layout. The HTML doc's description appears outdated.</div>
+</div>
+
+<!-- ======== DISCREPANCIES ======== -->
+<span class="section-anchor" id="discrepancies"></span>
+<h2>4. Direct Discrepancies Between the Two Documents</h2>
+
+<p>Cases where the two documents directly contradict each other:</p>
+
+<table>
+  <thead><tr><th>Topic</th><th><span class="doc-a">HTML Doc</span></th><th><span class="doc-b">Feature Doc</span></th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Number of tabs</strong></td>
+      <td>"six module tabs at the top"</td>
+      <td>10 navigation tabs in a left sidebar (Dashboard, 7 modules, Archive, Settings)</td>
+    </tr>
+    <tr>
+      <td><strong>Menu path</strong></td>
+      <td>Tools &gt; ProjectClean Pro &gt; Open Window</td>
+      <td>Tools &gt; ProjectClean Pro</td>
+    </tr>
+    <tr>
+      <td><strong>Module count</strong></td>
+      <td>"eight integrated analysis modules"</td>
+      <td>7 scan modules + Archive as a management view</td>
+    </tr>
+    <tr>
+      <td><strong>Unused asset statuses</strong></td>
+      <td>4 statuses: UNUSED, MAYBE USED, IGNORED, IN USE</td>
+      <td>2 statuses: UNUSED, IN RESOURCES</td>
+    </tr>
+    <tr>
+      <td><strong>Ignore rule types</strong></td>
+      <td>6 types: PathPrefix, PathExact, Regex, AssetType, Label, Folder</td>
+      <td>2 types mentioned: PathPrefix, FileExtension</td>
+    </tr>
+    <tr>
+      <td><strong>Archive session naming</strong></td>
+      <td><code>YYYY-MM-DD_HH-MM-SS/</code></td>
+      <td><code>YYYYMMDD_HHMMSS_mmm/</code> (date_time_milliseconds)</td>
+    </tr>
+    <tr>
+      <td><strong>Scripting API class names</strong></td>
+      <td><code>PCPScanner</code>, <code>PCPSafeDelete</code>, <code>PCPReportExporter</code> under <code>ProjectCleanPro.Editor</code></td>
+      <td>Generic <code>PCPAPI</code> class name with convenience methods</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout warn">
+  <span class="callout-icon">&#9888;</span>
+  <div><strong>Resolution needed:</strong> These discrepancies should be resolved by checking the actual codebase implementation. In most cases the Feature Doc (derived from code) is likely more accurate for UI-level details, while the HTML Doc may describe planned/aspirational features not yet implemented.</div>
+</div>
+
+<!-- ======== ACTION ITEMS ======== -->
+<span class="section-anchor" id="action-items"></span>
+<h2>Action Items</h2>
+
+<h3>For the <span class="doc-a">HTML Doc</span></h3>
+<table>
+  <thead><tr><th>Priority</th><th>Action</th></tr></thead>
+  <tbody>
+    <tr><td><span class="badge badge-red">HIGH</span></td><td>Fix "six module tabs" &mdash; update to 10 tabs with correct sidebar layout description</td></tr>
+    <tr><td><span class="badge badge-red">HIGH</span></td><td>Verify menu path: is it "Tools &gt; ProjectClean Pro" or "Tools &gt; ProjectClean Pro &gt; Open Window"?</td></tr>
+    <tr><td><span class="badge badge-orange">MEDIUM</span></td><td>Add Dashboard section: health score, summary cards, warnings foldout, reset results button</td></tr>
+    <tr><td><span class="badge badge-orange">MEDIUM</span></td><td>Add Status Bar section: last scan time, findings counter, real-time status</td></tr>
+    <tr><td><span class="badge badge-orange">MEDIUM</span></td><td>Add Scan Progress Overlay description: modal with module label, progress bar, cancel button</td></tr>
+    <tr><td><span class="badge badge-orange">MEDIUM</span></td><td>Add Settings details: accent colors, thread budget, console logging, auto-save, clear cache</td></tr>
+    <tr><td><span class="badge badge-blue">LOW</span></td><td>Document module execution order and incremental scan caching behavior</td></tr>
+    <tr><td><span class="badge badge-blue">LOW</span></td><td>Document column resizing, Shift+click range select, active filters label</td></tr>
+  </tbody>
+</table>
+
+<h3>For the <span class="doc-b">Feature Doc</span></h3>
+<table>
+  <thead><tr><th>Priority</th><th>Action</th></tr></thead>
+  <tbody>
+    <tr><td><span class="badge badge-red">HIGH</span></td><td>Add Keyboard Shortcuts table</td></tr>
+    <tr><td><span class="badge badge-red">HIGH</span></td><td>Add CLI &amp; CI/CD section with command-line flags and GitHub Actions example</td></tr>
+    <tr><td><span class="badge badge-red">HIGH</span></td><td>Expand Ignore Rules: add all 6 rule types, right-click context menu, <code>pcp-keep</code> label</td></tr>
+    <tr><td><span class="badge badge-red">HIGH</span></td><td>Add Addressables Support section with full feature list</td></tr>
+    <tr><td><span class="badge badge-orange">MEDIUM</span></td><td>Add all missing unused-asset statuses (MAYBE USED, IGNORED, IN USE) &mdash; verify against code first</td></tr>
+    <tr><td><span class="badge badge-orange">MEDIUM</span></td><td>Add ~40 missing sub-features across all modules (see Section 2 tables)</td></tr>
+    <tr><td><span class="badge badge-orange">MEDIUM</span></td><td>Add Scripting API code examples</td></tr>
+    <tr><td><span class="badge badge-orange">MEDIUM</span></td><td>Add FAQ section</td></tr>
+    <tr><td><span class="badge badge-orange">MEDIUM</span></td><td>Add Known Limitations section</td></tr>
+    <tr><td><span class="badge badge-blue">LOW</span></td><td>Add Requirements &amp; Compatibility tables</td></tr>
+    <tr><td><span class="badge badge-blue">LOW</span></td><td>Add Installation instructions</td></tr>
+    <tr><td><span class="badge badge-blue">LOW</span></td><td>Add Comparison with Other Tools table</td></tr>
+    <tr><td><span class="badge badge-blue">LOW</span></td><td>Add Changelog</td></tr>
+  </tbody>
+</table>
+
+<h3>Discrepancies to Resolve</h3>
+<table>
+  <thead><tr><th>Priority</th><th>Action</th></tr></thead>
+  <tbody>
+    <tr><td><span class="badge badge-red">HIGH</span></td><td>Verify actual unused-asset status badges in code: are there 2 or 4?</td></tr>
+    <tr><td><span class="badge badge-red">HIGH</span></td><td>Verify actual ignore rule types in code: are there 2 or 6?</td></tr>
+    <tr><td><span class="badge badge-orange">MEDIUM</span></td><td>Verify API class names: <code>PCPAPI</code> vs <code>PCPScanner</code> / <code>PCPSafeDelete</code> / etc.</td></tr>
+    <tr><td><span class="badge badge-orange">MEDIUM</span></td><td>Verify archive session folder naming format</td></tr>
+    <tr><td><span class="badge badge-blue">LOW</span></td><td>Align module count (7 vs 8) and verify whether Safe Delete counts as a "module"</td></tr>
+  </tbody>
+</table>
+
+<hr>
+<p style="font-size:12px;color:var(--ink3);text-align:center">Documentation Difference Report &middot; Generated March 2026 &middot; ProjectClean Pro v1.0</p>
+
+</main>
+</body>
+</html>
