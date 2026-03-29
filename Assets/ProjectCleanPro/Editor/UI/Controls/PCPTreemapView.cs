@@ -455,15 +455,31 @@ namespace ProjectCleanPro.Editor
             if (m_LayoutRects.Count == 0)
                 return;
 
-            var painter = mgc.painter2D;
             const float padding = 1f;
 
+            // Count visible rects first
+            int visibleCount = 0;
+            for (int i = 0; i < m_LayoutRects.Count; i++)
+            {
+                var lr = m_LayoutRects[i];
+                var insetW = Mathf.Max(0, lr.rect.width - padding * 2);
+                var insetH = Mathf.Max(0, lr.rect.height - padding * 2);
+                if (insetW >= k_MinRectPixels && insetH >= k_MinRectPixels)
+                    visibleCount++;
+            }
+
+            if (visibleCount == 0)
+                return;
+
+            // Allocate mesh: 4 verts and 6 indices (2 triangles) per rect
+            var mesh = mgc.Allocate(visibleCount * 4, visibleCount * 6);
+
+            int vi = 0;
             for (int i = 0; i < m_LayoutRects.Count; i++)
             {
                 var lr = m_LayoutRects[i];
                 var rect = lr.rect;
 
-                // Inset slightly for padding between cells
                 var inset = new Rect(
                     rect.x + padding,
                     rect.y + padding,
@@ -473,7 +489,6 @@ namespace ProjectCleanPro.Editor
                 if (inset.width < k_MinRectPixels || inset.height < k_MinRectPixels)
                     continue;
 
-                // Fill color - slightly brighter if hovered
                 Color fillColor = lr.node.color;
                 if (i == m_HoveredIndex)
                 {
@@ -484,26 +499,22 @@ namespace ProjectCleanPro.Editor
                         fillColor.a);
                 }
 
-                // Draw filled rectangle
-                painter.fillColor = fillColor;
-                painter.BeginPath();
-                painter.MoveTo(new Vector2(inset.x, inset.y));
-                painter.LineTo(new Vector2(inset.xMax, inset.y));
-                painter.LineTo(new Vector2(inset.xMax, inset.yMax));
-                painter.LineTo(new Vector2(inset.x, inset.yMax));
-                painter.ClosePath();
-                painter.Fill();
+                // 4 vertices for the quad
+                mesh.SetNextVertex(new Vertex { position = new Vector3(inset.x, inset.y, Vertex.nearZ), tint = fillColor });
+                mesh.SetNextVertex(new Vertex { position = new Vector3(inset.xMax, inset.y, Vertex.nearZ), tint = fillColor });
+                mesh.SetNextVertex(new Vertex { position = new Vector3(inset.xMax, inset.yMax, Vertex.nearZ), tint = fillColor });
+                mesh.SetNextVertex(new Vertex { position = new Vector3(inset.x, inset.yMax, Vertex.nearZ), tint = fillColor });
 
-                // Draw border
-                painter.strokeColor = new Color(0f, 0f, 0f, 0.4f);
-                painter.lineWidth = 1f;
-                painter.BeginPath();
-                painter.MoveTo(new Vector2(inset.x, inset.y));
-                painter.LineTo(new Vector2(inset.xMax, inset.y));
-                painter.LineTo(new Vector2(inset.xMax, inset.yMax));
-                painter.LineTo(new Vector2(inset.x, inset.yMax));
-                painter.ClosePath();
-                painter.Stroke();
+                // 2 triangles
+                ushort b = (ushort)(vi * 4);
+                mesh.SetNextIndex(b);
+                mesh.SetNextIndex((ushort)(b + 1));
+                mesh.SetNextIndex((ushort)(b + 2));
+                mesh.SetNextIndex(b);
+                mesh.SetNextIndex((ushort)(b + 2));
+                mesh.SetNextIndex((ushort)(b + 3));
+
+                vi++;
             }
         }
 

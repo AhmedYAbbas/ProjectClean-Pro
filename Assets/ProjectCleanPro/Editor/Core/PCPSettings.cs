@@ -129,14 +129,14 @@ namespace ProjectCleanPro.Editor
         [Tooltip("Eight colours used to tint module headers, dashboard cards, and tab accents.")]
         public Color[] moduleColors = new Color[]
         {
-            HexColor("FF6B6B"), // 0  Unused Assets
-            HexColor("4ECDC4"), // 1  Missing References
-            HexColor("96CEB4"), // 2  Duplicates
-            HexColor("DDA0DD"), // 3  Dependencies
-            HexColor("FFEAA7"), // 4  Packages
-            HexColor("45B7D1"), // 5  Shaders
-            HexColor("F7DC6F"), // 6  Size Profiler
-            HexColor("98D8C8"), // 7  Archive
+            new Color(1.000f, 0.420f, 0.420f), // 0  Unused Assets     #FF6B6B
+            new Color(0.306f, 0.804f, 0.769f), // 1  Missing References #4ECDC4
+            new Color(0.588f, 0.808f, 0.706f), // 2  Duplicates         #96CEB4
+            new Color(0.867f, 0.627f, 0.867f), // 3  Dependencies       #DDA0DD
+            new Color(1.000f, 0.918f, 0.655f), // 4  Packages           #FFEAA7
+            new Color(0.271f, 0.718f, 0.820f), // 5  Shaders            #45B7D1
+            new Color(0.969f, 0.863f, 0.435f), // 6  Size Profiler      #F7DC6F
+            new Color(0.596f, 0.847f, 0.784f), // 7  Archive            #98D8C8
         };
 
         /// <summary>
