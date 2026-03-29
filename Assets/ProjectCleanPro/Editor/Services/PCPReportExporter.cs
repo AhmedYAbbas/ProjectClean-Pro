@@ -131,9 +131,9 @@ namespace ProjectCleanPro.Editor
             }
 
             // Package Audit
-            if (result.packageAudit != null)
+            if (result.packageAuditEntries != null)
             {
-                foreach (var pkg in result.packageAudit)
+                foreach (var pkg in result.packageAuditEntries)
                 {
                     sb.AppendLine(CsvRow("Package Audit",
                         pkg.packageName ?? "",
@@ -269,8 +269,8 @@ namespace ProjectCleanPro.Editor
             html.AppendLine(SummaryCard("Duplicate Groups",
                 $"{result.DuplicateGroupCount} ({PCPAssetUtils.FormatSize(result.DuplicateWastedSize)} wasted)",
                 "#96CEB4"));
-            int packageIssues = result.packageAudit != null
-                ? result.packageAudit.Count(p => p.status == PCPPackageStatus.Unused)
+            int packageIssues = result.packageAuditEntries != null
+                ? result.packageAuditEntries.Count(p => p.status == PCPPackageStatus.Unused)
                 : 0;
             html.AppendLine(SummaryCard("Unused Packages", packageIssues.ToString(), "#FFEAA7"));
             html.AppendLine("</div>");
@@ -387,7 +387,7 @@ namespace ProjectCleanPro.Editor
             }
 
             // ---- Package Audit section ----
-            if (result.packageAudit != null && result.packageAudit.Count > 0)
+            if (result.packageAuditEntries != null && result.packageAuditEntries.Count > 0)
             {
                 html.AppendLine("<div class=\"section\">");
                 html.AppendLine("<h2 class=\"section-title\" style=\"border-color: #FFEAA7;\">Package Audit</h2>");
@@ -402,7 +402,7 @@ namespace ProjectCleanPro.Editor
                 html.AppendLine("</tr></thead>");
                 html.AppendLine("<tbody>");
 
-                foreach (var pkg in result.packageAudit)
+                foreach (var pkg in result.packageAuditEntries)
                 {
                     string statusClass = pkg.status == PCPPackageStatus.Unused ? "badge-warn" :
                         pkg.status == PCPPackageStatus.Used ? "badge-ok" : "badge-info";
@@ -597,8 +597,8 @@ namespace ProjectCleanPro.Editor
             sb.AppendLine($"| Missing References | {result.MissingReferenceCount} | - |");
             sb.AppendLine($"| Duplicate Assets | {result.DuplicateGroupCount} groups | {PCPAssetUtils.FormatSize(result.DuplicateWastedSize)} wasted |");
 
-            int unusedPackages = result.packageAudit != null
-                ? result.packageAudit.Count(p => p.status == PCPPackageStatus.Unused)
+            int unusedPackages = result.packageAuditEntries != null
+                ? result.packageAuditEntries.Count(p => p.status == PCPPackageStatus.Unused)
                 : 0;
             sb.AppendLine($"| Unused Packages | {unusedPackages} | - |");
 

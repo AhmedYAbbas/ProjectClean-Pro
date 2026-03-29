@@ -36,9 +36,9 @@ namespace ProjectCleanPro.Tests.Editor
             m_Result.unusedAssets.Add(MakeUnusedAsset(200));
             m_Result.missingReferences.Add(MakeMissingRef(PCPSeverity.Error));
             m_Result.duplicateGroups.Add(MakeDuplicateGroup(2, 500));
-            m_Result.packageAuditEntries.Add(MakePackageEntry(PCPPackageStatus.Used));
-            m_Result.shaderEntries.Add(MakeShaderEntry(false, false, 100));
-            m_Result.sizeEntries.Add(MakeSizeEntry(1000, false));
+            m_Result.packageAuditEntries.Add(MakePackageEntry(PCPPackageStatus.Unused));
+            m_Result.shaderEntries.Add(MakeShaderEntry(true, false, 100));
+            m_Result.sizeEntries.Add(MakeSizeEntry(1000, true));
 
             Assert.AreEqual(7, m_Result.TotalFindingCount);
         }
@@ -333,12 +333,6 @@ namespace ProjectCleanPro.Tests.Editor
         // ================================================================
         // 8. PACKAGE AUDIT ALIAS
         // ================================================================
-
-        [Test]
-        public void PackageAudit_Property_ReturnsSameListAsField()
-        {
-            Assert.AreSame(m_Result.packageAuditEntries, m_Result.packageAudit);
-        }
 
         // ================================================================
         // 9. FORMATTED WASTED BYTES

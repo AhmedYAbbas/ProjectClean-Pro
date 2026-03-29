@@ -54,14 +54,6 @@ namespace ProjectCleanPro.Editor
         /// <summary>Total number of assets evaluated during the scan.</summary>
         public int totalAssetsScanned;
 
-        // ── Property alias ──────────────────────────────────────────────
-
-        /// <summary>
-        /// Alias for <see cref="packageAuditEntries"/>. Used by API and report layers.
-        /// Not serialized by JsonUtility (property, not field).
-        /// </summary>
-        public List<PCPPackageAuditEntry> packageAudit => packageAuditEntries;
-
         // ── Computed properties ─────────────────────────────────────────
 
         /// <summary>

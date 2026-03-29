@@ -99,14 +99,9 @@ namespace ProjectCleanPro.Editor.Core
                     int guidStart = idx + prefix.Length;
                     if (guidStart + 32 <= text.Length)
                     {
-                        var candidate = text.Substring(guidStart, 32);
-                        // GUIDs end at newline or comma; trim whitespace
-                        if (candidate.Length >= 32)
-                        {
-                            candidate = candidate.Substring(0, 32).Trim();
-                            if (candidate.Length == 32)
-                                return candidate;
-                        }
+                        var candidate = text.Substring(guidStart, 32).Trim();
+                        if (candidate.Length == 32)
+                            return candidate;
                     }
                 }
             }

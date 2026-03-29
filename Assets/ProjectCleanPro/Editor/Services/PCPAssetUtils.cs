@@ -211,6 +211,27 @@ namespace ProjectCleanPro.Editor
                    normalized.StartsWith("Assets/Resources/", StringComparison.OrdinalIgnoreCase);
         }
 
+        /// <summary>
+        /// Returns true if the file extension at <paramref name="path"/> matches
+        /// any entry in the settings' excluded extensions list.
+        /// </summary>
+        public static bool IsExcludedExtension(string path, PCPSettings settings)
+        {
+            if (settings?.excludedExtensions == null || settings.excludedExtensions.Count == 0)
+                return false;
+
+            var ext = Path.GetExtension(path);
+            if (string.IsNullOrEmpty(ext))
+                return false;
+
+            foreach (var excluded in settings.excludedExtensions)
+            {
+                if (string.Equals(ext, excluded, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
+        }
+
         // ----------------------------------------------------------------
         // Asset queries
         // ----------------------------------------------------------------

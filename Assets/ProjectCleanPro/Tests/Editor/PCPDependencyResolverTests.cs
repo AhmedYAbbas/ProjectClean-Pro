@@ -88,33 +88,8 @@ namespace ProjectCleanPro.Tests.Editor
         }
 
         // ================================================================
-        // 4. PROGRESS REPORTING
+        // 4. STALENESS
         // ================================================================
-
-        [Test]
-        public void ScanContext_ReportProgress_DoesNotThrow()
-        {
-            var ctx = PCPScanContext.FromGlobalContext();
-            Assert.DoesNotThrow(() => ctx.ReportProgress(0.5f, "Testing"));
-        }
-
-        [Test]
-        public void ScanContext_ThrowIfCancelled_DoesNotThrowWhenNotCancelled()
-        {
-            var ctx = PCPScanContext.FromGlobalContext();
-            Assert.DoesNotThrow(() => ctx.ThrowIfCancelled());
-        }
-
-        // ================================================================
-        // 5. STALENESS
-        // ================================================================
-
-        [Test]
-        public void ScanContext_EnsureStaleness_DoesNotThrow()
-        {
-            var ctx = PCPScanContext.FromGlobalContext();
-            Assert.DoesNotThrow(() => ctx.EnsureStaleness());
-        }
 
         [Test]
         public void ScanContext_AllProjectAssets_ReturnsNonNull()

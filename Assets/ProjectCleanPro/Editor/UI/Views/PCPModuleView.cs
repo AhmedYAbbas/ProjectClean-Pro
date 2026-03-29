@@ -198,9 +198,11 @@ namespace ProjectCleanPro.Editor
                 var context = m_CreateContext?.Invoke();
                 if (context != null)
                 {
-                    var cts = new CancellationTokenSource();
-                    await PCPContext.Orchestrator.ScanModuleAsync(
-                        GetModuleId(), context, null, cts.Token);
+                    using (var cts = new CancellationTokenSource())
+                    {
+                        await PCPContext.Orchestrator.ScanModuleAsync(
+                            GetModuleId(), context, null, cts.Token);
+                    }
 
                     SyncModuleToScanResult(GetModuleId(), m_ScanResult);
 
@@ -237,9 +239,11 @@ namespace ProjectCleanPro.Editor
                 {
                     context.Cache.MarkModuleDirty(GetModuleId());
 
-                    var cts = new CancellationTokenSource();
-                    await PCPContext.Orchestrator.ScanModuleAsync(
-                        GetModuleId(), context, null, cts.Token);
+                    using (var cts = new CancellationTokenSource())
+                    {
+                        await PCPContext.Orchestrator.ScanModuleAsync(
+                            GetModuleId(), context, null, cts.Token);
+                    }
 
                     SyncModuleToScanResult(GetModuleId(), m_ScanResult);
                     m_ScanResult.totalAssetsScanned = context.AllProjectAssets.Length;

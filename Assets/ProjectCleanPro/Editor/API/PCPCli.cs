@@ -234,9 +234,7 @@ namespace ProjectCleanPro.Editor
 
         private static void EnsureDirectoryExists(string filePath)
         {
-            string dir = Path.GetDirectoryName(filePath);
-            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-                Directory.CreateDirectory(dir);
+            PCPFileUtils.EnsureDirectoryExists(Path.GetDirectoryName(filePath));
         }
     }
 }

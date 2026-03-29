@@ -658,6 +658,11 @@ namespace ProjectCleanPro.Tests.Editor
         [Test]
         public void Load_HandlesNonexistentFile()
         {
+            // Ensure no cache file exists from previous tests.
+            string cacheFilePath = Path.Combine(PCPScanCache.CacheDirectory, "ScanCache.bin");
+            if (File.Exists(cacheFilePath))
+                File.Delete(cacheFilePath);
+
             // Loading when no file exists should result in an empty cache.
             var fresh = new PCPScanCache();
             fresh.Load();
@@ -683,17 +688,15 @@ namespace ProjectCleanPro.Tests.Editor
             m_Cache.SetHash(path, "h");
             m_Cache.Save();
 
-            // Tamper with the version in the file.
-            string cacheFilePath = Path.Combine(PCPScanCache.CacheDirectory, "ScanCache.json");
-            if (File.Exists(cacheFilePath))
-            {
-                string json = File.ReadAllText(cacheFilePath);
-                // Replace the current version with a bogus one.
-                json = json.Replace(
-                    $"\"version\":{PCPScanCache.CurrentVersion}",
-                    "\"version\":99999");
-                File.WriteAllText(cacheFilePath, json);
-            }
+            // Tamper with the version in the binary cache file.
+            // The binary format is: 4-byte magic ("PCP\0") + 4-byte int version + payload.
+            string cacheFilePath = Path.Combine(PCPScanCache.CacheDirectory, "ScanCache.bin");
+            Assert.IsTrue(File.Exists(cacheFilePath), "Cache file should exist after Save()");
+            byte[] data = File.ReadAllBytes(cacheFilePath);
+            // Overwrite the version (bytes 4-7) with a bogus value.
+            byte[] bogusVersion = BitConverter.GetBytes(99999);
+            Array.Copy(bogusVersion, 0, data, 4, 4);
+            File.WriteAllBytes(cacheFilePath, data);
 
             var loaded = new PCPScanCache();
             loaded.Load();
@@ -703,26 +706,25 @@ namespace ProjectCleanPro.Tests.Editor
         }
 
         // ================================================================
-        // 11. COMPUTE FILE HASH
+        // 11. FILE HASH (via PCPFileUtils)
         // ================================================================
 
         [Test]
         public void ComputeFileHash_ReturnsConsistentHash()
         {
             string path = CreateTempFile("hashme.txt", "hello world");
-            string hash1 = PCPScanCache.ComputeFileHash(path);
-            string hash2 = PCPScanCache.ComputeFileHash(path);
+            string hash1 = PCPFileUtils.ComputeSHA256(path);
+            string hash2 = PCPFileUtils.ComputeSHA256(path);
 
             Assert.IsNotNull(hash1);
             Assert.AreEqual(hash1, hash2);
         }
 
         [Test]
-        public void ComputeFileHash_ReturnsNull_ForMissingFile()
+        public void ComputeFileHash_Throws_ForMissingFile()
         {
-            string result = PCPScanCache.ComputeFileHash(
-                Path.Combine(m_TempDir, "nonexistent.bin"));
-            Assert.IsNull(result);
+            Assert.Throws<System.IO.FileNotFoundException>(() =>
+                PCPFileUtils.ComputeSHA256(Path.Combine(m_TempDir, "nonexistent.bin")));
         }
 
         [Test]
@@ -731,8 +733,8 @@ namespace ProjectCleanPro.Tests.Editor
             string path1 = CreateTempFile("file1.txt", "content A");
             string path2 = CreateTempFile("file2.txt", "content B");
 
-            string hash1 = PCPScanCache.ComputeFileHash(path1);
-            string hash2 = PCPScanCache.ComputeFileHash(path2);
+            string hash1 = PCPFileUtils.ComputeSHA256(path1);
+            string hash2 = PCPFileUtils.ComputeSHA256(path2);
 
             Assert.AreNotEqual(hash1, hash2);
         }
@@ -741,7 +743,7 @@ namespace ProjectCleanPro.Tests.Editor
         public void ComputeFileHash_ReturnsLowercaseHex()
         {
             string path = CreateTempFile("hex.txt", "test");
-            string hash = PCPScanCache.ComputeFileHash(path);
+            string hash = PCPFileUtils.ComputeSHA256(path);
 
             Assert.IsNotNull(hash);
             Assert.AreEqual(64, hash.Length); // SHA-256 = 32 bytes = 64 hex chars

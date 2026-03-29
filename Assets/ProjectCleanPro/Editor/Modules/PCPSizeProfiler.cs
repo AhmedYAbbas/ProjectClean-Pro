@@ -65,7 +65,7 @@ namespace ProjectCleanPro.Editor
         // Scan implementation
         // ----------------------------------------------------------------
 
-        protected override async Task DoScanAsync(PCPScanContext context, CancellationToken ct)
+        protected override Task DoScanAsync(PCPScanContext context, CancellationToken ct)
         {
             _results.Clear();
             TotalProjectSize = 0L;
@@ -80,7 +80,7 @@ namespace ProjectCleanPro.Editor
             if (allPaths == null || allPaths.Length == 0)
             {
                 ReportProgress(1f, "No assets found.");
-                return;
+                return Task.CompletedTask;
             }
 
             int total = allPaths.Length;
@@ -241,6 +241,8 @@ namespace ProjectCleanPro.Editor
 
             ReportProgress(1f,
                 $"Profiled {_results.Count} assets, total {PCPAssetInfo.FormatBytes(TotalProjectSize)}.");
+
+            return Task.CompletedTask;
         }
 
         // ----------------------------------------------------------------

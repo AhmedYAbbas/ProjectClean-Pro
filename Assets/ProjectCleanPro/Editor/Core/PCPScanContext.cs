@@ -36,11 +36,6 @@ namespace ProjectCleanPro.Editor
         public PCPScanCache Cache { get; }
 
         /// <summary>
-        /// Alias for <see cref="Cache"/> for backward compatibility.
-        /// </summary>
-        public PCPScanCache ScanCache => Cache;
-
-        /// <summary>
         /// Information about the project's active render pipeline.
         /// </summary>
         public PCPRenderPipelineInfo RenderPipeline { get; }
@@ -142,41 +137,9 @@ namespace ProjectCleanPro.Editor
             CancellationToken = default;
         }
 
-        /// <summary>
-        /// Reports progress if a callback is registered.
-        /// </summary>
-        /// <param name="progress">Normalized progress value (0 to 1).</param>
-        /// <param name="description">Human-readable description of the current step.</param>
-        public void ReportProgress(float progress, string description)
-        {
-            OnProgress?.Invoke(progress, description);
-        }
-
-        /// <summary>
-        /// Throws <see cref="OperationCanceledException"/> if cancellation has been requested.
-        /// </summary>
-        public void ThrowIfCancelled()
-        {
-            CancellationToken.ThrowIfCancellationRequested();
-        }
-
         // ----------------------------------------------------------------
         // Scan lifecycle helpers
         // ----------------------------------------------------------------
-
-        /// <summary>
-        /// Pre-computes asset staleness at most once per context lifetime.
-        /// All code paths that need staleness information should call this
-        /// instead of <c>Cache.RefreshStaleness</c> directly.
-        /// </summary>
-        public void EnsureStaleness()
-        {
-            if (m_StalenessComputed)
-                return;
-
-            Cache.RefreshStaleness(AllProjectAssets);
-            m_StalenessComputed = true;
-        }
 
         /// <summary>
         /// Pre-computes staleness and module dirtiness in one pass.
@@ -192,17 +155,6 @@ namespace ProjectCleanPro.Editor
             if (modules != null)
                 Cache.ComputeModuleDirtiness(modules);
             m_StalenessComputed = true;
-        }
-
-        /// <summary>
-        /// Stamps modified assets, persists the cache, and resets the change
-        /// tracker. Call once at the end of any scan operation.
-        /// </summary>
-        public void FinalizeScan()
-        {
-            Cache.StampStaleAssets(AllProjectAssets);
-            Cache.Save();
-            PCPAssetChangeTracker.Reset();
         }
 
         // ----------------------------------------------------------------
@@ -260,23 +212,6 @@ namespace ProjectCleanPro.Editor
             await Cache.SaveAsync(ct);
             PCPAssetChangeTracker.Reset();
         }
-
-        // ----------------------------------------------------------------
-        // Thread-safe progress reporting
-        // ----------------------------------------------------------------
-
-        private float m_ProgressFraction;
-        private string m_ProgressLabel = string.Empty;
-
-        /// <summary>Thread-safe progress reporting. Written from any thread, read by UI on main.</summary>
-        public void ReportProgressThreadSafe(float fraction, string label)
-        {
-            Interlocked.Exchange(ref m_ProgressFraction, fraction);
-            Volatile.Write(ref m_ProgressLabel, label);
-        }
-
-        public float ProgressFraction => Volatile.Read(ref m_ProgressFraction);
-        public string ProgressLabelThreadSafe => Volatile.Read(ref m_ProgressLabel);
 
         /// <summary>
         /// Convenience factory that pulls everything from <see cref="PCPContext"/>.

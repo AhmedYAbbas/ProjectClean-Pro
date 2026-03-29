@@ -117,16 +117,9 @@ namespace ProjectCleanPro.Editor
 
         /// <summary>
         /// Subclasses implement their full scan logic here.
-        /// Use <see cref="YieldIfNeeded"/>, <see cref="ReportProgress"/>,
-        /// and <see cref="IsIgnored"/> as helpers.
+        /// Use <see cref="ReportProgress"/> and <see cref="IsIgnored"/> as helpers.
         /// </summary>
         protected abstract Task DoScanAsync(PCPScanContext context, CancellationToken ct);
-
-        public void Cancel()
-        {
-            // Cancellation is handled via CancellationToken now.
-            // This remains for backward compatibility.
-        }
 
         public virtual void Clear()
         {
@@ -160,22 +153,6 @@ namespace ProjectCleanPro.Editor
         {
             _progress = Mathf.Clamp01(progress);
             _progressLabel = label ?? string.Empty;
-        }
-
-        /// <summary>
-        /// Call inside a tight asset-processing loop. Every <paramref name="interval"/>
-        /// iterations it reports progress, checks for cancellation, and yields
-        /// one editor frame so the UI stays responsive.
-        /// </summary>
-        protected async Task YieldIfNeeded(int index, int total, string label,
-            CancellationToken ct, int interval = 64)
-        {
-            if (interval <= 0 || index % interval != 0)
-                return;
-
-            ReportProgress(total > 0 ? index / (float)total : 0f, label);
-            ct.ThrowIfCancellationRequested();
-            await Task.Yield();
         }
 
         /// <summary>

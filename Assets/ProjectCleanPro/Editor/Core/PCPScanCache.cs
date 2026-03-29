@@ -62,7 +62,7 @@ namespace ProjectCleanPro.Editor
         // consumed by IsStale() / IsStaleOrMetaStale() for O(1) lookups.
         private readonly ConcurrentDictionary<string, byte> m_StaleAssets = new ConcurrentDictionary<string, byte>();
         private readonly ConcurrentDictionary<string, byte> m_NewAssets = new ConcurrentDictionary<string, byte>();
-        private bool m_StalenessComputed;
+        private volatile bool m_StalenessComputed;
 
         // Dirty flag — Save() is a no-op when false.
         // Volatile because background threads may set it via GetOrCreateEntry/StampProcessedAssetsAsync.
@@ -411,34 +411,6 @@ namespace ProjectCleanPro.Editor
         // ----------------------------------------------------------------
         // Stamping
         // ----------------------------------------------------------------
-
-        /// <summary>
-        /// Stamps only assets marked stale plus genuinely new assets.
-        /// O(stale + new) instead of O(N).
-        /// </summary>
-        public void StampStaleAssets(string[] allAssetPaths)
-        {
-            foreach (string path in m_StaleAssets.Keys)
-            {
-                CacheEntry entry = GetOrCreateEntry(path);
-                StampLastModified(entry, path);
-            }
-
-            for (int i = 0; i < allAssetPaths.Length; i++)
-            {
-                string path = allAssetPaths[i];
-                if (!m_Entries.TryGetValue(path, out CacheEntry entry))
-                {
-                    entry = new CacheEntry { assetPath = path };
-                    m_Entries[path] = entry;
-                    StampLastModified(entry, path);
-                }
-                else if (entry.lastModifiedTicks == 0)
-                {
-                    StampLastModified(entry, path);
-                }
-            }
-        }
 
         /// <summary>
         /// Async version of stamping: stamps all stale + new assets on background threads.
@@ -822,35 +794,6 @@ namespace ProjectCleanPro.Editor
             CleanupLegacy(s_LegacyBinPath);
             CleanupLegacy(s_LegacyJsonPath);
             Core.PCPDependencyResolverBase.DeleteGraphFile();
-        }
-
-        // ----------------------------------------------------------------
-        // Utility
-        // ----------------------------------------------------------------
-
-        public static string ComputeFileHash(string assetPath)
-        {
-            string fullPath = Path.GetFullPath(assetPath);
-            if (!File.Exists(fullPath))
-                return null;
-
-            try
-            {
-                using (FileStream stream = File.OpenRead(fullPath))
-                using (SHA256 sha = SHA256.Create())
-                {
-                    byte[] hashBytes = sha.ComputeHash(stream);
-                    var sb = new System.Text.StringBuilder(hashBytes.Length * 2);
-                    foreach (byte b in hashBytes)
-                        sb.Append(b.ToString("x2"));
-                    return sb.ToString();
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[ProjectCleanPro] Failed to compute hash for '{assetPath}': {ex.Message}");
-                return null;
-            }
         }
 
         // ----------------------------------------------------------------

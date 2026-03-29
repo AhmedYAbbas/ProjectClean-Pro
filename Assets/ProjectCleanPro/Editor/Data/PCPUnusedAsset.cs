@@ -33,27 +33,6 @@ namespace ProjectCleanPro.Editor
         /// <summary>Convenience accessor for the asset size in bytes.</summary>
         public long SizeBytes => assetInfo != null ? assetInfo.sizeBytes : 0L;
 
-        /// <summary>
-        /// Creates a <see cref="PCPUnusedAsset"/> from an asset path with default analysis fields.
-        /// </summary>
-        public static PCPUnusedAsset FromPath(string assetPath)
-        {
-            var unused = new PCPUnusedAsset
-            {
-                assetInfo = PCPAssetInfo.FromPath(assetPath),
-                isInResources = PCPAssetUtils.IsResourcesPath(assetPath),
-                isInPackage = assetPath.StartsWith("Packages/"),
-                suggestedAction = "Safe to delete"
-            };
-
-            if (unused.isInResources)
-                unused.suggestedAction = "In Resources folder - verify not loaded at runtime";
-            else if (unused.isInPackage)
-                unused.suggestedAction = "Package asset - consider removing the package";
-
-            return unused;
-        }
-
         public override string ToString()
         {
             return $"[Unused] {assetInfo} - {suggestedAction}";

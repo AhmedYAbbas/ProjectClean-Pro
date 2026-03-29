@@ -285,7 +285,7 @@ namespace ProjectCleanPro.Editor
         {
             options = MergeModules(options, "packages");
             var result = RunScan(options);
-            return result.packageAudit ?? new List<PCPPackageAuditEntry>();
+            return result.packageAuditEntries ?? new List<PCPPackageAuditEntry>();
         }
 
         // ----------------------------------------------------------------

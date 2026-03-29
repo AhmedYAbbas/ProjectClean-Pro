@@ -57,7 +57,7 @@ namespace ProjectCleanPro.Editor.Core
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex)
                 {
-                    ScheduleMainThread(() =>
+                    _ = ScheduleMainThread(() =>
                     {
                         Debug.LogException(ex);
                         return 0;

@@ -153,8 +153,8 @@ namespace ProjectCleanPro.Tests.Editor
         public void Constructor_HasSeparatorsBetweenSections()
         {
             var separators = m_View.Query(className: "pcp-separator").ToList();
-            // 6 separators between 7 sections
-            Assert.That(separators.Count, Is.EqualTo(6));
+            // 8 separators between 9 sections
+            Assert.That(separators.Count, Is.EqualTo(8));
         }
 
         [Test]

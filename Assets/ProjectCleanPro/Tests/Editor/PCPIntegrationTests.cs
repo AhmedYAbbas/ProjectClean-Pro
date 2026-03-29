@@ -131,12 +131,12 @@ namespace ProjectCleanPro.Tests.Editor
                 status = PCPPackageStatus.Unused
             });
 
-            // Shaders: 1
+            // Shaders: 1 (pipelineMismatch = true so GetSeverity() returns Error, counted by TotalFindingCount)
             result.shaderEntries.Add(new PCPShaderEntry
             {
                 shaderName = "Test/Shader",
                 estimatedVariants = 100,
-                pipelineMismatch = false,
+                pipelineMismatch = true,
                 isUnused = false
             });
 
@@ -243,23 +243,6 @@ namespace ProjectCleanPro.Tests.Editor
         // 7. FORMAT SIZE CONSISTENCY
         // ================================================================
 
-        [Test]
-        public void FormatSize_AssetInfo_And_AssetUtils_AreConsistent()
-        {
-            //long testSize = 1536; // 1.5 KB
-            //string fromUtils = PCPAssetUtils.FormatSize(testSize);
-            //string fromInfo = PCPAssetInfo.FormatBytes(testSize);
-            //Assert.AreEqual(fromUtils, fromInfo,
-            //  "PCPAssetInfo.FormatBytes should delegate to PCPAssetUtils.FormatSize");
-        }
-
-        [Test]
-        public void FormatSize_SizeEntry_UsesAssetInfoFormatBytes()
-        {
-            //var entry = new PCPSizeEntry { sizeBytes = 2048 };
-            //string expected = PCPAssetInfo.FormatBytes(2048);
-            //Assert.AreEqual(expected, entry.FormattedSize);
-        }
 
         // ================================================================
         // 8. DEPENDENCY RESOLVER FACTORY

@@ -132,31 +132,6 @@ namespace ProjectCleanPro.Editor
             }
         }
 
-        // ----------------------------------------------------------------
-        // Helpers
-        // ----------------------------------------------------------------
-
-        /// <summary>
-        /// Writes a string that may be null. Uses a bool prefix to distinguish
-        /// null from empty.
-        /// </summary>
-        public static void WriteNullableString(BinaryWriter writer, string value)
-        {
-            bool hasValue = value != null;
-            writer.Write(hasValue);
-            if (hasValue)
-                writer.Write(value);
-        }
-
-        /// <summary>
-        /// Reads a string that may be null (written by <see cref="WriteNullableString"/>).
-        /// </summary>
-        public static string ReadNullableString(BinaryReader reader)
-        {
-            bool hasValue = reader.ReadBoolean();
-            return hasValue ? reader.ReadString() : null;
-        }
-
         /// <summary>
         /// Deletes a file if it exists. Swallows exceptions.
         /// </summary>

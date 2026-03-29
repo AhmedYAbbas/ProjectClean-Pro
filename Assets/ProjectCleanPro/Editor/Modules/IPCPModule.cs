@@ -71,9 +71,6 @@ namespace ProjectCleanPro.Editor
         /// </summary>
         Task ScanAsync(PCPScanContext context, CancellationToken ct);
 
-        /// <summary>Request a cooperative cancellation of the current scan.</summary>
-        void Cancel();
-
         /// <summary>Clear all results and reset state.</summary>
         void Clear();
 
