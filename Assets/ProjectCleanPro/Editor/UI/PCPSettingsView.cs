@@ -128,6 +128,10 @@ namespace ProjectCleanPro.Editor
             AddToggle(section, "Scan Editor/ folder assets",
                 m_Settings.scanEditorAssets,
                 val => { m_Settings.scanEditorAssets = val; SaveSettings(); });
+
+            AddToggle(section, "Treat Resources/ assets as always used",
+                m_Settings.treatResourcesAsRoots,
+                val => { m_Settings.treatResourcesAsRoots = val; SaveSettings(); });
         }
 
         // --------------------------------------------------------------------
@@ -743,6 +747,7 @@ namespace ProjectCleanPro.Editor
             m_Settings.includeAddressables = true;
             m_Settings.includeAssetBundles = true;
             m_Settings.scanEditorAssets = false;
+            m_Settings.treatResourcesAsRoots = false;
             m_Settings.archiveBeforeDelete = true;
             m_Settings.useGitRm = false;
             m_Settings.nullOutReferencesOnDelete = false;

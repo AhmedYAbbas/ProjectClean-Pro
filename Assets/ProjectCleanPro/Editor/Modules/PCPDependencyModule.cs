@@ -328,8 +328,8 @@ namespace ProjectCleanPro.Editor
                 if (roots.Contains(asset))
                     continue;
 
-                // Skip Resources assets.
-                if (PCPAssetUtils.IsResourcesPath(asset))
+                // Skip Resources assets when they are treated as roots.
+                if (context.Settings.treatResourcesAsRoots && PCPAssetUtils.IsResourcesPath(asset))
                     continue;
 
                 // Skip scripts and editor-only assets.

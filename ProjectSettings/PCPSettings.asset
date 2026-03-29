@@ -12,10 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 99af1f53933cf854d9b78285706d8cac, type: 3}
   m_Name: 
   m_EditorClassIdentifier: ProjectCleanPro.Editor::ProjectCleanPro.Editor.PCPSettings
-  includeAllScenes: 0
+  includeAllScenes: 1
   includeAddressables: 1
   includeAssetBundles: 1
   scanEditorAssets: 0
+  treatResourcesAsRoots: 0
   excludedExtensions:
   - .cs
   - .meta
@@ -32,7 +33,7 @@ MonoBehaviour:
   ignoreRules: []
   archiveBeforeDelete: 1
   useGitRm: 0
-  nullOutReferencesOnDelete: 0
+  nullOutReferencesOnDelete: 1
   archiveRetentionDays: 30
   dependencyGraphMaxDepth: 2
   shaderAnalyzerCheckPipeline: 1

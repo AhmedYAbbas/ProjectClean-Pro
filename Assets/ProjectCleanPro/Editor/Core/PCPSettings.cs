@@ -29,6 +29,9 @@ namespace ProjectCleanPro.Editor
         [Tooltip("Scan assets inside Editor/ folders.")]
         public bool scanEditorAssets;
 
+        [Tooltip("Treat Resources/ folder assets as roots (always reachable). When off, Resources assets can appear as unused with a warning.")]
+        public bool treatResourcesAsRoots;
+
         // ----------------------------------------------------------------
         // Excluded extensions
         // ----------------------------------------------------------------

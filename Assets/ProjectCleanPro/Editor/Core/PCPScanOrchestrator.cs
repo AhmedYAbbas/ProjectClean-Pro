@@ -441,9 +441,12 @@ namespace ProjectCleanPro.Editor
             }
 
             // Resources.
-            string[] resources = PCPAssetUtils.GetResourcesPaths(context.AllProjectAssets);
-            for (int i = 0; i < resources.Length; i++)
-                roots.Add(resources[i]);
+            if (context.Settings.treatResourcesAsRoots)
+            {
+                string[] resources = PCPAssetUtils.GetResourcesPaths(context.AllProjectAssets);
+                for (int i = 0; i < resources.Length; i++)
+                    roots.Add(resources[i]);
+            }
 
             // AssetBundles.
             if (context.Settings.includeAssetBundles)
