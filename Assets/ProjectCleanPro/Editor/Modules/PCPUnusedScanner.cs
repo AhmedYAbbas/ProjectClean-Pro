@@ -134,14 +134,69 @@ namespace ProjectCleanPro.Editor
         // Helpers: result construction (background-safe, filesystem only)
         // ----------------------------------------------------------------
 
+        private static string InferTypeName(string extension)
+        {
+            // Map common file extensions to type names that match the filter bar chips.
+            // This runs on the background thread so AssetDatabase is not available.
+            switch (extension.ToLowerInvariant())
+            {
+                case ".png": case ".jpg": case ".jpeg": case ".tga": case ".bmp":
+                case ".psd": case ".gif": case ".tiff": case ".tif": case ".hdr":
+                case ".exr": case ".iff": case ".pict":
+                    return "Texture2D";
+
+                case ".mat":
+                    return "Material";
+
+                case ".fbx": case ".obj": case ".dae": case ".3ds": case ".blend":
+                case ".mb": case ".ma":
+                    return "Mesh";
+
+                case ".mp3": case ".wav": case ".ogg": case ".aif": case ".aiff":
+                case ".xm": case ".mod": case ".it": case ".s3m":
+                    return "AudioClip";
+
+                case ".cs":
+                    return "MonoScript";
+
+                case ".prefab":
+                    return "Prefab";
+
+                case ".unity":
+                    return "SceneAsset";
+
+                case ".shader": case ".shadergraph": case ".shadersubgraph":
+                    return "Shader";
+
+                case ".anim":
+                    return "AnimationClip";
+
+                case ".controller":
+                    return "AnimatorController";
+
+                case ".ttf": case ".otf": case ".fon":
+                    return "Font";
+
+                case ".rendertexture":
+                    return "RenderTexture";
+
+                case ".cubemap":
+                    return "Cubemap";
+
+                default:
+                    return "Unknown";
+            }
+        }
+
         private static PCPUnusedAsset BuildUnusedAsset(string path)
         {
+            string ext = Path.GetExtension(path);
             var info = new PCPAssetInfo
             {
                 path = path,
                 name = Path.GetFileNameWithoutExtension(path),
-                extension = Path.GetExtension(path),
-                assetTypeName = "Unknown"
+                extension = ext,
+                assetTypeName = InferTypeName(ext)
             };
 
             try
